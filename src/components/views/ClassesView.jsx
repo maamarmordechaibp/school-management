@@ -1,0 +1,424 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/customSupabaseClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, Edit, Users, GraduationCap, School } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+const ClassesView = ({ role, currentUser }) => {
+  const { toast } = useToast();
+  const [classes, setClasses] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    grade_id: '',
+    hebrew_teacher_id: '',
+    english_teacher_id: '',
+    academic_year: '2024-2025',
+    is_active: true
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load classes with related data
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select(`
+          *,
+          grade:grades(id, name, grade_number),
+          hebrew_teacher:app_users!hebrew_teacher_id(id, first_name, last_name),
+          english_teacher:app_users!english_teacher_id(id, first_name, last_name),
+          students:students(id)
+        `)
+        .order('name');
+      
+      if (classesError) throw classesError;
+      
+      // Add student count
+      const classesWithCount = (classesData || []).map(cls => ({
+        ...cls,
+        student_count: cls.students?.length || 0
+      }));
+      setClasses(classesWithCount);
+
+      // Load grades
+      const { data: gradesData, error: gradesError } = await supabase
+        .from('grades')
+        .select('*')
+        .order('grade_number');
+      if (gradesError) throw gradesError;
+      setGrades(gradesData || []);
+
+      // Load teachers (Hebrew and English)
+      const { data: teachersData, error: teachersError } = await supabase
+        .from('app_users')
+        .select('id, first_name, last_name, role')
+        .in('role', ['teacher_hebrew', 'teacher_english', 'teacher', 'admin', 'principal', 'principal_hebrew', 'principal_english'])
+        .eq('is_active', true)
+        .order('last_name');
+      if (teachersError) throw teachersError;
+      setTeachers(teachersData || []);
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openModal = (cls = null) => {
+    if (cls) {
+      setEditingClass(cls);
+      setFormData({
+        name: cls.name || '',
+        grade_id: cls.grade_id || '',
+        hebrew_teacher_id: cls.hebrew_teacher_id || '',
+        english_teacher_id: cls.english_teacher_id || '',
+        academic_year: cls.academic_year || '2024-2025',
+        is_active: cls.is_active !== false
+      });
+    } else {
+      setEditingClass(null);
+      setFormData({
+        name: '', grade_id: '', hebrew_teacher_id: '', english_teacher_id: '',
+        academic_year: '2024-2025', is_active: true
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.grade_id) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill in class name and grade' });
+      return;
+    }
+
+    try {
+      const payload = {
+        name: formData.name,
+        grade_id: formData.grade_id,
+        hebrew_teacher_id: formData.hebrew_teacher_id || null,
+        english_teacher_id: formData.english_teacher_id || null,
+        academic_year: formData.academic_year,
+        is_active: formData.is_active
+      };
+
+      if (editingClass) {
+        const { error } = await supabase
+          .from('classes')
+          .update(payload)
+          .eq('id', editingClass.id);
+        if (error) throw error;
+        toast({ title: 'Success', description: 'Class updated' });
+      } else {
+        const { error } = await supabase
+          .from('classes')
+          .insert([payload]);
+        if (error) throw error;
+        toast({ title: 'Success', description: 'Class created' });
+      }
+
+      setIsModalOpen(false);
+      loadData();
+    } catch (error) {
+      console.error('Error saving class:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save class' });
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this class? Students will be unassigned.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Class deleted' });
+      loadData();
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete class' });
+    }
+  };
+
+  // Filter teachers by role
+  const hebrewTeachers = teachers.filter(t => 
+    ['teacher_hebrew', 'teacher', 'admin', 'principal', 'principal_hebrew'].includes(t.role)
+  );
+  const englishTeachers = teachers.filter(t => 
+    ['teacher_english', 'teacher', 'admin', 'principal', 'principal_english'].includes(t.role)
+  );
+
+  // Group classes by grade
+  const classesByGrade = grades.map(grade => ({
+    ...grade,
+    classes: classes.filter(cls => cls.grade_id === grade.id)
+  }));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Classes Management</h1>
+          <p className="text-slate-500">Manage classes and assign teachers</p>
+        </div>
+        <Button onClick={() => openModal()} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Class
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <School className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{classes.length}</p>
+              <p className="text-sm text-slate-500">Total Classes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-green-100 rounded-lg">
+              <Users className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{classes.reduce((sum, c) => sum + c.student_count, 0)}</p>
+              <p className="text-sm text-slate-500">Total Students</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <GraduationCap className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{grades.length}</p>
+              <p className="text-sm text-slate-500">Grade Levels</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Classes by Grade */}
+      <div className="space-y-6">
+        {classesByGrade.map((grade) => (
+          <Card key={grade.id}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">{grade.name}</span>
+                <Badge variant="outline">{grade.classes.length} classes</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {grade.classes.length === 0 ? (
+                <p className="text-slate-400 text-sm italic py-4">No classes in this grade yet</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Class Name</TableHead>
+                      <TableHead>Hebrew Teacher</TableHead>
+                      <TableHead>English Teacher</TableHead>
+                      <TableHead className="text-center">Students</TableHead>
+                      <TableHead className="text-center">Year</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {grade.classes.map((cls) => (
+                      <TableRow key={cls.id}>
+                        <TableCell className="font-semibold">{cls.name}</TableCell>
+                        <TableCell>
+                          {cls.hebrew_teacher ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-700 font-medium">
+                                {cls.hebrew_teacher.first_name?.charAt(0)}{cls.hebrew_teacher.last_name?.charAt(0)}
+                              </div>
+                              <span className="text-sm">{cls.hebrew_teacher.first_name} {cls.hebrew_teacher.last_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-sm">Not assigned</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {cls.english_teacher ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-green-100 flex items-center justify-center text-xs text-green-700 font-medium">
+                                {cls.english_teacher.first_name?.charAt(0)}{cls.english_teacher.last_name?.charAt(0)}
+                              </div>
+                              <span className="text-sm">{cls.english_teacher.first_name} {cls.english_teacher.last_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-sm">Not assigned</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{cls.student_count}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-slate-500">{cls.academic_year}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => openModal(cls)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600"
+                              onClick={() => handleDelete(cls.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {grades.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center text-slate-500">
+            <School className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium">No grades defined yet</p>
+            <p className="text-sm">Please create grade levels first in the Grades section</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add/Edit Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Class Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., 1A, 2B"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Grade *</Label>
+                <Select value={formData.grade_id} onValueChange={(v) => setFormData({ ...formData, grade_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grades.map(grade => (
+                      <SelectItem key={grade.id} value={grade.id}>{grade.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Hebrew Teacher</Label>
+              <Select 
+                value={formData.hebrew_teacher_id} 
+                onValueChange={(v) => setFormData({ ...formData, hebrew_teacher_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Hebrew teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Not assigned</SelectItem>
+                  {hebrewTeachers.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.first_name} {t.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>English Teacher</Label>
+              <Select 
+                value={formData.english_teacher_id} 
+                onValueChange={(v) => setFormData({ ...formData, english_teacher_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select English teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Not assigned</SelectItem>
+                  {englishTeachers.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.first_name} {t.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Academic Year</Label>
+              <Select value={formData.academic_year} onValueChange={(v) => setFormData({ ...formData, academic_year: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2024-2025">2024-2025</SelectItem>
+                  <SelectItem value="2025-2026">2025-2026</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
+              {editingClass ? 'Update' : 'Create Class'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ClassesView;

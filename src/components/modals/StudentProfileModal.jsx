@@ -1,0 +1,573 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/customSupabaseClient';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Phone, User, MessageSquare, DollarSign, CreditCard, Receipt, Plus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+
+const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
+  const { toast } = useToast();
+  const [student, setStudent] = useState(null);
+  const [issues, setIssues] = useState([]);
+  const [remarks, setRemarks] = useState([]);
+  const [studentFees, setStudentFees] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [availableFees, setAvailableFees] = useState([]);
+  const [newRemark, setNewRemark] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showAddCharge, setShowAddCharge] = useState(false);
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  
+  // New charge form
+  const [newCharge, setNewCharge] = useState({ fee_id: '', amount: '', notes: '' });
+  
+  // New payment form
+  const [newPayment, setNewPayment] = useState({ 
+    student_fee_id: '', 
+    amount: '', 
+    payment_method: 'cash',
+    reference_number: '',
+    notes: '' 
+  });
+
+  useEffect(() => {
+    if (studentId && isOpen) {
+      loadProfile();
+    }
+  }, [studentId, isOpen]);
+
+  const loadProfile = async () => {
+    setLoading(true);
+    try {
+      // Fetch student details with class info
+      const { data: studentData } = await supabase
+        .from('students')
+        .select(`
+          *,
+          class:classes(name, grade:grades(name))
+        `)
+        .eq('id', studentId)
+        .single();
+      
+      setStudent(studentData);
+
+      // Fetch issues
+      const { data: issuesData } = await supabase
+        .from('student_issues')
+        .select(`
+          *,
+          reported_by_user:app_users!student_issues_reported_by_fkey(first_name, last_name)
+        `)
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false });
+      
+      setIssues(issuesData || []);
+
+      // Fetch student fees (charges)
+      const { data: feesData } = await supabase
+        .from('student_fees')
+        .select(`
+          *,
+          fee:fees(name, description, due_date, fee_type:fee_types(name, category))
+        `)
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false });
+      
+      setStudentFees(feesData || []);
+
+      // Fetch payments
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          student_fee:student_fees(fee:fees(name))
+        `)
+        .eq('student_id', studentId)
+        .order('payment_date', { ascending: false });
+      
+      setPayments(paymentsData || []);
+
+      // Fetch available fees for adding charges
+      const { data: availableFeesData } = await supabase
+        .from('fees')
+        .select('id, name, amount, fee_type:fee_types(name)')
+        .eq('status', 'active');
+      
+      setAvailableFees(availableFeesData || []);
+
+      // Fetch remarks
+      const { data: remarksData } = await supabase
+        .from('teacher_remarks')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false });
+      
+      setRemarks(remarksData || []);
+
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate financial summary
+  const calculateFinancials = () => {
+    const totalCharges = studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0), 0);
+    const totalPaid = studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0);
+    const openBalance = totalCharges - totalPaid;
+    const waived = studentFees.filter(sf => sf.status === 'waived').reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0), 0);
+    
+    return { totalCharges, totalPaid, openBalance, waived };
+  };
+
+  const financials = calculateFinancials();
+
+  // Add a new charge
+  const handleAddCharge = async () => {
+    if (!newCharge.fee_id) {
+      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע וועל אויס א טשאַרדזש' });
+      return;
+    }
+
+    const selectedFee = availableFees.find(f => f.id === newCharge.fee_id);
+    const amount = newCharge.amount || selectedFee?.amount || 0;
+
+    try {
+      const { error } = await supabase.from('student_fees').insert({
+        student_id: studentId,
+        fee_id: newCharge.fee_id,
+        amount: parseFloat(amount),
+        amount_paid: 0,
+        status: 'pending',
+        notes: newCharge.notes || null
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'צוגעלייגט', description: 'טשאַרדזש איז צוגעלייגט געווארן' });
+      setNewCharge({ fee_id: '', amount: '', notes: '' });
+      setShowAddCharge(false);
+      loadProfile();
+    } catch (error) {
+      console.error('Error adding charge:', error);
+      toast({ variant: 'destructive', title: 'טעות', description: 'קען נישט צולייגן טשאַרדזש' });
+    }
+  };
+
+  // Add a new payment
+  const handleAddPayment = async () => {
+    if (!newPayment.student_fee_id || !newPayment.amount) {
+      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע פיל אויס אלע פעלדער' });
+      return;
+    }
+
+    try {
+      // Insert payment
+      const { error: paymentError } = await supabase.from('payments').insert({
+        student_id: studentId,
+        student_fee_id: newPayment.student_fee_id,
+        amount: parseFloat(newPayment.amount),
+        payment_method: newPayment.payment_method,
+        reference_number: newPayment.reference_number || null,
+        payment_date: new Date().toISOString(),
+        notes: newPayment.notes || null
+      });
+
+      if (paymentError) throw paymentError;
+
+      // Update student_fee amount_paid
+      const studentFee = studentFees.find(sf => sf.id === newPayment.student_fee_id);
+      if (studentFee) {
+        const newAmountPaid = (parseFloat(studentFee.amount_paid) || 0) + parseFloat(newPayment.amount);
+        const newStatus = newAmountPaid >= parseFloat(studentFee.amount) ? 'paid' : 'partial';
+        
+        await supabase
+          .from('student_fees')
+          .update({ 
+            amount_paid: newAmountPaid,
+            status: newStatus
+          })
+          .eq('id', newPayment.student_fee_id);
+      }
+
+      toast({ title: 'באַצאָלט', description: 'צאָלונג איז רעקאָרדירט געווארן' });
+      setNewPayment({ student_fee_id: '', amount: '', payment_method: 'cash', reference_number: '', notes: '' });
+      setShowAddPayment(false);
+      loadProfile();
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast({ variant: 'destructive', title: 'טעות', description: 'קען נישט רעקאָרדירן צאָלונג' });
+    }
+  };
+
+  const addRemark = async () => {
+    if (!newRemark.trim()) return;
+
+    const { error } = await supabase.from('teacher_remarks').insert({
+      student_id: studentId,
+      content: newRemark,
+      teacher_name: 'Current User'
+    });
+
+    if (!error) {
+      setNewRemark('');
+      loadProfile();
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      partial: 'bg-blue-100 text-blue-800',
+      paid: 'bg-green-100 text-green-800',
+      waived: 'bg-gray-100 text-gray-800',
+      overdue: 'bg-red-100 text-red-800'
+    };
+    const labels = {
+      pending: 'ווארט',
+      partial: 'טיילווייז',
+      paid: 'באצאלט',
+      waived: 'מחול',
+      overdue: 'פארפאלן'
+    };
+    return <Badge className={styles[status] || 'bg-gray-100'}>{labels[status] || status}</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!student) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <User className="h-6 w-6" />
+            {student.hebrew_name || student.name || `${student.first_name} ${student.last_name}`}
+          </DialogTitle>
+          <p className="text-slate-500">
+            כיתה: {student.class?.name || 'N/A'} | 
+            {student.class?.grade?.name && ` ${student.class.grade.name}`}
+          </p>
+        </DialogHeader>
+
+        <Tabs defaultValue="details" className="mt-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="details">פרטים</TabsTrigger>
+            <TabsTrigger value="financial" className="flex items-center gap-1">
+              <DollarSign className="h-4 w-4" />
+              חשבון ({financials.openBalance > 0 ? `$${financials.openBalance.toFixed(2)}` : 'באַלאַנס'})
+            </TabsTrigger>
+            <TabsTrigger value="issues">בעיות ({issues.length})</TabsTrigger>
+            <TabsTrigger value="remarks">הערות ({remarks.length})</TabsTrigger>
+          </TabsList>
+
+          {/* Details Tab */}
+          <TabsContent value="details" className="space-y-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-lg border">
+                <h4 className="font-semibold mb-3 flex items-center gap-2"><User size={16}/> עלטערן</h4>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium">טאטי:</span> {student.father_name || 'N/A'}</p>
+                  <p><span className="font-medium">מאמע:</span> {student.mother_name || 'N/A'}</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-lg border">
+                <h4 className="font-semibold mb-3 flex items-center gap-2"><Phone size={16}/> קאנטאקט</h4>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-medium">טאטי טעלעפאן:</span> {student.father_phone || 'N/A'}</p>
+                  <p><span className="font-medium">מאמע טעלעפאן:</span> {student.mother_phone || 'N/A'}</p>
+                  <p><span className="font-medium">אדרעס:</span> {student.address || 'N/A'}, {student.city || ''}</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Financial Tab */}
+          <TabsContent value="financial" className="mt-4 space-y-6">
+            {/* Financial Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-600 font-medium">סה״כ טשאַרדזשעס</p>
+                <p className="text-2xl font-bold text-blue-800">${financials.totalCharges.toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-sm text-green-600 font-medium">באצאלט</p>
+                <p className="text-2xl font-bold text-green-800">${financials.totalPaid.toFixed(2)}</p>
+              </div>
+              <div className={`p-4 rounded-lg border ${financials.openBalance > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                <p className={`text-sm font-medium ${financials.openBalance > 0 ? 'text-red-600' : 'text-gray-600'}`}>אפענע באַלאַנס</p>
+                <p className={`text-2xl font-bold ${financials.openBalance > 0 ? 'text-red-800' : 'text-gray-800'}`}>
+                  ${financials.openBalance.toFixed(2)}
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-600 font-medium">מחול</p>
+                <p className="text-2xl font-bold text-gray-800">${financials.waived.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setShowAddCharge(!showAddCharge)} 
+                variant={showAddCharge ? "secondary" : "default"}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 ml-1" />
+                צולייגן טשאַרדזש
+              </Button>
+              <Button 
+                onClick={() => setShowAddPayment(!showAddPayment)} 
+                variant={showAddPayment ? "secondary" : "outline"}
+                size="sm"
+              >
+                <CreditCard className="h-4 w-4 ml-1" />
+                רעקאָרדירן צאָלונג
+              </Button>
+            </div>
+
+            {/* Add Charge Form */}
+            {showAddCharge && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-4">
+                <h4 className="font-semibold">צולייגן נייע טשאַרדזש</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>טשאַרדזש טיפ</Label>
+                    <Select value={newCharge.fee_id} onValueChange={(v) => setNewCharge({...newCharge, fee_id: v})}>
+                      <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableFees.map(fee => (
+                          <SelectItem key={fee.id} value={fee.id}>
+                            {fee.name} - ${fee.amount}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>סומע (אויב אנדערש)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="סומע"
+                      value={newCharge.amount}
+                      onChange={(e) => setNewCharge({...newCharge, amount: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label>נאטיצן</Label>
+                    <Input 
+                      placeholder="נאטיצן"
+                      value={newCharge.notes}
+                      onChange={(e) => setNewCharge({...newCharge, notes: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleAddCharge} size="sm">צולייגן טשאַרדזש</Button>
+              </div>
+            )}
+
+            {/* Add Payment Form */}
+            {showAddPayment && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200 space-y-4">
+                <h4 className="font-semibold">רעקאָרדירן צאָלונג</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>פאר וואס טשאַרדזש</Label>
+                    <Select value={newPayment.student_fee_id} onValueChange={(v) => setNewPayment({...newPayment, student_fee_id: v})}>
+                      <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                      <SelectContent>
+                        {studentFees.filter(sf => sf.status !== 'paid' && sf.status !== 'waived').map(sf => (
+                          <SelectItem key={sf.id} value={sf.id}>
+                            {sf.fee?.name} - באלאנס: ${(parseFloat(sf.amount) - parseFloat(sf.amount_paid || 0)).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>סומע</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="סומע"
+                      value={newPayment.amount}
+                      onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label>צאָלונג מעטאָד</Label>
+                    <Select value={newPayment.payment_method} onValueChange={(v) => setNewPayment({...newPayment, payment_method: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">קעש</SelectItem>
+                        <SelectItem value="check">טשעק</SelectItem>
+                        <SelectItem value="credit_card">קרעדיט קארד</SelectItem>
+                        <SelectItem value="bank_transfer">באנק טראנספער</SelectItem>
+                        <SelectItem value="other">אנדערע</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>רעפערענס # (טשעק/קארד)</Label>
+                    <Input 
+                      placeholder="רעפערענס נומער"
+                      value={newPayment.reference_number}
+                      onChange={(e) => setNewPayment({...newPayment, reference_number: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleAddPayment} size="sm" className="bg-green-600 hover:bg-green-700">
+                  רעקאָרדירן צאָלונג
+                </Button>
+              </div>
+            )}
+
+            {/* Charges List */}
+            <div>
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <Receipt className="h-5 w-5" />
+                טשאַרדזשעס
+              </h4>
+              <div className="space-y-2">
+                {studentFees.length === 0 ? (
+                  <p className="text-slate-500 text-center py-4">קיין טשאַרדזשעס נישט געפונען</p>
+                ) : (
+                  studentFees.map(sf => (
+                    <div key={sf.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{sf.fee?.name || 'טשאַרדזש'}</p>
+                        <p className="text-sm text-slate-500">
+                          {sf.fee?.fee_type?.name} | {sf.fee?.due_date ? new Date(sf.fee.due_date).toLocaleDateString('he-IL') : ''}
+                        </p>
+                        {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
+                        <p className="text-sm text-green-600">באצאלט: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
+                        {getStatusBadge(sf.status)}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Payments List */}
+            <div>
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                צאָלונגען
+              </h4>
+              <div className="space-y-2">
+                {payments.length === 0 ? (
+                  <p className="text-slate-500 text-center py-4">קיין צאָלונגען נישט געפונען</p>
+                ) : (
+                  payments.map(payment => (
+                    <div key={payment.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{payment.student_fee?.fee?.name || payment.description || 'צאָלונג'}</p>
+                        <p className="text-sm text-slate-500">
+                          {payment.payment_method === 'cash' ? 'קעש' : 
+                           payment.payment_method === 'check' ? 'טשעק' :
+                           payment.payment_method === 'credit_card' ? 'קרעדיט קארד' : payment.payment_method}
+                          {payment.reference_number && ` - #${payment.reference_number}`}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(payment.payment_date).toLocaleDateString('he-IL')}
+                        </p>
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-green-600">${parseFloat(payment.amount).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Issues Tab */}
+          <TabsContent value="issues" className="mt-4">
+            <div className="space-y-3">
+              {issues.length === 0 ? (
+                <p className="text-slate-500 text-center py-4">קיין בעיות נישט רעקאָרדירט</p>
+              ) : (
+                issues.map(issue => (
+                  <div key={issue.id} className="p-3 border rounded-lg bg-white shadow-sm">
+                    <div className="flex justify-between">
+                      <h5 className="font-semibold text-slate-800">{issue.title}</h5>
+                      <span className={`text-xs px-2 py-1 rounded capitalize ${
+                        issue.status === 'open' ? 'bg-red-100 text-red-700' : 
+                        issue.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>{issue.status === 'open' ? 'אפן' : issue.status === 'in_progress' ? 'אין פראצעס' : 'פארטיג'}</span>
+                    </div>
+                    <p className="text-sm text-slate-600 mt-1">{issue.description}</p>
+                    <div className="flex justify-between mt-2 text-xs text-slate-400">
+                      <span>באריכטעט דורך: {issue.reported_by_user?.first_name} {issue.reported_by_user?.last_name}</span>
+                      <span>{new Date(issue.created_at).toLocaleDateString('he-IL')}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Remarks Tab */}
+          <TabsContent value="remarks" className="mt-4">
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="צולייגן א הערה..."
+                  className="flex-1 px-3 py-2 border rounded-lg"
+                  value={newRemark}
+                  onChange={(e) => setNewRemark(e.target.value)}
+                />
+                <Button onClick={addRemark} size="sm">
+                  <MessageSquare className="h-4 w-4 ml-2" /> צולייגן
+                </Button>
+              </div>
+              
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {remarks.length === 0 ? (
+                  <p className="text-slate-500 text-center py-4">קיין הערות נישט געפונען</p>
+                ) : (
+                  remarks.map(remark => (
+                    <div key={remark.id} className="p-3 bg-slate-50 rounded-lg border">
+                      <p className="text-sm text-slate-700">{remark.content}</p>
+                      <div className="flex justify-between mt-2 text-xs text-slate-400">
+                        <span>{remark.teacher_name}</span>
+                        <span>{new Date(remark.created_at).toLocaleDateString('he-IL')}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default StudentProfileModal;
