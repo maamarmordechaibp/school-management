@@ -898,29 +898,39 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
               </div>
             </div>
 
-            {/* Payments List */}
-            <div>
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                צאָלונגען ({payments.length})
+            {/* Transaction History - Payments List (Prominent Section) */}
+            <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
+              <h4 className="font-bold text-lg mb-4 flex items-center gap-2 text-green-800">
+                <CreditCard className="h-6 w-6" />
+                📜 היסטאריע פון צאָלונגען ({payments.length})
               </h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {payments.length === 0 ? (
-                  <p className="text-slate-500 text-center py-4">
-                    {selectedYear === 'all' 
-                      ? 'קיין צאָלונגען נישט געפונען' 
-                      : `קיין צאָלונגען נישט געפונען פאר ${selectedYear}`}
-                  </p>
-                ) : (
-                  payments.map(payment => (
-                    <div key={payment.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
+              
+              {payments.length === 0 ? (
+                <p className="text-slate-500 text-center py-6 bg-white rounded-lg">
+                  {selectedYear === 'all' 
+                    ? 'קיין צאָלונגען נישט געפונען - דער תלמיד האט נאך נישט באצאלט' 
+                    : `קיין צאָלונגען נישט געפונען פאר ${selectedYear}`}
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {/* Payment Summary */}
+                  <div className="mb-3 p-3 bg-green-100 rounded-lg flex justify-between items-center">
+                    <span className="font-medium text-green-800">סה״כ באצאלט:</span>
+                    <span className="text-xl font-bold text-green-700">
+                      ${payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {/* Individual Payments */}
+                  {payments.map(payment => (
+                    <div key={payment.id} className="p-3 bg-white border border-green-200 rounded-lg flex justify-between items-center shadow-sm">
                       <div>
-                        <p className="font-medium">{payment.student_fee?.fee?.name || payment.description || 'צאָלונג'}</p>
-                        <p className="text-sm text-slate-500">
-                          {payment.payment_method === 'cash' ? 'קעש' : 
-                           payment.payment_method === 'check' ? 'טשעק' :
-                           payment.payment_method === 'credit_card' ? 'קרעדיט קארד' : 
-                           payment.payment_method === 'bank_transfer' ? 'באנק טראנספער' : payment.payment_method}
+                        <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || payment.description || 'צאָלונג'}</p>
+                        <p className="text-sm text-slate-600">
+                          {payment.payment_method === 'cash' ? '💵 קעש' : 
+                           payment.payment_method === 'check' ? '📝 טשעק' :
+                           payment.payment_method === 'credit_card' ? '💳 קרעדיט קארד' : 
+                           payment.payment_method === 'bank_transfer' ? '🏦 באנק טראנספער' : payment.payment_method}
                           {payment.reference_number && ` - #${payment.reference_number}`}
                           {payment.student_fee?.fee?.academic_year && (
                             <span className="text-blue-600 mr-2"> | {payment.student_fee.fee.academic_year}</span>
@@ -935,9 +945,9 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                         <p className="font-bold text-green-600">${parseFloat(payment.amount).toFixed(2)}</p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
 
