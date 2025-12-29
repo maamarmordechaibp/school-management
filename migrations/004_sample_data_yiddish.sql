@@ -204,18 +204,29 @@ INSERT INTO fee_types (id, name, description, category, default_amount, is_activ
   ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA02', 'רעגיסטראציע', 'יערליכע רעגיסטראציע געלט', 'registration', 150.00, true),
   ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA03', 'ספרים', 'ספרים און ווערקביכער', 'books', NULL, true),
   ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA04', 'טריפ', 'כיתה אויספלוגן', 'trip', NULL, true),
-  ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA05', 'סופלייס', 'שול סופלייס', 'supplies', 75.00, true),
-  ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA06', 'מיטאג', 'הייסע מיטאג פראגראם', 'other', 200.00, true)
+  ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA05', 'סופלייס', 'שול סופלייס (אפציאנאל)', 'supplies', 75.00, true),
+  ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA06', 'מיטאג', 'הייסע מיטאג פראגראם', 'lunch', 200.00, true),
+  ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA07', 'דאנאציע', 'תלמיד געזאמלט פאר דער שולע', 'donation', NULL, true)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
 -- 11. FEES (תשלומים)
 -- ============================================
 INSERT INTO fees (id, fee_type_id, name, description, amount, scope, due_date, academic_year, status) VALUES
+  -- Mandatory fees
   ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB01', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA02', 'רעגיסטראציע 2024-2025', 'יערליכע רעגיסטראציע געלט', 150.00, 'school_wide', '2024-09-01', '2024-2025', 'active'),
-  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA05', 'סופלייס געלט', 'שול סופלייס פארן יאר', 75.00, 'school_wide', '2024-09-15', '2024-2025', 'active'),
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA05', 'סופלייס געלט', 'שול סופלייס פארן יאר (אפציאנאל)', 75.00, 'school_wide', '2024-09-15', '2024-2025', 'active'),
   ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA04', 'חנוכה טריפ', 'טריפ צו אינדאר פארגעניגן פארק', 45.00, 'school_wide', '2024-12-20', '2024-2025', 'active'),
-  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB04', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA06', 'הייסע מיטאג - ווינטער', 'הייסע מיטאג פראגראם יאנואר-מערץ', 200.00, 'school_wide', '2025-01-01', '2024-2025', 'active')
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB04', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA06', 'הייסע מיטאג - ווינטער', 'הייסע מיטאג פראגראם יאנואר-מערץ', 200.00, 'school_wide', '2025-01-01', '2024-2025', 'active'),
+  
+  -- Donation campaigns 2024-2025
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB05', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA07', 'חנוכה דאנאציע קאמפיין 2024', 'תלמידים זאמלען דאנאציעס פאר חנוכה', NULL, 'school_wide', '2024-12-25', '2024-2025', 'active'),
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB06', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA07', 'פורים דאנאציע קאמפיין 2025', 'תלמידים זאמלען דאנאציעס פאר פורים', NULL, 'school_wide', '2025-03-14', '2024-2025', 'active'),
+  
+  -- Last year fees (2023-2024) for comparison
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB10', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA02', 'רעגיסטראציע 2023-2024', 'יערליכע רעגיסטראציע געלט', 140.00, 'school_wide', '2023-09-01', '2023-2024', 'active'),
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB11', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA07', 'חנוכה דאנאציע קאמפיין 2023', 'תלמידים זאמלען דאנאציעס פאר חנוכה', NULL, 'school_wide', '2023-12-25', '2023-2024', 'active'),
+  ('BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB12', 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA07', 'פורים דאנאציע קאמפיין 2024', 'תלמידים זאמלען דאנאציעס פאר פורים', NULL, 'school_wide', '2024-03-24', '2023-2024', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
@@ -277,7 +288,27 @@ INSERT INTO student_fees (id, student_id, fee_id, amount, amount_paid, status, n
   
   -- WEISSMAN SIBLINGS - Motty (416) has open balance
   ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC27', '44444444-4444-4444-4444-444444444416', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB01', 150.00, 100.00, 'partial', 'מאטי ווייסמאן'),
-  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC28', '44444444-4444-4444-4444-444444444416', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 75.00, 75.00, 'paid', NULL)
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC28', '44444444-4444-4444-4444-444444444416', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 75.00, 75.00, 'paid', NULL),
+  
+  -- DONATIONS 2024-2025 (current year)
+  -- Moishy Goldberger collected donations
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC30', '44444444-4444-4444-4444-444444444401', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB05', 250.00, 250.00, 'paid', 'חנוכה דאנאציע געזאמלט'),
+  -- Shloime Weissman collected donations
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC31', '44444444-4444-4444-4444-444444444402', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB05', 180.00, 180.00, 'paid', 'חנוכה דאנאציע'),
+  -- Yitzy Kaufman collected donations
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC32', '44444444-4444-4444-4444-444444444403', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB05', 320.00, 320.00, 'paid', 'טאפ דאנאציע זאמלער!'),
+  -- Sruly Berkowitz collected donations
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC33', '44444444-4444-4444-4444-444444444404', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB05', 75.00, 75.00, 'paid', NULL),
+  
+  -- DONATIONS 2023-2024 (last year) for comparison
+  -- Moishy Goldberger - collected MORE last year
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC40', '44444444-4444-4444-4444-444444444401', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB11', 350.00, 350.00, 'paid', 'חנוכה 2023'),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC41', '44444444-4444-4444-4444-444444444401', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB12', 200.00, 200.00, 'paid', 'פורים 2024'),
+  -- Shloime Weissman - collected LESS last year
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC42', '44444444-4444-4444-4444-444444444402', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB11', 100.00, 100.00, 'paid', 'חנוכה 2023'),
+  -- Yitzy Kaufman - top collector both years
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC43', '44444444-4444-4444-4444-444444444403', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB11', 450.00, 450.00, 'paid', 'טאפ זאמלער 2023!'),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC44', '44444444-4444-4444-4444-444444444403', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB12', 280.00, 280.00, 'paid', 'פורים 2024')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
@@ -307,7 +338,20 @@ INSERT INTO payments (id, student_id, student_fee_id, amount, payment_method, re
   ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD12', '44444444-4444-4444-4444-444444444408', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC15', 75.00, 'bank_transfer', 'ACH-9921', '2024-08-30', NULL),
   
   -- Chaim Lefkowitz partial
-  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD13', '44444444-4444-4444-4444-444444444409', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC16', 75.00, 'cash', NULL, '2024-09-20', 'האלב באצאלט')
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD13', '44444444-4444-4444-4444-444444444409', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC16', 75.00, 'cash', NULL, '2024-09-20', 'האלב באצאלט'),
+  
+  -- DONATION PAYMENTS 2024-2025
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD20', '44444444-4444-4444-4444-444444444401', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC30', 250.00, 'cash', NULL, '2024-12-22', 'חנוכה דאנאציע געזאמלט'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD21', '44444444-4444-4444-4444-444444444402', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC31', 180.00, 'cash', NULL, '2024-12-23', 'חנוכה דאנאציע'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD22', '44444444-4444-4444-4444-444444444403', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC32', 320.00, 'cash', NULL, '2024-12-21', 'טאפ דאנאציע זאמלער'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD23', '44444444-4444-4444-4444-444444444404', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC33', 75.00, 'cash', NULL, '2024-12-24', NULL),
+  
+  -- DONATION PAYMENTS 2023-2024 (last year)
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD30', '44444444-4444-4444-4444-444444444401', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC40', 350.00, 'cash', NULL, '2023-12-15', 'חנוכה 2023'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD31', '44444444-4444-4444-4444-444444444401', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC41', 200.00, 'cash', NULL, '2024-03-25', 'פורים 2024'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD32', '44444444-4444-4444-4444-444444444402', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC42', 100.00, 'cash', NULL, '2023-12-18', 'חנוכה 2023'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD33', '44444444-4444-4444-4444-444444444403', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC43', 450.00, 'cash', NULL, '2023-12-12', 'טאפ זאמלער 2023'),
+  ('DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDD34', '44444444-4444-4444-4444-444444444403', 'CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC44', 280.00, 'cash', NULL, '2024-03-22', 'פורים 2024')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================

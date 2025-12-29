@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { 
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
   CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
-  DollarSign, CreditCard, Receipt
+  DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
   const [student, setStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
   const [data, setData] = useState({
     calls: [],
     issues: [],
@@ -220,139 +221,312 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
         {/* Financial Tab */}
         <TabsContent value="financial" className="mt-6 space-y-6">
-          {/* Financial Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="p-4">
-                <p className="text-sm text-blue-600 font-medium">Total Charges</p>
-                <p className="text-2xl font-bold text-blue-800">
-                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0), 0).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="p-4">
-                <p className="text-sm text-green-600 font-medium">Total Paid</p>
-                <p className="text-2xl font-bold text-green-800">
-                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className={`${
-              data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
-                ? 'bg-red-50 border-red-200' 
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <CardContent className="p-4">
-                <p className={`text-sm font-medium ${
-                  data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
-                    ? 'text-red-600' 
-                    : 'text-gray-600'
-                }`}>Open Balance</p>
-                <p className={`text-2xl font-bold ${
-                  data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
-                    ? 'text-red-800' 
-                    : 'text-gray-800'
-                }`}>
-                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-purple-50 border-purple-200">
-              <CardContent className="p-4">
-                <p className="text-sm text-purple-600 font-medium">Payments Made</p>
-                <p className="text-2xl font-bold text-purple-800">{data.payments.length}</p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Year Filter */}
+          {(() => {
+            // Extract unique years
+            const years = [...new Set(data.studentFees.map(sf => sf.fee?.academic_year).filter(Boolean))];
+            const sortedYears = years.sort().reverse();
+            
+            // Filter data based on selected year
+            const filteredFees = selectedYear === 'all' 
+              ? data.studentFees 
+              : data.studentFees.filter(sf => sf.fee?.academic_year === selectedYear);
+            
+            const filteredPayments = selectedYear === 'all'
+              ? data.payments
+              : data.payments.filter(p => p.student_fee?.fee?.academic_year === selectedYear);
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Payment History */}
-            <Card className="border-2 border-green-300">
-              <CardHeader className="bg-green-50">
-                <CardTitle className="text-lg flex items-center gap-2 text-green-800">
-                  <CreditCard size={20} />
-                  📜 Payment History ({data.payments.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
-                {data.payments.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No payments recorded yet</p>
-                ) : (
-                  <>
-                    {/* Total paid summary */}
-                    <div className="p-3 bg-green-100 rounded-lg flex justify-between items-center mb-4">
-                      <span className="font-medium text-green-800">Total Paid:</span>
-                      <span className="text-xl font-bold text-green-700">
-                        ${data.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}
-                      </span>
-                    </div>
-                    
-                    {data.payments.map(payment => (
-                      <div key={payment.id} className="p-3 bg-white border border-green-200 rounded-lg shadow-sm">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || 'Payment'}</p>
-                            <p className="text-sm text-slate-600">
-                              {payment.payment_method === 'cash' ? '💵 Cash' : 
-                               payment.payment_method === 'check' ? '📝 Check' :
-                               payment.payment_method === 'credit_card' ? '💳 Credit Card' : 
-                               payment.payment_method === 'bank_transfer' ? '🏦 Bank Transfer' : payment.payment_method}
-                              {payment.reference_number && ` - #${payment.reference_number}`}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {new Date(payment.payment_date).toLocaleDateString()}
-                              {payment.notes && ` - ${payment.notes}`}
+            // Separate donations from regular fees
+            const donationFees = filteredFees.filter(sf => sf.fee?.fee_type?.category === 'donation');
+            const regularFees = filteredFees.filter(sf => sf.fee?.fee_type?.category !== 'donation');
+            
+            // Categorize fees
+            const mandatoryCategories = ['tuition', 'registration', 'books'];
+            const mandatoryFees = regularFees.filter(sf => mandatoryCategories.includes(sf.fee?.fee_type?.category));
+            const optionalFees = regularFees.filter(sf => !mandatoryCategories.includes(sf.fee?.fee_type?.category));
+            
+            // Calculate totals
+            const totalCharges = regularFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0), 0);
+            const totalPaid = regularFees.reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0);
+            const totalDonations = donationFees.reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0);
+            
+            // Calculate last year donations for comparison
+            const currentYearStr = selectedYear !== 'all' ? selectedYear : '2024-2025';
+            const lastYearStr = currentYearStr === '2024-2025' ? '2023-2024' : '2022-2023';
+            
+            const lastYearDonations = data.studentFees
+              .filter(sf => sf.fee?.fee_type?.category === 'donation' && sf.fee?.academic_year === lastYearStr)
+              .reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0);
+            
+            const thisYearDonations = data.studentFees
+              .filter(sf => sf.fee?.fee_type?.category === 'donation' && sf.fee?.academic_year === currentYearStr)
+              .reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0);
+            
+            const donationChange = thisYearDonations - lastYearDonations;
+
+            return (
+              <>
+                {/* Year Filter Bar */}
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+                  <Filter size={20} className="text-slate-600" />
+                  <span className="font-medium">Filter by Year:</span>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      variant={selectedYear === 'all' ? 'default' : 'outline'} 
+                      size="sm"
+                      onClick={() => setSelectedYear('all')}
+                    >
+                      All Years
+                    </Button>
+                    {sortedYears.map(year => (
+                      <Button 
+                        key={year}
+                        variant={selectedYear === year ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => setSelectedYear(year)}
+                      >
+                        {year}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-blue-600 font-medium">Total Charges</p>
+                      <p className="text-2xl font-bold text-blue-800">${totalCharges.toFixed(2)}</p>
+                      <p className="text-xs text-blue-500 mt-1">(excludes donations)</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-green-50 border-green-200">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-green-600 font-medium">Total Paid</p>
+                      <p className="text-2xl font-bold text-green-800">${totalPaid.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className={`${(totalCharges - totalPaid) > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <CardContent className="p-4">
+                      <p className={`text-sm font-medium ${(totalCharges - totalPaid) > 0 ? 'text-red-600' : 'text-gray-600'}`}>Open Balance</p>
+                      <p className={`text-2xl font-bold ${(totalCharges - totalPaid) > 0 ? 'text-red-800' : 'text-gray-800'}`}>
+                        ${(totalCharges - totalPaid).toFixed(2)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-pink-50 border-pink-200">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-pink-600 font-medium flex items-center gap-1">
+                        <Heart size={14} /> Donations Collected
+                      </p>
+                      <p className="text-2xl font-bold text-pink-800">${totalDonations.toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Donation Year Comparison Card */}
+                {(thisYearDonations > 0 || lastYearDonations > 0) && (
+                  <Card className="border-2 border-pink-300 bg-gradient-to-r from-pink-50 to-purple-50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Gift size={20} className="text-pink-600" />
+                        🎁 דאנאציעס געזאמלט / Donation Collection
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Last Year */}
+                        <div className="p-4 bg-white rounded-lg border">
+                          <p className="text-sm text-slate-500 mb-1">Last Year ({lastYearStr})</p>
+                          <p className="text-3xl font-bold text-slate-700">${lastYearDonations.toFixed(2)}</p>
+                        </div>
+                        
+                        {/* This Year */}
+                        <div className="p-4 bg-white rounded-lg border border-pink-300">
+                          <p className="text-sm text-pink-600 mb-1">This Year ({currentYearStr})</p>
+                          <p className="text-3xl font-bold text-pink-700">${thisYearDonations.toFixed(2)}</p>
+                        </div>
+                        
+                        {/* Comparison */}
+                        <div className={`p-4 rounded-lg border ${donationChange >= 0 ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}>
+                          <p className="text-sm text-slate-600 mb-1">Change</p>
+                          <div className="flex items-center gap-2">
+                            {donationChange >= 0 ? (
+                              <TrendingUp size={24} className="text-green-600" />
+                            ) : (
+                              <TrendingDown size={24} className="text-amber-600" />
+                            )}
+                            <p className={`text-3xl font-bold ${donationChange >= 0 ? 'text-green-700' : 'text-amber-700'}`}>
+                              {donationChange >= 0 ? '+' : ''}${donationChange.toFixed(2)}
                             </p>
                           </div>
-                          <p className="font-bold text-green-600 text-lg">${parseFloat(payment.amount).toFixed(2)}</p>
+                          {lastYearDonations > 0 && (
+                            <p className={`text-xs mt-1 ${donationChange >= 0 ? 'text-green-600' : 'text-amber-600'}`}>
+                              {((donationChange / lastYearDonations) * 100).toFixed(0)}% {donationChange >= 0 ? 'increase' : 'decrease'}
+                            </p>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Charges / Fees */}
-            <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
-                  <Receipt size={20} />
-                  Charges ({data.studentFees.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
-                {data.studentFees.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No charges recorded</p>
-                ) : (
-                  data.studentFees.map(sf => (
-                    <div key={sf.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{sf.fee?.name || 'Charge'}</p>
-                        <p className="text-sm text-slate-500">
-                          {sf.fee?.fee_type?.name}
-                          {sf.fee?.academic_year && <span className="text-blue-600 ml-2">| {sf.fee.academic_year}</span>}
-                        </p>
-                        {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
-                        <p className="text-sm text-green-600">Paid: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          sf.status === 'paid' ? 'bg-green-100 text-green-800' :
-                          sf.status === 'partial' ? 'bg-blue-100 text-blue-800' :
-                          sf.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          sf.status === 'waived' ? 'bg-gray-100 text-gray-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>{sf.status}</span>
-                      </div>
-                    </div>
-                  ))
+                      {/* Donation Details */}
+                      {donationFees.length > 0 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <p className="text-sm font-medium mb-2">Donation Campaigns:</p>
+                          <div className="space-y-2">
+                            {donationFees.map(df => (
+                              <div key={df.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                                <div>
+                                  <p className="font-medium text-pink-800">{df.fee?.name}</p>
+                                  <p className="text-xs text-slate-500">{df.fee?.academic_year}</p>
+                                </div>
+                                <p className="font-bold text-pink-600">${parseFloat(df.amount_paid || 0).toFixed(2)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Payment History */}
+                  <Card className="border-2 border-green-300">
+                    <CardHeader className="bg-green-50">
+                      <CardTitle className="text-lg flex items-center gap-2 text-green-800">
+                        <CreditCard size={20} />
+                        📜 Payment History ({filteredPayments.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                      {filteredPayments.length === 0 ? (
+                        <p className="text-center text-slate-500 py-8">No payments recorded {selectedYear !== 'all' ? `for ${selectedYear}` : 'yet'}</p>
+                      ) : (
+                        <>
+                          {/* Total paid summary */}
+                          <div className="p-3 bg-green-100 rounded-lg flex justify-between items-center mb-4">
+                            <span className="font-medium text-green-800">Total Paid:</span>
+                            <span className="text-xl font-bold text-green-700">
+                              ${filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}
+                            </span>
+                          </div>
+                          
+                          {filteredPayments.map(payment => (
+                            <div key={payment.id} className="p-3 bg-white border border-green-200 rounded-lg shadow-sm">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || 'Payment'}</p>
+                                  <p className="text-sm text-slate-600">
+                                    {payment.payment_method === 'cash' ? '💵 Cash' : 
+                                     payment.payment_method === 'check' ? '📝 Check' :
+                                     payment.payment_method === 'credit_card' ? '💳 Credit Card' : 
+                                     payment.payment_method === 'bank_transfer' ? '🏦 Bank Transfer' : payment.payment_method}
+                                    {payment.reference_number && ` - #${payment.reference_number}`}
+                                  </p>
+                                  <p className="text-xs text-slate-400">
+                                    {new Date(payment.payment_date).toLocaleDateString()}
+                                    {payment.notes && ` - ${payment.notes}`}
+                                  </p>
+                                </div>
+                                <p className="font-bold text-green-600 text-lg">${parseFloat(payment.amount).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Charges / Fees */}
+                  <Card>
+                    <CardHeader className="bg-blue-50">
+                      <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
+                        <Receipt size={20} />
+                        Charges ({regularFees.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                      {regularFees.length === 0 ? (
+                        <p className="text-center text-slate-500 py-8">No charges recorded {selectedYear !== 'all' ? `for ${selectedYear}` : ''}</p>
+                      ) : (
+                        <>
+                          {/* Mandatory Fees Section */}
+                          {mandatoryFees.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-sm font-bold text-red-700 mb-2 flex items-center gap-1">
+                                <AlertCircle size={14} /> Mandatory Fees ({mandatoryFees.length})
+                              </p>
+                              {mandatoryFees.map(sf => (
+                                <div key={sf.id} className="p-3 mb-2 bg-red-50 border border-red-200 rounded-lg flex justify-between items-center">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium">{sf.fee?.name || 'Charge'}</p>
+                                      <span className="text-xs px-1.5 py-0.5 bg-red-200 text-red-800 rounded font-medium">Required</span>
+                                    </div>
+                                    <p className="text-sm text-slate-500">
+                                      {sf.fee?.fee_type?.name}
+                                      {sf.fee?.academic_year && <span className="text-blue-600 ml-2">| {sf.fee.academic_year}</span>}
+                                    </p>
+                                    {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
+                                    <p className="text-sm text-green-600">Paid: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                      sf.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                      sf.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                                      sf.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                      sf.status === 'waived' ? 'bg-gray-100 text-gray-800' :
+                                      'bg-red-100 text-red-800'
+                                    }`}>{sf.status}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Optional Fees Section */}
+                          {optionalFees.length > 0 && (
+                            <div>
+                              <p className="text-sm font-bold text-blue-700 mb-2 flex items-center gap-1">
+                                <HelpCircle size={14} /> Optional Fees ({optionalFees.length})
+                              </p>
+                              {optionalFees.map(sf => (
+                                <div key={sf.id} className="p-3 mb-2 bg-white border rounded-lg flex justify-between items-center">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium">{sf.fee?.name || 'Charge'}</p>
+                                      <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Optional</span>
+                                    </div>
+                                    <p className="text-sm text-slate-500">
+                                      {sf.fee?.fee_type?.name}
+                                      {sf.fee?.academic_year && <span className="text-blue-600 ml-2">| {sf.fee.academic_year}</span>}
+                                    </p>
+                                    {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
+                                    <p className="text-sm text-green-600">Paid: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
+                                    <span className={`text-xs px-2 py-0.5 rounded ${
+                                      sf.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                      sf.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                                      sf.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                      sf.status === 'waived' ? 'bg-gray-100 text-gray-800' :
+                                      'bg-red-100 text-red-800'
+                                    }`}>{sf.status}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
 
         {/* Workflow & Plans Tab */}
