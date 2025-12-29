@@ -3,12 +3,15 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { 
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
   CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
-  DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift
+  DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -21,6 +24,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [student, setStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
+  const [showDonationForm, setShowDonationForm] = useState(false);
+  const [donationAmount, setDonationAmount] = useState('');
+  const [donationNote, setDonationNote] = useState('');
+  const [isSavingDonation, setIsSavingDonation] = useState(false);
   const [data, setData] = useState({
     calls: [],
     issues: [],
@@ -84,6 +91,117 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setIsAssessmentMode(false);
     setEditingAssessment(null);
     fetchStudentData(); // Refresh list
+  };
+
+  // Simple donation save - creates both student_fee and payment in one click
+  const saveDonation = async () => {
+    if (!donationAmount || parseFloat(donationAmount) <= 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid amount' });
+      return;
+    }
+
+    setIsSavingDonation(true);
+    try {
+      const amount = parseFloat(donationAmount);
+      const currentYear = '2024-2025'; // Current academic year
+      
+      // First, find or create a general donation fee for this year
+      let { data: donationFee } = await supabase
+        .from('fees')
+        .select('id')
+        .eq('academic_year', currentYear)
+        .eq('name', 'דאנאציע געזאמלט')
+        .single();
+      
+      // If no donation fee exists, create one
+      if (!donationFee) {
+        // Get the donation fee type
+        const { data: donationType } = await supabase
+          .from('fee_types')
+          .select('id')
+          .eq('category', 'donation')
+          .single();
+        
+        if (!donationType) {
+          // Create donation fee type if it doesn't exist
+          const { data: newType } = await supabase
+            .from('fee_types')
+            .insert({ name: 'דאנאציע', description: 'תלמיד געזאמלט פאר דער שולע', category: 'donation', is_active: true })
+            .select()
+            .single();
+          
+          const { data: newFee } = await supabase
+            .from('fees')
+            .insert({ 
+              name: 'דאנאציע געזאמלט', 
+              description: 'Student donation collection',
+              fee_type_id: newType.id,
+              academic_year: currentYear,
+              is_active: true
+            })
+            .select()
+            .single();
+          donationFee = newFee;
+        } else {
+          const { data: newFee } = await supabase
+            .from('fees')
+            .insert({ 
+              name: 'דאנאציע געזאמלט', 
+              description: 'Student donation collection',
+              fee_type_id: donationType.id,
+              academic_year: currentYear,
+              is_active: true
+            })
+            .select()
+            .single();
+          donationFee = newFee;
+        }
+      }
+
+      // Create student_fee record
+      const { data: studentFee, error: sfError } = await supabase
+        .from('student_fees')
+        .insert({
+          student_id: studentId,
+          fee_id: donationFee.id,
+          amount: amount,
+          amount_paid: amount,
+          status: 'paid',
+          notes: donationNote || 'דאנאציע געזאמלט'
+        })
+        .select()
+        .single();
+
+      if (sfError) throw sfError;
+
+      // Create payment record
+      const { error: payError } = await supabase
+        .from('payments')
+        .insert({
+          student_id: studentId,
+          student_fee_id: studentFee.id,
+          amount: amount,
+          payment_method: 'cash',
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: donationNote || 'דאנאציע'
+        });
+
+      if (payError) throw payError;
+
+      toast({ title: '✅ דאנאציע געשפארט!', description: `$${amount.toFixed(2)} recorded for ${student.name}` });
+      
+      // Reset form and refresh
+      setDonationAmount('');
+      setDonationNote('');
+      setShowDonationForm(false);
+      fetchStudentData();
+      
+    } catch (error) {
+      console.error('Donation save error:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save donation' });
+    } finally {
+      setIsSavingDonation(false);
+    }
   };
 
   if (!student) return <div className="p-8 text-center">Loading profile...</div>;
@@ -323,6 +441,82 @@ const StudentProfileView = ({ studentId, onBack }) => {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* BIG ADD DONATION BUTTON */}
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => setShowDonationForm(true)}
+                    className="bg-pink-600 hover:bg-pink-700 text-white text-lg px-8 py-6 h-auto rounded-xl shadow-lg"
+                    size="lg"
+                  >
+                    <Gift size={24} className="mr-3" />
+                    ➕ לייג צו א דאנאציע / Add Donation
+                  </Button>
+                </div>
+
+                {/* Simple Donation Form Popup */}
+                {showDonationForm && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <Card className="w-full max-w-md mx-4 shadow-2xl">
+                      <CardHeader className="bg-pink-100 border-b">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-xl flex items-center gap-2 text-pink-800">
+                            <Gift size={24} />
+                            🎁 לייג צו דאנאציע
+                          </CardTitle>
+                          <Button variant="ghost" size="icon" onClick={() => setShowDonationForm(false)}>
+                            <X size={20} />
+                          </Button>
+                        </div>
+                        <p className="text-sm text-pink-600 mt-1">Recording donation for: <strong>{student.name}</strong></p>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        {/* Amount Input - BIG */}
+                        <div>
+                          <Label className="text-lg font-bold">סכום / Amount ($)</Label>
+                          <div className="relative mt-2">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl text-pink-600 font-bold">$</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={donationAmount}
+                              onChange={(e) => setDonationAmount(e.target.value)}
+                              placeholder="0.00"
+                              className="text-4xl h-20 pl-12 text-center font-bold border-2 border-pink-300 focus:border-pink-500"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+
+                        {/* Note Input - Optional */}
+                        <div>
+                          <Label className="text-sm">באמערקונג / Note (optional)</Label>
+                          <Textarea
+                            value={donationNote}
+                            onChange={(e) => setDonationNote(e.target.value)}
+                            placeholder="e.g., Chanukah campaign, collected from neighbors..."
+                            className="mt-1"
+                            rows={2}
+                          />
+                        </div>
+
+                        {/* Save Button - BIG */}
+                        <Button
+                          onClick={saveDonation}
+                          disabled={isSavingDonation || !donationAmount}
+                          className="w-full h-14 text-xl bg-green-600 hover:bg-green-700"
+                        >
+                          {isSavingDonation ? (
+                            'Saving...'
+                          ) : (
+                            <>✅ שפאר דאנאציע / Save Donation</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
 
                 {/* Donation Year Comparison Card */}
                 {(thisYearDonations > 0 || lastYearDonations > 0) && (
