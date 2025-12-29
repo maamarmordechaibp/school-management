@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, User, MessageSquare, DollarSign, CreditCard, Receipt, Plus, Loader2 } from 'lucide-react';
+import { Phone, User, MessageSquare, DollarSign, CreditCard, Receipt, Plus, Loader2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -10,18 +10,57 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 
+// Helper function to get current academic year (August starts new year)
+const getCurrentAcademicYear = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed (0 = Jan, 7 = Aug)
+  // If we're in August or later, current year starts the academic year
+  if (month >= 7) {
+    return `${year}-${year + 1}`;
+  }
+  // Otherwise we're in the second half of previous academic year
+  return `${year - 1}-${year}`;
+};
+
+// Generate available academic years (past 5, current, future 2)
+const getAvailableYears = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const years = [];
+  
+  // Past 5 years
+  for (let i = 5; i >= 1; i--) {
+    years.push(`${currentYear - i}-${currentYear - i + 1}`);
+  }
+  // Current year
+  years.push(`${currentYear}-${currentYear + 1}`);
+  // Next 2 years
+  for (let i = 1; i <= 2; i++) {
+    years.push(`${currentYear + i}-${currentYear + i + 1}`);
+  }
+  
+  return years;
+};
+
 const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
   const { toast } = useToast();
   const [student, setStudent] = useState(null);
   const [issues, setIssues] = useState([]);
   const [remarks, setRemarks] = useState([]);
   const [studentFees, setStudentFees] = useState([]);
+  const [allStudentFees, setAllStudentFees] = useState([]); // All fees without filtering
   const [payments, setPayments] = useState([]);
+  const [allPayments, setAllPayments] = useState([]); // All payments without filtering
   const [availableFees, setAvailableFees] = useState([]);
   const [newRemark, setNewRemark] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAddCharge, setShowAddCharge] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
+  
+  // Year filter - 'all' shows all years
+  const [selectedYear, setSelectedYear] = useState('all');
+  const availableYears = useMemo(() => getAvailableYears(), []);
   
   // New charge form
   const [newCharge, setNewCharge] = useState({ fee_id: '', amount: '', notes: '' });
@@ -40,6 +79,23 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
       loadProfile();
     }
   }, [studentId, isOpen]);
+
+  // Filter fees and payments when year selection changes
+  useEffect(() => {
+    if (selectedYear === 'all') {
+      setStudentFees(allStudentFees);
+      setPayments(allPayments);
+    } else {
+      // Filter by academic year from the fee
+      const filteredFees = allStudentFees.filter(sf => sf.fee?.academic_year === selectedYear);
+      setStudentFees(filteredFees);
+      
+      // Filter payments by the filtered student_fee_ids
+      const filteredFeeIds = new Set(filteredFees.map(sf => sf.id));
+      const filteredPayments = allPayments.filter(p => filteredFeeIds.has(p.student_fee_id));
+      setPayments(filteredPayments);
+    }
+  }, [selectedYear, allStudentFees, allPayments]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -68,29 +124,31 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
       
       setIssues(issuesData || []);
 
-      // Fetch student fees (charges)
+      // Fetch student fees (charges) - ALL of them
       const { data: feesData } = await supabase
         .from('student_fees')
         .select(`
           *,
-          fee:fees(name, description, due_date, fee_type:fee_types(name, category))
+          fee:fees(name, description, due_date, academic_year, fee_type:fee_types(name, category))
         `)
         .eq('student_id', studentId)
         .order('created_at', { ascending: false });
       
-      setStudentFees(feesData || []);
+      setAllStudentFees(feesData || []);
+      setStudentFees(feesData || []); // Initially show all
 
-      // Fetch payments
+      // Fetch payments - ALL of them
       const { data: paymentsData } = await supabase
         .from('payments')
         .select(`
           *,
-          student_fee:student_fees(fee:fees(name))
+          student_fee:student_fees(id, fee:fees(name, academic_year))
         `)
         .eq('student_id', studentId)
         .order('payment_date', { ascending: false });
       
-      setPayments(paymentsData || []);
+      setAllPayments(paymentsData || []);
+      setPayments(paymentsData || []); // Initially show all
 
       // Fetch available fees for adding charges
       const { data: availableFeesData } = await supabase
@@ -301,6 +359,30 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
 
           {/* Financial Tab */}
           <TabsContent value="financial" className="mt-4 space-y-6">
+            {/* Year Selector */}
+            <div className="flex items-center gap-3 p-3 bg-slate-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-slate-600" />
+              <Label className="font-medium">שנה:</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="וועל אויס יאר..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">אלע יארן</SelectItem>
+                  {availableYears.map(year => (
+                    <SelectItem key={year} value={year}>
+                      {year} {year === getCurrentAcademicYear() && '(היינט)'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-slate-500">
+                {selectedYear === 'all' 
+                  ? `ווייזט אלע ${allStudentFees.length} טשאַרדזשעס` 
+                  : `ווייזט ${studentFees.length} טשאַרדזשעס פאר ${selectedYear}`}
+              </span>
+            </div>
+
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -444,18 +526,26 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             <div>
               <h4 className="font-semibold mb-3 flex items-center gap-2">
                 <Receipt className="h-5 w-5" />
-                טשאַרדזשעס
+                טשאַרדזשעס ({studentFees.length})
               </h4>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-64 overflow-y-auto">
                 {studentFees.length === 0 ? (
-                  <p className="text-slate-500 text-center py-4">קיין טשאַרדזשעס נישט געפונען</p>
+                  <p className="text-slate-500 text-center py-4">
+                    {selectedYear === 'all' 
+                      ? 'קיין טשאַרדזשעס נישט געפונען' 
+                      : `קיין טשאַרדזשעס נישט געפונען פאר ${selectedYear}`}
+                  </p>
                 ) : (
                   studentFees.map(sf => (
                     <div key={sf.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
                       <div>
                         <p className="font-medium">{sf.fee?.name || 'טשאַרדזש'}</p>
                         <p className="text-sm text-slate-500">
-                          {sf.fee?.fee_type?.name} | {sf.fee?.due_date ? new Date(sf.fee.due_date).toLocaleDateString('he-IL') : ''}
+                          {sf.fee?.fee_type?.name} 
+                          {sf.fee?.academic_year && <span className="mx-1">|</span>}
+                          {sf.fee?.academic_year && <span className="text-blue-600">{sf.fee.academic_year}</span>}
+                          {sf.fee?.due_date && <span className="mx-1">|</span>}
+                          {sf.fee?.due_date && new Date(sf.fee.due_date).toLocaleDateString('he-IL')}
                         </p>
                         {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
                       </div>
@@ -474,11 +564,15 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             <div>
               <h4 className="font-semibold mb-3 flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                צאָלונגען
+                צאָלונגען ({payments.length})
               </h4>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-64 overflow-y-auto">
                 {payments.length === 0 ? (
-                  <p className="text-slate-500 text-center py-4">קיין צאָלונגען נישט געפונען</p>
+                  <p className="text-slate-500 text-center py-4">
+                    {selectedYear === 'all' 
+                      ? 'קיין צאָלונגען נישט געפונען' 
+                      : `קיין צאָלונגען נישט געפונען פאר ${selectedYear}`}
+                  </p>
                 ) : (
                   payments.map(payment => (
                     <div key={payment.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
@@ -487,11 +581,16 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                         <p className="text-sm text-slate-500">
                           {payment.payment_method === 'cash' ? 'קעש' : 
                            payment.payment_method === 'check' ? 'טשעק' :
-                           payment.payment_method === 'credit_card' ? 'קרעדיט קארד' : payment.payment_method}
+                           payment.payment_method === 'credit_card' ? 'קרעדיט קארד' : 
+                           payment.payment_method === 'bank_transfer' ? 'באנק טראנספער' : payment.payment_method}
                           {payment.reference_number && ` - #${payment.reference_number}`}
+                          {payment.student_fee?.fee?.academic_year && (
+                            <span className="text-blue-600 mr-2"> | {payment.student_fee.fee.academic_year}</span>
+                          )}
                         </p>
                         <p className="text-xs text-slate-400">
                           {new Date(payment.payment_date).toLocaleDateString('he-IL')}
+                          {payment.notes && ` - ${payment.notes}`}
                         </p>
                       </div>
                       <div className="text-left">
