@@ -24,10 +24,14 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [student, setStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
-  const [showDonationForm, setShowDonationForm] = useState(false);
-  const [donationAmount, setDonationAmount] = useState('');
-  const [donationNote, setDonationNote] = useState('');
-  const [isSavingDonation, setIsSavingDonation] = useState(false);
+  
+  // Simple Transaction Form State
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [transactionType, setTransactionType] = useState('credit'); // 'credit' (money in) or 'debit' (charge)
+  const [transactionAmount, setTransactionAmount] = useState('');
+  const [transactionNote, setTransactionNote] = useState('');
+  const [isSavingTransaction, setIsSavingTransaction] = useState(false);
+  
   const [data, setData] = useState({
     calls: [],
     issues: [],
@@ -93,114 +97,124 @@ const StudentProfileView = ({ studentId, onBack }) => {
     fetchStudentData(); // Refresh list
   };
 
-  // Simple donation save - creates both student_fee and payment in one click
-  const saveDonation = async () => {
-    if (!donationAmount || parseFloat(donationAmount) <= 0) {
+  // Simple Transaction Save - handles both credits (payments/donations) and debits (charges)
+  const saveTransaction = async () => {
+    if (!transactionAmount || parseFloat(transactionAmount) <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid amount' });
       return;
     }
 
-    setIsSavingDonation(true);
+    setIsSavingTransaction(true);
     try {
-      const amount = parseFloat(donationAmount);
-      const currentYear = '2024-2025'; // Current academic year
+      const amount = parseFloat(transactionAmount);
+      const currentYear = '2024-2025';
+      const note = transactionNote || (transactionType === 'credit' ? 'Payment/Donation' : 'Charge');
       
-      // First, find or create a general donation fee for this year
-      let { data: donationFee } = await supabase
+      // Get or create a generic fee type based on transaction type
+      const feeCategory = transactionType === 'credit' ? 'donation' : 'other';
+      const feeName = transactionType === 'credit' ? 'דאנאציע/צאלונג' : 'חיוב';
+      
+      // Find or create the fee type
+      let { data: feeType } = await supabase
+        .from('fee_types')
+        .select('id')
+        .eq('category', feeCategory)
+        .single();
+      
+      if (!feeType) {
+        const { data: newType } = await supabase
+          .from('fee_types')
+          .insert({ name: feeName, description: note, category: feeCategory, is_active: true })
+          .select()
+          .single();
+        feeType = newType;
+      }
+
+      // Find or create a generic fee for this year
+      let { data: fee } = await supabase
         .from('fees')
         .select('id')
         .eq('academic_year', currentYear)
-        .eq('name', 'דאנאציע געזאמלט')
+        .eq('fee_type_id', feeType.id)
+        .eq('name', feeName)
         .single();
       
-      // If no donation fee exists, create one
-      if (!donationFee) {
-        // Get the donation fee type
-        const { data: donationType } = await supabase
-          .from('fee_types')
-          .select('id')
-          .eq('category', 'donation')
+      if (!fee) {
+        const { data: newFee } = await supabase
+          .from('fees')
+          .insert({ 
+            name: feeName, 
+            description: 'General transaction',
+            fee_type_id: feeType.id,
+            academic_year: currentYear,
+            is_active: true
+          })
+          .select()
           .single();
-        
-        if (!donationType) {
-          // Create donation fee type if it doesn't exist
-          const { data: newType } = await supabase
-            .from('fee_types')
-            .insert({ name: 'דאנאציע', description: 'תלמיד געזאמלט פאר דער שולע', category: 'donation', is_active: true })
-            .select()
-            .single();
-          
-          const { data: newFee } = await supabase
-            .from('fees')
-            .insert({ 
-              name: 'דאנאציע געזאמלט', 
-              description: 'Student donation collection',
-              fee_type_id: newType.id,
-              academic_year: currentYear,
-              is_active: true
-            })
-            .select()
-            .single();
-          donationFee = newFee;
-        } else {
-          const { data: newFee } = await supabase
-            .from('fees')
-            .insert({ 
-              name: 'דאנאציע געזאמלט', 
-              description: 'Student donation collection',
-              fee_type_id: donationType.id,
-              academic_year: currentYear,
-              is_active: true
-            })
-            .select()
-            .single();
-          donationFee = newFee;
-        }
+        fee = newFee;
       }
 
-      // Create student_fee record
-      const { data: studentFee, error: sfError } = await supabase
-        .from('student_fees')
-        .insert({
-          student_id: studentId,
-          fee_id: donationFee.id,
-          amount: amount,
-          amount_paid: amount,
-          status: 'paid',
-          notes: donationNote || 'דאנאציע געזאמלט'
-        })
-        .select()
-        .single();
+      if (transactionType === 'credit') {
+        // CREDIT: Money coming in (payment/donation)
+        // Create student_fee with full payment
+        const { data: studentFee, error: sfError } = await supabase
+          .from('student_fees')
+          .insert({
+            student_id: studentId,
+            fee_id: fee.id,
+            amount: amount,
+            amount_paid: amount,
+            status: 'paid',
+            notes: note
+          })
+          .select()
+          .single();
 
-      if (sfError) throw sfError;
+        if (sfError) throw sfError;
 
-      // Create payment record
-      const { error: payError } = await supabase
-        .from('payments')
-        .insert({
-          student_id: studentId,
-          student_fee_id: studentFee.id,
-          amount: amount,
-          payment_method: 'cash',
-          payment_date: new Date().toISOString().split('T')[0],
-          notes: donationNote || 'דאנאציע'
-        });
+        // Create payment record
+        await supabase
+          .from('payments')
+          .insert({
+            student_id: studentId,
+            student_fee_id: studentFee.id,
+            amount: amount,
+            payment_method: 'cash',
+            payment_date: new Date().toISOString().split('T')[0],
+            notes: note
+          });
 
-      if (payError) throw payError;
+        toast({ title: '✅ Credit Added!', description: `+$${amount.toFixed(2)} recorded` });
+        
+      } else {
+        // DEBIT: Charge/Fee
+        const { error: sfError } = await supabase
+          .from('student_fees')
+          .insert({
+            student_id: studentId,
+            fee_id: fee.id,
+            amount: amount,
+            amount_paid: 0,
+            status: 'pending',
+            notes: note
+          });
 
-      toast({ title: '✅ דאנאציע געשפארט!', description: `$${amount.toFixed(2)} recorded for ${student.name}` });
+        if (sfError) throw sfError;
+
+        toast({ title: '📝 Charge Added!', description: `$${amount.toFixed(2)} charge recorded` });
+      }
       
       // Reset form and refresh
-      setDonationAmount('');
-      setDonationNote('');
-      setShowDonationForm(false);
+      setTransactionAmount('');
+      setTransactionNote('');
+      setShowTransactionForm(false);
       fetchStudentData();
       
     } catch (error) {
-      console.error('Donation save error:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save donation' });
+      console.error('Transaction save error:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save transaction' });
     } finally {
-      setIsSavingDonation(false);
+      setIsSavingTransaction(false);
     }
   };
 
@@ -442,48 +456,69 @@ const StudentProfileView = ({ studentId, onBack }) => {
                   </Card>
                 </div>
 
-                {/* BIG ADD DONATION BUTTON */}
+                {/* BIG ADD TRANSACTION BUTTON */}
                 <div className="flex justify-center">
                   <Button 
-                    onClick={() => setShowDonationForm(true)}
-                    className="bg-pink-600 hover:bg-pink-700 text-white text-lg px-8 py-6 h-auto rounded-xl shadow-lg"
+                    onClick={() => setShowTransactionForm(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-6 h-auto rounded-xl shadow-lg"
                     size="lg"
                   >
-                    <Gift size={24} className="mr-3" />
-                    ➕ לייג צו א דאנאציע / Add Donation
+                    <Plus size={24} className="mr-3" />
+                    ➕ לייג צו טראנזאקציע / Add Transaction
                   </Button>
                 </div>
 
-                {/* Simple Donation Form Popup */}
-                {showDonationForm && (
+                {/* Simple Transaction Form Popup */}
+                {showTransactionForm && (
                   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <Card className="w-full max-w-md mx-4 shadow-2xl">
-                      <CardHeader className="bg-pink-100 border-b">
+                      <CardHeader className={`border-b ${transactionType === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
                         <div className="flex justify-between items-center">
-                          <CardTitle className="text-xl flex items-center gap-2 text-pink-800">
-                            <Gift size={24} />
-                            🎁 לייג צו דאנאציע
+                          <CardTitle className={`text-xl flex items-center gap-2 ${transactionType === 'credit' ? 'text-green-800' : 'text-red-800'}`}>
+                            {transactionType === 'credit' ? '💵' : '📝'} לייג צו טראנזאקציע
                           </CardTitle>
-                          <Button variant="ghost" size="icon" onClick={() => setShowDonationForm(false)}>
+                          <Button variant="ghost" size="icon" onClick={() => setShowTransactionForm(false)}>
                             <X size={20} />
                           </Button>
                         </div>
-                        <p className="text-sm text-pink-600 mt-1">Recording donation for: <strong>{student.name}</strong></p>
+                        <p className="text-sm text-slate-600 mt-1">For: <strong>{student.name}</strong></p>
                       </CardHeader>
                       <CardContent className="p-6 space-y-6">
+                        {/* Transaction Type Toggle - BIG BUTTONS */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <Button
+                            type="button"
+                            onClick={() => setTransactionType('credit')}
+                            className={`h-16 text-lg ${transactionType === 'credit' 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                          >
+                            💵 Credit<br/><span className="text-xs">(Payment/Donation)</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => setTransactionType('debit')}
+                            className={`h-16 text-lg ${transactionType === 'debit' 
+                              ? 'bg-red-600 hover:bg-red-700 text-white' 
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                          >
+                            📝 Debit<br/><span className="text-xs">(Charge/Fee)</span>
+                          </Button>
+                        </div>
+
                         {/* Amount Input - BIG */}
                         <div>
                           <Label className="text-lg font-bold">סכום / Amount ($)</Label>
                           <div className="relative mt-2">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl text-pink-600 font-bold">$</span>
+                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-bold ${transactionType === 'credit' ? 'text-green-600' : 'text-red-600'}`}>$</span>
                             <Input
                               type="number"
                               step="0.01"
                               min="0"
-                              value={donationAmount}
-                              onChange={(e) => setDonationAmount(e.target.value)}
+                              value={transactionAmount}
+                              onChange={(e) => setTransactionAmount(e.target.value)}
                               placeholder="0.00"
-                              className="text-4xl h-20 pl-12 text-center font-bold border-2 border-pink-300 focus:border-pink-500"
+                              className={`text-4xl h-20 pl-12 text-center font-bold border-2 ${transactionType === 'credit' ? 'border-green-300 focus:border-green-500' : 'border-red-300 focus:border-red-500'}`}
                               autoFocus
                             />
                           </div>
@@ -493,9 +528,11 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         <div>
                           <Label className="text-sm">באמערקונג / Note (optional)</Label>
                           <Textarea
-                            value={donationNote}
-                            onChange={(e) => setDonationNote(e.target.value)}
-                            placeholder="e.g., Chanukah campaign, collected from neighbors..."
+                            value={transactionNote}
+                            onChange={(e) => setTransactionNote(e.target.value)}
+                            placeholder={transactionType === 'credit' 
+                              ? "e.g., Chanukah donation, tuition payment, book payment..." 
+                              : "e.g., Supplies, trip fee, books..."}
                             className="mt-1"
                             rows={2}
                           />
@@ -503,14 +540,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
                         {/* Save Button - BIG */}
                         <Button
-                          onClick={saveDonation}
-                          disabled={isSavingDonation || !donationAmount}
-                          className="w-full h-14 text-xl bg-green-600 hover:bg-green-700"
+                          onClick={saveTransaction}
+                          disabled={isSavingTransaction || !transactionAmount}
+                          className={`w-full h-14 text-xl ${transactionType === 'credit' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                         >
-                          {isSavingDonation ? (
+                          {isSavingTransaction ? (
                             'Saving...'
+                          ) : transactionType === 'credit' ? (
+                            <>✅ שפאר צאלונג / Save Payment</>
                           ) : (
-                            <>✅ שפאר דאנאציע / Save Donation</>
+                            <>📝 שפאר חיוב / Save Charge</>
                           )}
                         </Button>
                       </CardContent>

@@ -41,10 +41,23 @@ const StudentsView = ({ role, currentUser }) => {
   const [isGradesModalOpen, setIsGradesModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   
-  const [viewingProfileId, setViewingProfileId] = useState(null);
+  const [viewingProfileId, setViewingProfileId] = useState(() => {
+    // Restore from localStorage on initial load
+    const saved = localStorage.getItem('viewingStudentId');
+    return saved || null;
+  });
   const [selectedIds, setSelectedIds] = useState([]);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceData, setAttendanceData] = useState({ date: new Date().toISOString().split('T')[0], status: 'present', note: '' });
+
+  // Persist viewingProfileId to localStorage
+  useEffect(() => {
+    if (viewingProfileId) {
+      localStorage.setItem('viewingStudentId', viewingProfileId);
+    } else {
+      localStorage.removeItem('viewingStudentId');
+    }
+  }, [viewingProfileId]);
 
   useEffect(() => {
     loadData();
