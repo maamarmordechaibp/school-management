@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -25,12 +26,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
   
-  // Simple Transaction Form State
+  // Transaction Form State
   const [showTransactionForm, setShowTransactionForm] = useState(false);
-  const [transactionType, setTransactionType] = useState('credit'); // 'credit' (money in) or 'debit' (charge)
+  const [transactionType, setTransactionType] = useState('credit'); // 'credit' (payment) or 'debit' (new charge)
   const [transactionAmount, setTransactionAmount] = useState('');
   const [transactionNote, setTransactionNote] = useState('');
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
+  const [availableFees, setAvailableFees] = useState([]); // All fees in the system
+  const [selectedFeeId, setSelectedFeeId] = useState(''); // Which fee type for new charge
+  const [selectedStudentFeeId, setSelectedStudentFeeId] = useState(''); // Which existing charge to pay
+  const [paymentMode, setPaymentMode] = useState('existing'); // 'existing' (pay existing charge) or 'new' (new payment/donation)
   
   const [data, setData] = useState({
     calls: [],
@@ -51,7 +56,22 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
   useEffect(() => {
     fetchStudentData();
+    fetchAvailableFees();
   }, [studentId]);
+
+  // Load all available fees in the system for dropdown
+  const fetchAvailableFees = async () => {
+    try {
+      const { data: fees } = await supabase
+        .from('fees')
+        .select('*, fee_type:fee_types(name, category)')
+        .eq('is_active', true)
+        .order('name');
+      setAvailableFees(fees || []);
+    } catch (error) {
+      console.error('Error loading fees:', error);
+    }
+  };
 
   const fetchStudentData = async () => {
     try {
@@ -97,7 +117,24 @@ const StudentProfileView = ({ studentId, onBack }) => {
     fetchStudentData(); // Refresh list
   };
 
-  // Simple Transaction Save - handles both credits (payments/donations) and debits (charges)
+  // Get unpaid charges for this student (for payment dropdown)
+  const unpaidCharges = data.studentFees.filter(sf => 
+    sf.status !== 'paid' && sf.status !== 'waived' && 
+    (parseFloat(sf.amount) - parseFloat(sf.amount_paid || 0)) > 0
+  );
+
+  // Reset form when opening
+  const openTransactionForm = (type) => {
+    setTransactionType(type);
+    setTransactionAmount('');
+    setTransactionNote('');
+    setSelectedFeeId('');
+    setSelectedStudentFeeId('');
+    setPaymentMode(type === 'credit' && unpaidCharges.length > 0 ? 'existing' : 'new');
+    setShowTransactionForm(true);
+  };
+
+  // Transaction Save - handles payments to existing charges, new payments/donations, and new charges
   const saveTransaction = async () => {
     if (!transactionAmount || parseFloat(transactionAmount) <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid amount' });
@@ -107,132 +144,162 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setIsSavingTransaction(true);
     try {
       const amount = parseFloat(transactionAmount);
-      const currentYear = '2024-2025';
-      const note = transactionNote || (transactionType === 'credit' ? 'Payment/Donation' : 'Charge');
-      
-      // Get or create a generic fee type based on transaction type
-      const feeCategory = transactionType === 'credit' ? 'donation' : 'other';
-      const feeName = transactionType === 'credit' ? 'Payment-Donation' : 'Charge';
-      const feeTypeName = transactionType === 'credit' ? 'Donations' : 'Other Fees';
-      
-      // Find existing fee type by category
-      let { data: feeTypes } = await supabase
-        .from('fee_types')
-        .select('id')
-        .eq('category', feeCategory);
-      
-      let feeTypeId;
-      
-      if (feeTypes && feeTypes.length > 0) {
-        feeTypeId = feeTypes[0].id;
-      } else {
-        // Create fee type if none exists
-        const { data: newType, error: typeErr } = await supabase
-          .from('fee_types')
-          .insert({ name: feeTypeName, description: 'Auto-created for transactions', category: feeCategory, is_active: true })
-          .select()
-          .single();
-        
-        if (typeErr) {
-          console.error('Fee type creation error:', typeErr);
-          throw new Error('Could not create fee type');
-        }
-        feeTypeId = newType.id;
-      }
-
-      // Find existing fee for this year and type
-      let { data: fees } = await supabase
-        .from('fees')
-        .select('id')
-        .eq('academic_year', currentYear)
-        .eq('fee_type_id', feeTypeId);
-      
-      let feeId;
-      
-      if (fees && fees.length > 0) {
-        feeId = fees[0].id;
-      } else {
-        // Create fee if none exists
-        const { data: newFee, error: feeErr } = await supabase
-          .from('fees')
-          .insert({ 
-            name: feeName, 
-            description: 'General transaction',
-            fee_type_id: feeTypeId,
-            academic_year: currentYear,
-            is_active: true
-          })
-          .select()
-          .single();
-        
-        if (feeErr) {
-          console.error('Fee creation error:', feeErr);
-          throw new Error('Could not create fee');
-        }
-        feeId = newFee.id;
-      }
+      const note = transactionNote || '';
 
       if (transactionType === 'credit') {
-        // CREDIT: Money coming in (payment/donation)
-        // Create student_fee with full payment
-        const { data: studentFee, error: sfError } = await supabase
-          .from('student_fees')
-          .insert({
-            student_id: studentId,
-            fee_id: feeId,
-            amount: amount,
-            amount_paid: amount,
-            status: 'paid',
-            notes: note
-          })
-          .select()
-          .single();
+        // PAYMENT MODE
+        if (paymentMode === 'existing' && selectedStudentFeeId) {
+          // Pay toward existing charge
+          const existingCharge = unpaidCharges.find(c => c.id === selectedStudentFeeId);
+          if (!existingCharge) throw new Error('Charge not found');
 
-        if (sfError) {
-          console.error('Student fee error:', sfError);
-          throw sfError;
-        }
+          const newAmountPaid = parseFloat(existingCharge.amount_paid || 0) + amount;
+          const totalAmount = parseFloat(existingCharge.amount);
+          const newStatus = newAmountPaid >= totalAmount ? 'paid' : 'partial';
 
-        // Create payment record
-        const { error: payErr } = await supabase
-          .from('payments')
-          .insert({
-            student_id: studentId,
-            student_fee_id: studentFee.id,
-            amount: amount,
-            payment_method: 'cash',
-            payment_date: new Date().toISOString().split('T')[0],
-            notes: note
+          // Update the student_fee
+          await supabase
+            .from('student_fees')
+            .update({ 
+              amount_paid: newAmountPaid,
+              status: newStatus 
+            })
+            .eq('id', selectedStudentFeeId);
+
+          // Create payment record
+          await supabase
+            .from('payments')
+            .insert({
+              student_id: studentId,
+              student_fee_id: selectedStudentFeeId,
+              amount: amount,
+              payment_method: 'cash',
+              payment_date: new Date().toISOString().split('T')[0],
+              notes: note || `Payment for ${existingCharge.fee?.name || 'charge'}`
+            });
+
+          toast({ 
+            title: '✅ Payment Recorded!', 
+            description: `$${amount.toFixed(2)} paid toward ${existingCharge.fee?.name || 'charge'}` 
           });
 
-        if (payErr) console.error('Payment record error:', payErr);
+        } else {
+          // NEW payment/donation (not toward existing charge)
+          const feeId = selectedFeeId || null;
+          
+          if (!feeId) {
+            // Create a generic donation entry
+            let { data: feeTypes } = await supabase
+              .from('fee_types')
+              .select('id')
+              .eq('category', 'donation');
+            
+            let feeTypeId = feeTypes?.[0]?.id;
+            if (!feeTypeId) {
+              const { data: newType } = await supabase
+                .from('fee_types')
+                .insert({ name: 'Donations', description: 'General donations', category: 'donation', is_active: true })
+                .select()
+                .single();
+              feeTypeId = newType.id;
+            }
 
-        toast({ title: '✅ Credit Added!', description: `+$${amount.toFixed(2)} recorded` });
+            let { data: fees } = await supabase
+              .from('fees')
+              .select('id')
+              .eq('fee_type_id', feeTypeId)
+              .eq('academic_year', '2024-2025');
+            
+            let genericFeeId = fees?.[0]?.id;
+            if (!genericFeeId) {
+              const { data: newFee } = await supabase
+                .from('fees')
+                .insert({ name: 'General Payment', fee_type_id: feeTypeId, academic_year: '2024-2025', is_active: true })
+                .select()
+                .single();
+              genericFeeId = newFee.id;
+            }
+
+            // Create student_fee and payment
+            const { data: studentFee } = await supabase
+              .from('student_fees')
+              .insert({
+                student_id: studentId,
+                fee_id: genericFeeId,
+                amount: amount,
+                amount_paid: amount,
+                status: 'paid',
+                notes: note || 'Payment/Donation'
+              })
+              .select()
+              .single();
+
+            await supabase.from('payments').insert({
+              student_id: studentId,
+              student_fee_id: studentFee.id,
+              amount: amount,
+              payment_method: 'cash',
+              payment_date: new Date().toISOString().split('T')[0],
+              notes: note || 'Payment/Donation'
+            });
+
+          } else {
+            // Payment for specific fee type (like books, trips)
+            const { data: studentFee } = await supabase
+              .from('student_fees')
+              .insert({
+                student_id: studentId,
+                fee_id: feeId,
+                amount: amount,
+                amount_paid: amount,
+                status: 'paid',
+                notes: note
+              })
+              .select()
+              .single();
+
+            const selectedFee = availableFees.find(f => f.id === feeId);
+            await supabase.from('payments').insert({
+              student_id: studentId,
+              student_fee_id: studentFee.id,
+              amount: amount,
+              payment_method: 'cash',
+              payment_date: new Date().toISOString().split('T')[0],
+              notes: note || `Payment for ${selectedFee?.name || 'fee'}`
+            });
+          }
+
+          toast({ title: '✅ Payment Added!', description: `+$${amount.toFixed(2)} recorded` });
+        }
         
       } else {
-        // DEBIT: Charge/Fee
-        const { error: sfError } = await supabase
+        // DEBIT: New Charge
+        if (!selectedFeeId) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Please select what this charge is for' });
+          setIsSavingTransaction(false);
+          return;
+        }
+
+        await supabase
           .from('student_fees')
           .insert({
             student_id: studentId,
-            fee_id: feeId,
+            fee_id: selectedFeeId,
             amount: amount,
             amount_paid: 0,
             status: 'pending',
             notes: note
           });
 
-        if (sfError) {
-          console.error('Student fee error:', sfError);
-          throw sfError;
-        }
-
-        toast({ title: '📝 Charge Added!', description: `$${amount.toFixed(2)} charge recorded` });
+        const selectedFee = availableFees.find(f => f.id === selectedFeeId);
+        toast({ title: '📝 Charge Added!', description: `$${amount.toFixed(2)} charge for ${selectedFee?.name || 'fee'}` });
       }
       
       // Reset form and refresh
       setTransactionAmount('');
       setTransactionNote('');
+      setSelectedFeeId('');
+      setSelectedStudentFeeId('');
       setShowTransactionForm(false);
       fetchStudentData();
       
@@ -482,26 +549,32 @@ const StudentProfileView = ({ studentId, onBack }) => {
                   </Card>
                 </div>
 
-                {/* BIG ADD TRANSACTION BUTTON */}
-                <div className="flex justify-center">
+                {/* ADD TRANSACTION BUTTONS */}
+                <div className="flex justify-center gap-4 flex-wrap">
                   <Button 
-                    onClick={() => setShowTransactionForm(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-lg px-8 py-6 h-auto rounded-xl shadow-lg"
+                    onClick={() => openTransactionForm('credit')}
+                    className="bg-green-600 hover:bg-green-700 text-white text-lg px-6 py-5 h-auto rounded-xl shadow-lg"
                     size="lg"
                   >
-                    <Plus size={24} className="mr-3" />
-                    ➕ לייג צו טראנזאקציע / Add Transaction
+                    💵 Add Payment
+                  </Button>
+                  <Button 
+                    onClick={() => openTransactionForm('debit')}
+                    className="bg-red-600 hover:bg-red-700 text-white text-lg px-6 py-5 h-auto rounded-xl shadow-lg"
+                    size="lg"
+                  >
+                    📝 Add Charge
                   </Button>
                 </div>
 
-                {/* Simple Transaction Form Popup */}
+                {/* Transaction Form Popup */}
                 {showTransactionForm && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <Card className="w-full max-w-md mx-4 shadow-2xl">
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
                       <CardHeader className={`border-b ${transactionType === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
                         <div className="flex justify-between items-center">
                           <CardTitle className={`text-xl flex items-center gap-2 ${transactionType === 'credit' ? 'text-green-800' : 'text-red-800'}`}>
-                            {transactionType === 'credit' ? '💵' : '📝'} לייג צו טראנזאקציע
+                            {transactionType === 'credit' ? '💵 Add Payment' : '📝 Add Charge'}
                           </CardTitle>
                           <Button variant="ghost" size="icon" onClick={() => setShowTransactionForm(false)}>
                             <X size={20} />
@@ -509,28 +582,106 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         </div>
                         <p className="text-sm text-slate-600 mt-1">For: <strong>{student.name}</strong></p>
                       </CardHeader>
-                      <CardContent className="p-6 space-y-6">
-                        {/* Transaction Type Toggle - BIG BUTTONS */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <Button
-                            type="button"
-                            onClick={() => setTransactionType('credit')}
-                            className={`h-16 text-lg ${transactionType === 'credit' 
-                              ? 'bg-green-600 hover:bg-green-700 text-white' 
-                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-                          >
-                            💵 Credit<br/><span className="text-xs">(Payment/Donation)</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => setTransactionType('debit')}
-                            className={`h-16 text-lg ${transactionType === 'debit' 
-                              ? 'bg-red-600 hover:bg-red-700 text-white' 
-                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-                          >
-                            📝 Debit<br/><span className="text-xs">(Charge/Fee)</span>
-                          </Button>
-                        </div>
+                      <CardContent className="p-6 space-y-5">
+                        
+                        {transactionType === 'credit' ? (
+                          <>
+                            {/* PAYMENT MODE: Pay existing charge OR new payment */}
+                            {unpaidCharges.length > 0 && (
+                              <div className="space-y-2">
+                                <Label className="font-bold">Payment Type</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Button
+                                    type="button"
+                                    onClick={() => { setPaymentMode('existing'); setSelectedFeeId(''); }}
+                                    className={`h-12 ${paymentMode === 'existing' 
+                                      ? 'bg-blue-600 text-white' 
+                                      : 'bg-gray-100 text-gray-700'}`}
+                                  >
+                                    Pay Existing Charge
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={() => { setPaymentMode('new'); setSelectedStudentFeeId(''); }}
+                                    className={`h-12 ${paymentMode === 'new' 
+                                      ? 'bg-blue-600 text-white' 
+                                      : 'bg-gray-100 text-gray-700'}`}
+                                  >
+                                    New Payment/Donation
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {paymentMode === 'existing' && unpaidCharges.length > 0 ? (
+                              /* SELECT EXISTING CHARGE TO PAY */
+                              <div className="space-y-2">
+                                <Label className="font-bold text-blue-700">📋 Select Charge to Pay</Label>
+                                <Select value={selectedStudentFeeId} onValueChange={setSelectedStudentFeeId}>
+                                  <SelectTrigger className="h-14 text-lg border-2 border-blue-300">
+                                    <SelectValue placeholder="Select a charge..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {unpaidCharges.map(charge => {
+                                      const balance = parseFloat(charge.amount) - parseFloat(charge.amount_paid || 0);
+                                      return (
+                                        <SelectItem key={charge.id} value={charge.id} className="py-3">
+                                          <div className="flex justify-between items-center w-full">
+                                            <span className="font-medium">{charge.fee?.name || 'Charge'}</span>
+                                            <span className="text-red-600 font-bold ml-4">
+                                              ${balance.toFixed(2)} owed
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                                {selectedStudentFeeId && (
+                                  <p className="text-sm text-blue-600">
+                                    Balance: ${(parseFloat(unpaidCharges.find(c => c.id === selectedStudentFeeId)?.amount || 0) - 
+                                              parseFloat(unpaidCharges.find(c => c.id === selectedStudentFeeId)?.amount_paid || 0)).toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              /* NEW PAYMENT - SELECT FEE TYPE */
+                              <div className="space-y-2">
+                                <Label className="font-bold text-green-700">📋 What is this payment for? (Optional)</Label>
+                                <Select value={selectedFeeId} onValueChange={setSelectedFeeId}>
+                                  <SelectTrigger className="h-12 border-2 border-green-300">
+                                    <SelectValue placeholder="General payment / donation" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">General Payment / Donation</SelectItem>
+                                    {availableFees.map(fee => (
+                                      <SelectItem key={fee.id} value={fee.id}>
+                                        {fee.name} {fee.fee_type?.name ? `(${fee.fee_type.name})` : ''} - {fee.academic_year}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          /* DEBIT: SELECT FEE TYPE FOR NEW CHARGE */
+                          <div className="space-y-2">
+                            <Label className="font-bold text-red-700">📋 What is this charge for? *</Label>
+                            <Select value={selectedFeeId} onValueChange={setSelectedFeeId}>
+                              <SelectTrigger className="h-14 text-lg border-2 border-red-300">
+                                <SelectValue placeholder="Select fee type..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableFees.map(fee => (
+                                  <SelectItem key={fee.id} value={fee.id}>
+                                    {fee.name} {fee.fee_type?.name ? `(${fee.fee_type.name})` : ''} - {fee.academic_year}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                         {/* Amount Input - BIG */}
                         <div>
@@ -545,7 +696,6 @@ const StudentProfileView = ({ studentId, onBack }) => {
                               onChange={(e) => setTransactionAmount(e.target.value)}
                               placeholder="0.00"
                               className={`text-4xl h-20 pl-12 text-center font-bold border-2 ${transactionType === 'credit' ? 'border-green-300 focus:border-green-500' : 'border-red-300 focus:border-red-500'}`}
-                              autoFocus
                             />
                           </div>
                         </div>
@@ -556,9 +706,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                           <Textarea
                             value={transactionNote}
                             onChange={(e) => setTransactionNote(e.target.value)}
-                            placeholder={transactionType === 'credit' 
-                              ? "e.g., Chanukah donation, tuition payment, book payment..." 
-                              : "e.g., Supplies, trip fee, books..."}
+                            placeholder="Additional details..."
                             className="mt-1"
                             rows={2}
                           />
@@ -567,15 +715,15 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         {/* Save Button - BIG */}
                         <Button
                           onClick={saveTransaction}
-                          disabled={isSavingTransaction || !transactionAmount}
+                          disabled={isSavingTransaction || !transactionAmount || (transactionType === 'debit' && !selectedFeeId)}
                           className={`w-full h-14 text-xl ${transactionType === 'credit' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                         >
                           {isSavingTransaction ? (
                             'Saving...'
                           ) : transactionType === 'credit' ? (
-                            <>✅ שפאר צאלונג / Save Payment</>
+                            <>✅ Save Payment</>
                           ) : (
-                            <>📝 שפאר חיוב / Save Charge</>
+                            <>📝 Save Charge</>
                           )}
                         </Button>
                       </CardContent>
