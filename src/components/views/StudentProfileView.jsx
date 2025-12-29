@@ -648,12 +648,12 @@ const StudentProfileView = ({ studentId, onBack }) => {
                               /* NEW PAYMENT - SELECT FEE TYPE */
                               <div className="space-y-2">
                                 <Label className="font-bold text-green-700">📋 What is this payment for? (Optional)</Label>
-                                <Select value={selectedFeeId} onValueChange={setSelectedFeeId}>
+                                <Select value={selectedFeeId || 'general'} onValueChange={(val) => setSelectedFeeId(val === 'general' ? '' : val)}>
                                   <SelectTrigger className="h-12 border-2 border-green-300">
                                     <SelectValue placeholder="General payment / donation" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">General Payment / Donation</SelectItem>
+                                    <SelectItem value="general">General Payment / Donation</SelectItem>
                                     {availableFees.map(fee => (
                                       <SelectItem key={fee.id} value={fee.id}>
                                         {fee.name} {fee.fee_type?.name ? `(${fee.fee_type.name})` : ''} - {fee.academic_year}
