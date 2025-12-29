@@ -89,14 +89,16 @@ INSERT INTO students (id, first_name, last_name, hebrew_name, name, class_id, fa
   ('44444444-4444-4444-4444-444444444410', 'Avrumi', 'Kohn', 'אברהם יהושע', 'Avrumi Kohn', '33333333-3333-3333-3333-333333333302', 'Zelig Kohn', '718-555-1019', 'Esther Kohn', '718-555-1020', '741 Penn St', 'Brooklyn', 'active'),
 
   -- Class ב-1 (Grade 2)
-  ('44444444-4444-4444-4444-444444444411', 'Naftuli', 'Schwartz', 'נפתלי הירש', 'Naftuli Schwartz', '33333333-3333-3333-3333-333333333303', 'Eliezer Schwartz', '718-555-1021', 'Chaya Schwartz', '718-555-1022', '852 Marcy Ave', 'Brooklyn', 'active'),
+  -- GOLDBERGER FAMILY SIBLING - same father_phone 718-555-1001 as Moishy in Grade 1
+  ('44444444-4444-4444-4444-444444444411', 'Naftuli', 'Goldberger', 'נפתלי הירש', 'Naftuli Goldberger', '33333333-3333-3333-3333-333333333303', 'Yankel Goldberger', '718-555-1001', 'Rivka Goldberger', '718-555-1002', '123 Lee Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444412', 'Tzvi', 'Gluck', 'צבי אלימלך', 'Tzvi Gluck', '33333333-3333-3333-3333-333333333303', 'Yisroel Gluck', '718-555-1023', 'Devorah Gluck', '718-555-1024', '963 Harrison Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444413', 'Berel', 'Friedlander', 'דב בער', 'Berel Friedlander', '33333333-3333-3333-3333-333333333303', 'Shlomo Friedlander', '718-555-1025', 'Yitta Friedlander', '718-555-1026', '159 Rutledge St', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444414', 'Hershy', 'Pollak', 'צבי הירש', 'Hershy Pollak', '33333333-3333-3333-3333-333333333303', 'Meilech Pollak', '718-555-1027', 'Baila Pollak', '718-555-1028', '753 Flushing Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444415', 'Leiby', 'Moskowitz', 'אריה לייב', 'Leiby Moskowitz', '33333333-3333-3333-3333-333333333303', 'Shia Moskowitz', '718-555-1029', 'Shprintza Moskowitz', '718-555-1030', '486 Broadway', 'Brooklyn', 'active'),
 
   -- Class ב-2 (Grade 2)
-  ('44444444-4444-4444-4444-444444444416', 'Motty', 'Greenfeld', 'מרדכי', 'Motty Greenfeld', '33333333-3333-3333-3333-333333333304', 'Yoily Greenfeld', '718-555-1031', 'Hindy Greenfeld', '718-555-1032', '297 Wallabout St', 'Brooklyn', 'active'),
+  -- WEISSMAN FAMILY SIBLING - same father_phone 718-555-1003 as Shloime in Grade 1
+  ('44444444-4444-4444-4444-444444444416', 'Motty', 'Weissman', 'מרדכי', 'Motty Weissman', '33333333-3333-3333-3333-333333333304', 'Dovid Weissman', '718-555-1003', 'Malka Weissman', '718-555-1004', '456 Bedford Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444417', 'Pinny', 'Landau', 'פנחס', 'Pinny Landau', '33333333-3333-3333-3333-333333333304', 'Lazer Landau', '718-555-1033', 'Perel Landau', '718-555-1034', '184 Throop Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444418', 'Yossi', 'Adler', 'יוסף חיים', 'Yossi Adler', '33333333-3333-3333-3333-333333333304', 'Mottel Adler', '718-555-1035', 'Zlata Adler', '718-555-1036', '572 Myrtle Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444419', 'Ari', 'Rubin', 'אריה זאב', 'Ari Rubin', '33333333-3333-3333-3333-333333333304', 'Hershel Rubin', '718-555-1037', 'Sury Rubin', '718-555-1038', '638 Park Ave', 'Brooklyn', 'active'),
@@ -110,7 +112,8 @@ INSERT INTO students (id, first_name, last_name, hebrew_name, name, class_id, fa
   ('44444444-4444-4444-4444-444444444425', 'Usher', 'Wertheimer', 'אשר זעליג', 'Usher Wertheimer', '33333333-3333-3333-3333-333333333305', 'Pesach Wertheimer', '718-555-1049', 'Toba Wertheimer', '718-555-1050', '824 Greene Ave', 'Brooklyn', 'active'),
 
   -- Class ד-1 (Grade 4)
-  ('44444444-4444-4444-4444-444444444426', 'Kalman', 'Reich', 'קלמן יהודא', 'Kalman Reich', '33333333-3333-3333-3333-333333333306', 'Gershon Reich', '718-555-1051', 'Fruma Reich', '718-555-1052', '135 Lexington Ave', 'Brooklyn', 'active'),
+  -- GOLDBERGER FAMILY SIBLING - same father_phone 718-555-1001 as Moishy & Naftuli
+  ('44444444-4444-4444-4444-444444444426', 'Kalman', 'Goldberger', 'קלמן יהודא', 'Kalman Goldberger', '33333333-3333-3333-3333-333333333306', 'Yankel Goldberger', '718-555-1001', 'Rivka Goldberger', '718-555-1002', '123 Lee Ave', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444427', 'Shimmy', 'Braunstein', 'שמעון', 'Shimmy Braunstein', '33333333-3333-3333-3333-333333333306', 'Leib Braunstein', '718-555-1053', 'Yocheved Braunstein', '718-555-1054', '268 Quincy St', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444428', 'Lazer', 'Weingarten', 'אליעזר', 'Lazer Weingarten', '33333333-3333-3333-3333-333333333306', 'Bentzion Weingarten', '718-555-1055', 'Faiga Weingarten', '718-555-1056', '391 Monroe St', 'Brooklyn', 'active'),
   ('44444444-4444-4444-4444-444444444429', 'Zundel', 'Fishman', 'אלכסנדר זונדל', 'Zundel Fishman', '33333333-3333-3333-3333-333333333306', 'Mordechai Fishman', '718-555-1057', 'Yehudis Fishman', '718-555-1058', '514 Madison St', 'Brooklyn', 'active'),
@@ -261,7 +264,20 @@ INSERT INTO student_fees (id, student_id, fee_id, amount, amount_paid, status, n
   -- Chanukah trip for some students
   ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC19', '44444444-4444-4444-4444-444444444401', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 45.00, 45.00, 'paid', NULL),
   ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC20', '44444444-4444-4444-4444-444444444402', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 45.00, 0.00, 'pending', NULL),
-  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC21', '44444444-4444-4444-4444-444444444404', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 45.00, 45.00, 'paid', NULL)
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC21', '44444444-4444-4444-4444-444444444404', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 45.00, 45.00, 'paid', NULL),
+  
+  -- GOLDBERGER SIBLINGS - Naftuli (411) has open balance
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC22', '44444444-4444-4444-4444-444444444411', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB01', 150.00, 50.00, 'partial', 'נפתולי גאלדבערגער - טיילווייז באצאלט'),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC23', '44444444-4444-4444-4444-444444444411', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 75.00, 0.00, 'pending', NULL),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC24', '44444444-4444-4444-4444-444444444411', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB03', 45.00, 0.00, 'pending', 'טריפ'),
+  
+  -- GOLDBERGER SIBLINGS - Kalman (426) has open balance
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC25', '44444444-4444-4444-4444-444444444426', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB01', 150.00, 0.00, 'pending', 'קלמן גאלדבערגער'),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC26', '44444444-4444-4444-4444-444444444426', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 75.00, 0.00, 'pending', NULL),
+  
+  -- WEISSMAN SIBLINGS - Motty (416) has open balance
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC27', '44444444-4444-4444-4444-444444444416', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB01', 150.00, 100.00, 'partial', 'מאטי ווייסמאן'),
+  ('CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCC28', '44444444-4444-4444-4444-444444444416', 'BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBB02', 75.00, 75.00, 'paid', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
