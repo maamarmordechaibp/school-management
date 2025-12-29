@@ -62,11 +62,15 @@ const StudentProfileView = ({ studentId, onBack }) => {
   // Load all available fees in the system for dropdown
   const fetchAvailableFees = async () => {
     try {
-      const { data: fees } = await supabase
+      const { data: fees, error } = await supabase
         .from('fees')
         .select('*, fee_type:fee_types(name, category)')
-        .eq('is_active', true)
         .order('name');
+      
+      if (error) {
+        console.error('Error loading fees:', error);
+        return;
+      }
       setAvailableFees(fees || []);
     } catch (error) {
       console.error('Error loading fees:', error);
