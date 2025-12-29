@@ -112,46 +112,64 @@ const StudentProfileView = ({ studentId, onBack }) => {
       
       // Get or create a generic fee type based on transaction type
       const feeCategory = transactionType === 'credit' ? 'donation' : 'other';
-      const feeName = transactionType === 'credit' ? 'דאנאציע/צאלונג' : 'חיוב';
+      const feeName = transactionType === 'credit' ? 'Payment-Donation' : 'Charge';
+      const feeTypeName = transactionType === 'credit' ? 'Donations' : 'Other Fees';
       
-      // Find or create the fee type
-      let { data: feeType } = await supabase
+      // Find existing fee type by category
+      let { data: feeTypes } = await supabase
         .from('fee_types')
         .select('id')
-        .eq('category', feeCategory)
-        .single();
+        .eq('category', feeCategory);
       
-      if (!feeType) {
-        const { data: newType } = await supabase
+      let feeTypeId;
+      
+      if (feeTypes && feeTypes.length > 0) {
+        feeTypeId = feeTypes[0].id;
+      } else {
+        // Create fee type if none exists
+        const { data: newType, error: typeErr } = await supabase
           .from('fee_types')
-          .insert({ name: feeName, description: note, category: feeCategory, is_active: true })
+          .insert({ name: feeTypeName, description: 'Auto-created for transactions', category: feeCategory, is_active: true })
           .select()
           .single();
-        feeType = newType;
+        
+        if (typeErr) {
+          console.error('Fee type creation error:', typeErr);
+          throw new Error('Could not create fee type');
+        }
+        feeTypeId = newType.id;
       }
 
-      // Find or create a generic fee for this year
-      let { data: fee } = await supabase
+      // Find existing fee for this year and type
+      let { data: fees } = await supabase
         .from('fees')
         .select('id')
         .eq('academic_year', currentYear)
-        .eq('fee_type_id', feeType.id)
-        .eq('name', feeName)
-        .single();
+        .eq('fee_type_id', feeTypeId);
       
-      if (!fee) {
-        const { data: newFee } = await supabase
+      let feeId;
+      
+      if (fees && fees.length > 0) {
+        feeId = fees[0].id;
+      } else {
+        // Create fee if none exists
+        const { data: newFee, error: feeErr } = await supabase
           .from('fees')
           .insert({ 
             name: feeName, 
             description: 'General transaction',
-            fee_type_id: feeType.id,
+            fee_type_id: feeTypeId,
             academic_year: currentYear,
             is_active: true
           })
           .select()
           .single();
-        fee = newFee;
+        
+        if (feeErr) {
+          console.error('Fee creation error:', feeErr);
+          throw new Error('Could not create fee');
+        }
+        feeId = newFee.id;
       }
 
       if (transactionType === 'credit') {
@@ -161,7 +179,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .from('student_fees')
           .insert({
             student_id: studentId,
-            fee_id: fee.id,
+            fee_id: feeId,
             amount: amount,
             amount_paid: amount,
             status: 'paid',
@@ -170,10 +188,13 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .select()
           .single();
 
-        if (sfError) throw sfError;
+        if (sfError) {
+          console.error('Student fee error:', sfError);
+          throw sfError;
+        }
 
         // Create payment record
-        await supabase
+        const { error: payErr } = await supabase
           .from('payments')
           .insert({
             student_id: studentId,
@@ -184,6 +205,8 @@ const StudentProfileView = ({ studentId, onBack }) => {
             notes: note
           });
 
+        if (payErr) console.error('Payment record error:', payErr);
+
         toast({ title: '✅ Credit Added!', description: `+$${amount.toFixed(2)} recorded` });
         
       } else {
@@ -192,14 +215,17 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .from('student_fees')
           .insert({
             student_id: studentId,
-            fee_id: fee.id,
+            fee_id: feeId,
             amount: amount,
             amount_paid: 0,
             status: 'pending',
             notes: note
           });
 
-        if (sfError) throw sfError;
+        if (sfError) {
+          console.error('Student fee error:', sfError);
+          throw sfError;
+        }
 
         toast({ title: '📝 Charge Added!', description: `$${amount.toFixed(2)} charge recorded` });
       }
