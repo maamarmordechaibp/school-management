@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { 
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
-  CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp
+  CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
+  DollarSign, CreditCard, Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -27,7 +28,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
     interventions: [],
     meetings: [],
     plans: [],
-    progress_reviews: []
+    progress_reviews: [],
+    studentFees: [],
+    payments: []
   });
   const [isAssessmentMode, setIsAssessmentMode] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState(null);
@@ -45,7 +48,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       setStudent(studentInfo);
 
       // 2. Parallel Fetching for related data
-      const [calls, issues, grades, assessments, interventions, meetings, plans, reviews] = await Promise.all([
+      const [calls, issues, grades, assessments, interventions, meetings, plans, reviews, studentFees, payments] = await Promise.all([
         supabase.from('call_logs').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('issues').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('grades').select('*').eq('student_id', studentId).order('date', { ascending: true }),
@@ -53,7 +56,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
         supabase.from('interventions').select('*').eq('student_id', studentId).order('start_date', { ascending: false }),
         supabase.from('meetings').select('*').eq('student_id', studentId).order('meeting_date', { ascending: false }),
         supabase.from('student_plans').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
-        supabase.from('progress_reviews').select('*').eq('student_id', studentId).order('created_at', { ascending: false })
+        supabase.from('progress_reviews').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('student_fees').select('*, fee:fees(name, description, due_date, academic_year, fee_type:fee_types(name, category))').eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('payments').select('*, student_fee:student_fees(id, fee:fees(name, academic_year))').eq('student_id', studentId).order('payment_date', { ascending: false })
       ]);
 
       setData({
@@ -64,7 +69,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
         interventions: interventions.data || [],
         meetings: meetings.data || [],
         plans: plans.data || [],
-        progress_reviews: reviews.data || []
+        progress_reviews: reviews.data || [],
+        studentFees: studentFees.data || [],
+        payments: payments.data || []
       });
     } catch (error) {
       console.error(error);
@@ -131,6 +138,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 overflow-x-auto">
           <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Overview</TabsTrigger>
+          <TabsTrigger value="financial" className="data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-2">
+            <DollarSign size={16} />
+            Financial
+          </TabsTrigger>
           <TabsTrigger value="workflow" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Workflow & Plans</TabsTrigger>
           <TabsTrigger value="academic" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Academic</TabsTrigger>
           <TabsTrigger value="communication" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Communication</TabsTrigger>
@@ -205,6 +216,143 @@ const StudentProfileView = ({ studentId, onBack }) => {
                 </CardContent>
               </Card>
            </div>
+        </TabsContent>
+
+        {/* Financial Tab */}
+        <TabsContent value="financial" className="mt-6 space-y-6">
+          {/* Financial Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4">
+                <p className="text-sm text-blue-600 font-medium">Total Charges</p>
+                <p className="text-2xl font-bold text-blue-800">
+                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0), 0).toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4">
+                <p className="text-sm text-green-600 font-medium">Total Paid</p>
+                <p className="text-2xl font-bold text-green-800">
+                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount_paid) || 0), 0).toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className={`${
+              data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
+                ? 'bg-red-50 border-red-200' 
+                : 'bg-gray-50 border-gray-200'
+            }`}>
+              <CardContent className="p-4">
+                <p className={`text-sm font-medium ${
+                  data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
+                    ? 'text-red-600' 
+                    : 'text-gray-600'
+                }`}>Open Balance</p>
+                <p className={`text-2xl font-bold ${
+                  data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0) > 0 
+                    ? 'text-red-800' 
+                    : 'text-gray-800'
+                }`}>
+                  ${data.studentFees.reduce((sum, sf) => sum + (parseFloat(sf.amount) || 0) - (parseFloat(sf.amount_paid) || 0), 0).toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50 border-purple-200">
+              <CardContent className="p-4">
+                <p className="text-sm text-purple-600 font-medium">Payments Made</p>
+                <p className="text-2xl font-bold text-purple-800">{data.payments.length}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Payment History */}
+            <Card className="border-2 border-green-300">
+              <CardHeader className="bg-green-50">
+                <CardTitle className="text-lg flex items-center gap-2 text-green-800">
+                  <CreditCard size={20} />
+                  📜 Payment History ({data.payments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                {data.payments.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">No payments recorded yet</p>
+                ) : (
+                  <>
+                    {/* Total paid summary */}
+                    <div className="p-3 bg-green-100 rounded-lg flex justify-between items-center mb-4">
+                      <span className="font-medium text-green-800">Total Paid:</span>
+                      <span className="text-xl font-bold text-green-700">
+                        ${data.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}
+                      </span>
+                    </div>
+                    
+                    {data.payments.map(payment => (
+                      <div key={payment.id} className="p-3 bg-white border border-green-200 rounded-lg shadow-sm">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || 'Payment'}</p>
+                            <p className="text-sm text-slate-600">
+                              {payment.payment_method === 'cash' ? '💵 Cash' : 
+                               payment.payment_method === 'check' ? '📝 Check' :
+                               payment.payment_method === 'credit_card' ? '💳 Credit Card' : 
+                               payment.payment_method === 'bank_transfer' ? '🏦 Bank Transfer' : payment.payment_method}
+                              {payment.reference_number && ` - #${payment.reference_number}`}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(payment.payment_date).toLocaleDateString()}
+                              {payment.notes && ` - ${payment.notes}`}
+                            </p>
+                          </div>
+                          <p className="font-bold text-green-600 text-lg">${parseFloat(payment.amount).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Charges / Fees */}
+            <Card>
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="text-lg flex items-center gap-2 text-blue-800">
+                  <Receipt size={20} />
+                  Charges ({data.studentFees.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                {data.studentFees.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">No charges recorded</p>
+                ) : (
+                  data.studentFees.map(sf => (
+                    <div key={sf.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{sf.fee?.name || 'Charge'}</p>
+                        <p className="text-sm text-slate-500">
+                          {sf.fee?.fee_type?.name}
+                          {sf.fee?.academic_year && <span className="text-blue-600 ml-2">| {sf.fee.academic_year}</span>}
+                        </p>
+                        {sf.notes && <p className="text-xs text-slate-400 mt-1">{sf.notes}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
+                        <p className="text-sm text-green-600">Paid: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          sf.status === 'paid' ? 'bg-green-100 text-green-800' :
+                          sf.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                          sf.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          sf.status === 'waived' ? 'bg-gray-100 text-gray-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>{sf.status}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Workflow & Plans Tab */}
