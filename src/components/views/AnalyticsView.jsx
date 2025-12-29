@@ -39,10 +39,9 @@ const AnalyticsView = () => {
       }, {});
 
       // Calls Stats
-      const { data: calls } = await supabase.from('call_logs').select('completed');
+      const { data: calls } = await supabase.from('call_logs').select('id');
       const callsCount = [
-        { name: 'Completed', value: calls.filter(c => c.completed).length },
-        { name: 'Pending', value: calls.filter(c => !c.completed).length }
+        { name: 'Total Calls', value: calls?.length || 0 }
       ];
 
       // Grades Sample

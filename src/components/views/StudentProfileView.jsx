@@ -87,7 +87,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       const [calls, issues, grades, assessments, interventions, meetings, plans, reviews, studentFees, payments] = await Promise.all([
         supabase.from('call_logs').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('issues').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
-        supabase.from('grades').select('*').eq('student_id', studentId).order('date', { ascending: true }),
+        supabase.from('grades').select('*').eq('student_id', studentId).order('created_at', { ascending: true }),
         supabase.from('assessments').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('interventions').select('*').eq('student_id', studentId).order('start_date', { ascending: false }),
         supabase.from('meetings').select('*').eq('student_id', studentId).order('meeting_date', { ascending: false }),
@@ -1135,10 +1135,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                                     {call.notes || '-'}
                                  </td>
                                  <td className="px-4 py-3">
-                                     {call.completed ? 
-                                       <span className="flex items-center text-green-600 gap-1 text-xs"><CheckCircle size={14}/> Complete</span> : 
-                                       <span className="flex items-center text-amber-600 gap-1 text-xs"><AlertCircle size={14}/> Pending</span>
-                                     }
+                                     <span className="flex items-center text-green-600 gap-1 text-xs"><CheckCircle size={14}/> Logged</span>
                                      {call.follow_up_date && (
                                         <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                                            <Clock size={10}/> {new Date(call.follow_up_date).toLocaleDateString()}
