@@ -142,17 +142,25 @@ const StudentsView = ({ role, currentUser }) => {
       setStudents(studentsWithIssues);
 
       // Load classes and grades for filters
-      const { data: classesData } = await supabase
+      const { data: classesData, error: classesError } = await supabase
         .from('classes')
-        .select('id, name, grade_id, grade:grades(name)')
+        .select('id, name, grade_id, grade:grades!grade_id(name)')
         .order('name');
-      setClasses(classesData || []);
+      if (classesError) {
+        console.error('Error loading classes:', classesError);
+      } else {
+        setClasses(classesData || []);
+      }
 
-      const { data: gradesData } = await supabase
+      const { data: gradesData, error: gradesError } = await supabase
         .from('grades')
         .select('*')
         .order('grade_number');
-      setGrades(gradesData || []);
+      if (gradesError) {
+        console.error('Error loading grades:', gradesError);
+      } else {
+        setGrades(gradesData || []);
+      }
 
     } catch (error) {
       console.error('Error loading students:', error);
