@@ -61,11 +61,41 @@ const StudentsView = ({ role, currentUser }) => {
 
   useEffect(() => {
     loadData();
+    loadFilters(); // Load filters separately
   }, [role, currentUser]);
 
   useEffect(() => {
     applyFilters();
   }, [students, filters]);
+
+  // Load grades and classes for filters - separate from student loading
+  const loadFilters = async () => {
+    try {
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select('id, name, grade_id, grade:grades!grade_id(name)')
+        .order('name');
+      if (classesError) {
+        console.error('Error loading classes:', classesError);
+      } else {
+        console.log('Loaded classes:', classesData?.length);
+        setClasses(classesData || []);
+      }
+
+      const { data: gradesData, error: gradesError } = await supabase
+        .from('grades')
+        .select('*')
+        .order('grade_number');
+      if (gradesError) {
+        console.error('Error loading grades:', gradesError);
+      } else {
+        console.log('Loaded grades:', gradesData?.length);
+        setGrades(gradesData || []);
+      }
+    } catch (error) {
+      console.error('Error loading filters:', error);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -140,27 +170,6 @@ const StudentsView = ({ role, currentUser }) => {
         open_issues_count: (issuesByStudent[s.id] || []).filter(i => i.status === 'open' || i.status === 'in_progress').length
       }));
       setStudents(studentsWithIssues);
-
-      // Load classes and grades for filters
-      const { data: classesData, error: classesError } = await supabase
-        .from('classes')
-        .select('id, name, grade_id, grade:grades!grade_id(name)')
-        .order('name');
-      if (classesError) {
-        console.error('Error loading classes:', classesError);
-      } else {
-        setClasses(classesData || []);
-      }
-
-      const { data: gradesData, error: gradesError } = await supabase
-        .from('grades')
-        .select('*')
-        .order('grade_number');
-      if (gradesError) {
-        console.error('Error loading grades:', gradesError);
-      } else {
-        setGrades(gradesData || []);
-      }
 
     } catch (error) {
       console.error('Error loading students:', error);
