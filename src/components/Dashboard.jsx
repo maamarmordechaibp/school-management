@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, GraduationCap, School, BookOpen, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,8 +17,6 @@ import AnalyticsView from '@/components/views/AnalyticsView';
 import ReportsView from '@/components/views/ReportsView';
 import ActivityLogView from '@/components/views/ActivityLogView';
 import TemplateDesignerView from '@/components/views/TemplateDesignerView';
-import TeachersView from '@/components/views/TeachersView';
-import TutorsView from '@/components/views/TutorsView';
 import ClassesView from '@/components/views/ClassesView';
 import SettingsView from '@/components/views/SettingsView';
 import UserManagementView from '@/components/views/UserManagementView';
@@ -57,8 +55,6 @@ const Dashboard = () => {
     
     // Staff (admin only)
     { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
-    { id: 'teachers', label: 'Teachers', icon: GraduationCap, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage teachers' },
-    { id: 'tutors', label: 'Tutors', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage tutors' },
     
     // Financial - Books & Fees
     { id: 'books', label: 'Books', icon: BookMarked, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
@@ -81,8 +77,6 @@ const Dashboard = () => {
       case 'students': return <StudentsView {...viewProps} />;
       case 'issues': return <IssuesView {...viewProps} />;
       case 'staff': return <StaffView {...viewProps} />;
-      case 'teachers': return <TeachersView {...viewProps} />;
-      case 'tutors': return <TutorsView {...viewProps} />;
       case 'users': return <UserManagementView {...viewProps} />;
       case 'calls': return <CallLogsView {...viewProps} />;
       case 'meetings': return <MeetingsView {...viewProps} />;
