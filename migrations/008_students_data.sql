@@ -6,9 +6,9 @@
 -- ============================================
 
 -- ============================================
--- TO CLEAR ALL STUDENTS, RUN:
--- DELETE FROM students;
+-- CLEAR OLD DATA FIRST
 -- ============================================
+DELETE FROM students;
 
 -- Insert students linked to their classes
 
