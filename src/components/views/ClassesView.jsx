@@ -51,7 +51,7 @@ const ClassesView = ({ role, currentUser }) => {
           grade:grades(id, name, grade_number),
           hebrew_teacher:app_users!hebrew_teacher_id(id, first_name, last_name),
           english_teacher:app_users!english_teacher_id(id, first_name, last_name),
-          students:students(id)
+          students:students!class_id(id)
         `)
         .order('name');
       
