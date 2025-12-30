@@ -116,7 +116,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
         .from('students')
         .select(`
           *,
-          class:classes(name, grade:grades(name))
+          class:classes!class_id(name, grade:grades(name))
         `)
         .eq('id', studentId)
         .single();
@@ -129,7 +129,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
           .from('students')
           .select(`
             id, first_name, last_name, hebrew_name, name,
-            class:classes(name, grade:grades(name))
+            class:classes!class_id(name, grade:grades(name))
           `)
           .eq('father_phone', studentData.father_phone)
           .neq('id', studentId)

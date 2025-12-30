@@ -41,7 +41,7 @@ const FinancialReportsView = ({ role, currentUser }) => {
         .from('student_fees')
         .select(`
           *,
-          student:students(id, first_name, last_name, class_id, class:classes(id, name, grade_id, grade:grades(id, name))),
+          student:students(id, first_name, last_name, class_id, class:classes!class_id(id, name, grade_id, grade:grades(id, name))),
           fee:fees(id, name, amount, due_date)
         `);
       if (sfError) throw sfError;

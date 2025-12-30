@@ -76,7 +76,7 @@ const FeesView = ({ role, currentUser }) => {
           *,
           fee_type:fee_types(id, name, category),
           grade:grades(id, name),
-          class:classes(id, name),
+          class:classes!class_id(id, name),
           student_fees:student_fees(id, status, amount, amount_paid)
         `)
         .order('created_at', { ascending: false });

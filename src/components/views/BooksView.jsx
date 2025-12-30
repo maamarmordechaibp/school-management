@@ -129,7 +129,7 @@ const BooksView = ({ role, currentUser }) => {
           .from('class_book_requirements')
           .select(`
             *,
-            class:classes(id, name),
+            class:classes!class_id(id, name),
             book:books(id, title, price)
           `);
         if (!classReqError) {
@@ -561,6 +561,12 @@ const BooksView = ({ role, currentUser }) => {
               </div>
             </CardHeader>
             <CardContent>
+              {classes.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  <School className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No classes found. Please add classes first.</p>
+                </div>
+              ) : (
               <div className="grid gap-4">
                 {classes.map((cls) => {
                   const classBooks = getClassBooks(cls.id);
@@ -599,6 +605,7 @@ const BooksView = ({ role, currentUser }) => {
                   );
                 })}
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

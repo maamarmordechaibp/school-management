@@ -46,7 +46,7 @@ const MeetingsView = ({ role, currentUser }) => {
   const loadStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, first_name, last_name, class:classes(name)')
+      .select('id, first_name, last_name, class:classes!class_id(name)')
       .eq('is_active', true)
       .order('last_name');
     setStudents(data || []);
@@ -69,7 +69,7 @@ const MeetingsView = ({ role, currentUser }) => {
         .from('meetings')
         .select(`
           *,
-          student:students(id, first_name, last_name, class:classes(name)),
+          student:students(id, first_name, last_name, class:classes!class_id(name)),
           organizer:app_users!organizer_id(id, first_name, last_name),
           meeting_participants(
             id,

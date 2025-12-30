@@ -77,7 +77,7 @@ const TutorsView = ({ role, currentUser }) => {
   const fetchStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, first_name, last_name, class:classes(name)')
+      .select('id, first_name, last_name, class:classes!class_id(name)')
       .eq('is_active', true)
       .order('last_name');
     setStudents(data || []);
