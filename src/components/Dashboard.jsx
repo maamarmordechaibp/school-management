@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, GraduationCap, School, BookOpen, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, GraduationCap, School, BookOpen, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -28,6 +28,7 @@ import MonitoringDashboardView from '@/components/views/MonitoringDashboardView'
 import GradesView from '@/components/views/GradesView';
 import BooksView from '@/components/views/BooksView';
 import FeesView from '@/components/views/FeesView';
+import StaffView from '@/components/views/StaffView';
 import PaymentsView from '@/components/views/PaymentsView';
 import FinancialReportsView from '@/components/views/FinancialReportsView';
 
@@ -55,6 +56,7 @@ const Dashboard = () => {
     { id: 'meetings', label: 'Meetings', icon: Calendar, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Schedule meetings' },
     
     // Staff (admin only)
+    { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
     { id: 'teachers', label: 'Teachers', icon: GraduationCap, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage teachers' },
     { id: 'tutors', label: 'Tutors', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage tutors' },
     
@@ -78,6 +80,7 @@ const Dashboard = () => {
       case 'classes': return <ClassesView {...viewProps} />;
       case 'students': return <StudentsView {...viewProps} />;
       case 'issues': return <IssuesView {...viewProps} />;
+      case 'staff': return <StaffView {...viewProps} />;
       case 'teachers': return <TeachersView {...viewProps} />;
       case 'tutors': return <TutorsView {...viewProps} />;
       case 'users': return <UserManagementView {...viewProps} />;
