@@ -71,11 +71,12 @@ const StudentsView = ({ role, currentUser }) => {
     setLoading(true);
     try {
       // Load students with related data
+      // Use !inner to specify the class_id foreign key (not previous_class_id)
       let query = supabase
         .from('students')
         .select(`
           *,
-          class:classes(id, name, grade_id, grade:grades(id, name))
+          class:classes!class_id(id, name, grade_id, grade:grades(id, name))
         `);
       
       // Role based filtering
