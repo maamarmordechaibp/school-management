@@ -85,51 +85,62 @@ const BooksView = ({ role, currentUser }) => {
         .from('books')
         .select('*')
         .order('title');
-      if (booksError) throw booksError;
-      setBooks(booksData || []);
+      if (!booksError) {
+        setBooks(booksData || []);
+      }
 
       // Load grades
       const { data: gradesData, error: gradesError } = await supabase
         .from('grades')
         .select('*')
         .order('grade_number');
-      if (gradesError) throw gradesError;
-      setGrades(gradesData || []);
+      if (!gradesError) {
+        setGrades(gradesData || []);
+      }
 
-      // Load grade requirements
-      const { data: reqData, error: reqError } = await supabase
-        .from('grade_book_requirements')
-        .select(`
-          *,
-          grade:grades(id, name),
-          book:books(id, title, price)
-        `);
-      if (reqError) throw reqError;
-      setGradeRequirements(reqData || []);
+      // Load grade requirements (table may not exist)
+      try {
+        const { data: reqData, error: reqError } = await supabase
+          .from('grade_book_requirements')
+          .select(`
+            *,
+            grade:grades(id, name),
+            book:books(id, title, price)
+          `);
+        if (!reqError) {
+          setGradeRequirements(reqData || []);
+        }
+      } catch (e) {
+        console.log('grade_book_requirements table may not exist yet');
+      }
 
       // Load classes
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
         .select('*, grade:grades(id, name)')
         .order('name');
-      if (classesError) throw classesError;
-      setClasses(classesData || []);
+      if (!classesError) {
+        setClasses(classesData || []);
+      }
 
-      // Load class book requirements
-      const { data: classReqData, error: classReqError } = await supabase
-        .from('class_book_requirements')
-        .select(`
-          *,
-          class:classes(id, name),
-          book:books(id, title, price)
-        `);
-      if (!classReqError) {
-        setClassRequirements(classReqData || []);
+      // Load class book requirements (table may not exist)
+      try {
+        const { data: classReqData, error: classReqError } = await supabase
+          .from('class_book_requirements')
+          .select(`
+            *,
+            class:classes(id, name),
+            book:books(id, title, price)
+          `);
+        if (!classReqError) {
+          setClassRequirements(classReqData || []);
+        }
+      } catch (e) {
+        console.log('class_book_requirements table may not exist yet');
       }
 
     } catch (error) {
       console.error('Error loading data:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data' });
     } finally {
       setLoading(false);
     }

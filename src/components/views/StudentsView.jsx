@@ -75,8 +75,7 @@ const StudentsView = ({ role, currentUser }) => {
         .from('students')
         .select(`
           *,
-          class:classes(id, name, grade_id, grade:grades(id, name)),
-          student_issues(id, status)
+          class:classes(id, name, grade_id, grade:grades(id, name))
         `);
       
       // Role based filtering
@@ -116,10 +115,28 @@ const StudentsView = ({ role, currentUser }) => {
       const { data, error } = await query.order('last_name');
       if (error) throw error;
       
+      // Try to load issues separately (table may not exist)
+      let issuesByStudent = {};
+      try {
+        const { data: issuesData } = await supabase
+          .from('student_issues')
+          .select('student_id, status');
+        if (issuesData) {
+          issuesData.forEach(issue => {
+            if (!issuesByStudent[issue.student_id]) {
+              issuesByStudent[issue.student_id] = [];
+            }
+            issuesByStudent[issue.student_id].push(issue);
+          });
+        }
+      } catch (e) {
+        // student_issues table may not exist
+      }
+      
       // Add open issues count
       const studentsWithIssues = (data || []).map(s => ({
         ...s,
-        open_issues_count: s.student_issues?.filter(i => i.status === 'open' || i.status === 'in_progress').length || 0
+        open_issues_count: (issuesByStudent[s.id] || []).filter(i => i.status === 'open' || i.status === 'in_progress').length
       }));
       setStudents(studentsWithIssues);
 
