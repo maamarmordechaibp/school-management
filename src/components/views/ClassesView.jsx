@@ -3,10 +3,10 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit, Users, GraduationCap, School } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, GraduationCap, School, ArrowUpCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +16,7 @@ const ClassesView = ({ role, currentUser }) => {
   const [classes, setClasses] = useState([]);
   const [grades, setGrades] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [staffMembers, setStaffMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,6 +29,12 @@ const ClassesView = ({ role, currentUser }) => {
     academic_year: '2024-2025',
     is_active: true
   });
+
+  // Promotion state
+  const [isPromotionModalOpen, setIsPromotionModalOpen] = useState(false);
+  const [promotionClass, setPromotionClass] = useState(null);
+  const [targetClass, setTargetClass] = useState('');
+  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -74,6 +81,17 @@ const ClassesView = ({ role, currentUser }) => {
         .order('last_name');
       if (teachersError) throw teachersError;
       setTeachers(teachersData || []);
+
+      // Load staff members for teacher assignment
+      const { data: staffData, error: staffError } = await supabase
+        .from('staff_members')
+        .select('*')
+        .in('position', ['Hebrew Teacher', 'English Teacher', 'Principal', 'Rebbe', 'Menahel'])
+        .eq('is_active', true)
+        .order('last_name');
+      if (!staffError) {
+        setStaffMembers(staffData || []);
+      }
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -157,6 +175,71 @@ const ClassesView = ({ role, currentUser }) => {
     } catch (error) {
       console.error('Error deleting class:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete class' });
+    }
+  };
+
+  // Promotion Functions
+  const openPromotionModal = (cls) => {
+    setPromotionClass(cls);
+    setTargetClass('');
+    setIsPromotionModalOpen(true);
+  };
+
+  // Get next grade classes for promotion
+  const getNextGradeClasses = (currentClass) => {
+    if (!currentClass?.grade) return [];
+    const currentGradeNumber = currentClass.grade.grade_number;
+    const nextGrade = grades.find(g => g.grade_number === currentGradeNumber + 1);
+    if (!nextGrade) return [];
+    return classes.filter(c => c.grade_id === nextGrade.id);
+  };
+
+  const handlePromoteStudents = async () => {
+    if (!promotionClass || !targetClass) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a target class' });
+      return;
+    }
+
+    setPromoting(true);
+    try {
+      // Get all students in the current class
+      const { data: studentsToPromote, error: fetchError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('class_id', promotionClass.id);
+
+      if (fetchError) throw fetchError;
+
+      if (!studentsToPromote || studentsToPromote.length === 0) {
+        toast({ variant: 'destructive', title: 'No Students', description: 'No students to promote in this class' });
+        setPromoting(false);
+        return;
+      }
+
+      // Update all students to new class
+      const { error: updateError } = await supabase
+        .from('students')
+        .update({
+          class_id: targetClass,
+          previous_class_id: promotionClass.id,
+          promoted_at: new Date().toISOString(),
+          promoted_by: currentUser?.id
+        })
+        .eq('class_id', promotionClass.id);
+
+      if (updateError) throw updateError;
+
+      toast({ 
+        title: 'Success', 
+        description: `${studentsToPromote.length} students promoted to new class` 
+      });
+      setIsPromotionModalOpen(false);
+      loadData();
+    } catch (error) {
+      console.error('Error promoting students:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to promote students' });
+    } finally {
+      setPromoting(false);
     }
   };
 
@@ -292,6 +375,15 @@ const ClassesView = ({ role, currentUser }) => {
                         <TableCell className="text-center text-sm text-slate-500">{cls.academic_year}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-purple-600"
+                              onClick={() => openPromotionModal(cls)}
+                              title="Promote students to next grade"
+                            >
+                              <ArrowUpCircle className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => openModal(cls)}>
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -413,6 +505,79 @@ const ClassesView = ({ role, currentUser }) => {
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
               {editingClass ? 'Update' : 'Create Class'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promotion Modal */}
+      <Dialog open={isPromotionModalOpen} onOpenChange={setIsPromotionModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowUpCircle className="h-5 w-5 text-purple-600" />
+              Promote Students
+            </DialogTitle>
+            <DialogDescription>
+              Move all students from {promotionClass?.name} to the next grade level
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <p className="text-sm text-purple-800">
+                <strong>Current Class:</strong> {promotionClass?.name}
+              </p>
+              <p className="text-sm text-purple-800">
+                <strong>Students to promote:</strong> {promotionClass?.student_count || 0}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Target Class (Next Grade)</Label>
+              <Select value={targetClass} onValueChange={setTargetClass}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose next year's class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getNextGradeClasses(promotionClass).map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>
+                      {cls.name} ({cls.grade?.name}) - {cls.student_count} students
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {promotionClass && getNextGradeClasses(promotionClass).length === 0 && (
+                <p className="text-sm text-amber-600">
+                  No classes found in the next grade. This may be the highest grade.
+                </p>
+              )}
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                <strong>⚠️ Warning:</strong> This will move ALL students from {promotionClass?.name} to the selected class. 
+                This action is typically done at the end of the school year.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPromotionModalOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={handlePromoteStudents} 
+              className="bg-purple-600 hover:bg-purple-700"
+              disabled={!targetClass || promoting}
+            >
+              {promoting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Promoting...
+                </>
+              ) : (
+                <>
+                  <ArrowUpCircle className="h-4 w-4 mr-2" />
+                  Promote Students
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

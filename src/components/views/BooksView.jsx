@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, BookMarked, Package, DollarSign, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, BookMarked, Package, DollarSign, Search, Filter, AlertTriangle, School } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -17,7 +17,9 @@ const BooksView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const [books, setBooks] = useState([]);
   const [grades, setGrades] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [gradeRequirements, setGradeRequirements] = useState([]);
+  const [classRequirements, setClassRequirements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -43,6 +45,11 @@ const BooksView = ({ role, currentUser }) => {
   const [selectedGrade, setSelectedGrade] = useState(null);
   const [selectedBooks, setSelectedBooks] = useState([]);
   const [academicYear, setAcademicYear] = useState('2024-2025');
+
+  // Class Requirements Modal State
+  const [isClassRequirementsModalOpen, setIsClassRequirementsModalOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [selectedClassBooks, setSelectedClassBooks] = useState([]);
 
   const categories = [
     { value: 'textbook', label: 'Textbook' },
@@ -99,6 +106,26 @@ const BooksView = ({ role, currentUser }) => {
         `);
       if (reqError) throw reqError;
       setGradeRequirements(reqData || []);
+
+      // Load classes
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select('*, grade:grades(id, name)')
+        .order('name');
+      if (classesError) throw classesError;
+      setClasses(classesData || []);
+
+      // Load class book requirements
+      const { data: classReqData, error: classReqError } = await supabase
+        .from('class_book_requirements')
+        .select(`
+          *,
+          class:classes(id, name),
+          book:books(id, title, price)
+        `);
+      if (!classReqError) {
+        setClassRequirements(classReqData || []);
+      }
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -273,6 +300,74 @@ const BooksView = ({ role, currentUser }) => {
       .reduce((sum, r) => sum + (r.book?.price || 0), 0);
   };
 
+  // Class Requirements Functions
+  const openClassRequirementsModal = (cls) => {
+    setSelectedClass(cls);
+    const currentReqs = classRequirements
+      .filter(r => r.class_id === cls.id && r.academic_year === academicYear)
+      .map(r => r.book_id);
+    setSelectedClassBooks(currentReqs);
+    setIsClassRequirementsModalOpen(true);
+  };
+
+  const toggleClassBookRequirement = (bookId) => {
+    setSelectedClassBooks(prev => 
+      prev.includes(bookId)
+        ? prev.filter(id => id !== bookId)
+        : [...prev, bookId]
+    );
+  };
+
+  const handleSaveClassRequirements = async () => {
+    if (!selectedClass) return;
+
+    try {
+      // Delete existing requirements for this class/year
+      const { error: deleteError } = await supabase
+        .from('class_book_requirements')
+        .delete()
+        .eq('class_id', selectedClass.id)
+        .eq('academic_year', academicYear);
+      if (deleteError) throw deleteError;
+
+      // Insert new requirements
+      if (selectedClassBooks.length > 0) {
+        const newReqs = selectedClassBooks.map(bookId => ({
+          class_id: selectedClass.id,
+          book_id: bookId,
+          academic_year: academicYear,
+          is_required: true
+        }));
+
+        const { error: insertError } = await supabase
+          .from('class_book_requirements')
+          .insert(newReqs);
+        if (insertError) throw insertError;
+      }
+
+      toast({ title: 'Success', description: 'Class book requirements updated' });
+      setIsClassRequirementsModalOpen(false);
+      loadData();
+    } catch (error) {
+      console.error('Error saving class requirements:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save class requirements' });
+    }
+  };
+
+  // Get books for a class
+  const getClassBooks = (classId) => {
+    return classRequirements
+      .filter(r => r.class_id === classId && r.academic_year === academicYear)
+      .map(r => r.book);
+  };
+
+  // Calculate total cost for a class
+  const getClassTotalCost = (classId) => {
+    return classRequirements
+      .filter(r => r.class_id === classId && r.academic_year === academicYear)
+      .reduce((sum, r) => sum + (r.book?.price || 0), 0);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -347,6 +442,7 @@ const BooksView = ({ role, currentUser }) => {
       <Tabs defaultValue="catalog" className="space-y-4">
         <TabsList>
           <TabsTrigger value="catalog">Book Catalog</TabsTrigger>
+          <TabsTrigger value="class-requirements">Class Requirements</TabsTrigger>
           <TabsTrigger value="requirements">Grade Requirements</TabsTrigger>
           <TabsTrigger value="lowstock">Low Stock ({lowStockBooks.length})</TabsTrigger>
         </TabsList>
@@ -429,6 +525,69 @@ const BooksView = ({ role, currentUser }) => {
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Class Requirements Tab */}
+        <TabsContent value="class-requirements">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Class Book Requirements</CardTitle>
+                  <CardDescription>Set specific books for each class</CardDescription>
+                </div>
+                <Select value={academicYear} onValueChange={setAcademicYear}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2024-2025">2024-2025</SelectItem>
+                    <SelectItem value="2025-2026">2025-2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {classes.map((cls) => {
+                  const classBooks = getClassBooks(cls.id);
+                  const totalCost = getClassTotalCost(cls.id);
+                  return (
+                    <div key={cls.id} className="p-4 border rounded-lg hover:bg-slate-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <School className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg">{cls.name}</h3>
+                            <p className="text-sm text-slate-500">
+                              {cls.grade?.name} • {classBooks.length} books • Total: ${totalCost.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="outline" onClick={() => openClassRequirementsModal(cls)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Books
+                        </Button>
+                      </div>
+                      {classBooks.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {classBooks.map((book) => book && (
+                            <Badge key={book.id} variant="secondary" className="text-sm">
+                              {book.title} - ${book.price?.toFixed(2)}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">No books assigned yet - will use grade defaults</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -689,6 +848,63 @@ const BooksView = ({ role, currentUser }) => {
             <Button variant="outline" onClick={() => setIsRequirementsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveRequirements} className="bg-blue-600 hover:bg-blue-700">
               Save Requirements
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Class Requirements Modal */}
+      <Dialog open={isClassRequirementsModalOpen} onOpenChange={setIsClassRequirementsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedClass?.name} - Book Requirements
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-500 mb-4">
+              Select the books required for class {selectedClass?.name} ({academicYear})
+            </p>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {books.map((book) => (
+                <div
+                  key={book.id}
+                  onClick={() => toggleClassBookRequirement(book.id)}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedClassBooks.includes(book.id)
+                      ? 'bg-blue-50 border-blue-300'
+                      : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{book.title}</p>
+                      <p className="text-sm text-slate-500">{book.category} • {book.subject}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">${book.price.toFixed(2)}</p>
+                      {selectedClassBooks.includes(book.id) && (
+                        <Badge className="bg-blue-600">Selected</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-slate-100 rounded-lg">
+              <p className="font-medium">
+                Total: {selectedClassBooks.length} books • $
+                {books
+                  .filter(b => selectedClassBooks.includes(b.id))
+                  .reduce((sum, b) => sum + b.price, 0)
+                  .toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsClassRequirementsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveClassRequirements} className="bg-blue-600 hover:bg-blue-700">
+              Save Class Requirements
             </Button>
           </DialogFooter>
         </DialogContent>
