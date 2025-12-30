@@ -452,13 +452,13 @@ const ClassesView = ({ role, currentUser }) => {
               <Label>Hebrew Teacher</Label>
               <Select 
                 value={formData.hebrew_teacher_id} 
-                onValueChange={(v) => setFormData({ ...formData, hebrew_teacher_id: v })}
+                onValueChange={(v) => setFormData({ ...formData, hebrew_teacher_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Hebrew teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not assigned</SelectItem>
+                  <SelectItem value="none">Not assigned</SelectItem>
                   {hebrewTeachers.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.first_name} {t.last_name}
@@ -472,13 +472,13 @@ const ClassesView = ({ role, currentUser }) => {
               <Label>English Teacher</Label>
               <Select 
                 value={formData.english_teacher_id} 
-                onValueChange={(v) => setFormData({ ...formData, english_teacher_id: v })}
+                onValueChange={(v) => setFormData({ ...formData, english_teacher_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select English teacher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not assigned</SelectItem>
+                  <SelectItem value="none">Not assigned</SelectItem>
                   {englishTeachers.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.first_name} {t.last_name}

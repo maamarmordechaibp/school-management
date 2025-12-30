@@ -245,12 +245,12 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="class_id">Class</Label>
-                <Select value={formData.class_id} onValueChange={(val) => setFormData({ ...formData, class_id: val })}>
+                <Select value={formData.class_id || 'none'} onValueChange={(val) => setFormData({ ...formData, class_id: val === 'none' ? null : val })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Class" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Class</SelectItem>
+                    <SelectItem value="none">No Class</SelectItem>
                     {classesList.map((cls) => (
                       <SelectItem key={cls.id} value={cls.id}>
                         {cls.name} {cls.grade?.name ? `(${cls.grade.name})` : ''}

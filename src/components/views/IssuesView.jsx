@@ -511,12 +511,12 @@ const IssuesView = ({ role, currentUser }) => {
               </div>
               <div className="space-y-2">
                 <Label>Assign To</Label>
-                <Select value={issueForm.assigned_to} onValueChange={(v) => setIssueForm({ ...issueForm, assigned_to: v })}>
+                <Select value={issueForm.assigned_to || 'none'} onValueChange={(v) => setIssueForm({ ...issueForm, assigned_to: v === 'none' ? null : v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="none">Unassigned</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>
                         {u.first_name} {u.last_name} ({u.role})

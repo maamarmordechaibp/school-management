@@ -503,12 +503,12 @@ const MeetingsView = ({ role, currentUser }) => {
 
             <div className="space-y-2">
               <Label>Student (optional)</Label>
-              <Select value={formData.student_id} onValueChange={(v) => setFormData({ ...formData, student_id: v })}>
+              <Select value={formData.student_id || 'none'} onValueChange={(v) => setFormData({ ...formData, student_id: v === 'none' ? null : v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select student" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No specific student</SelectItem>
+                  <SelectItem value="none">No specific student</SelectItem>
                   {students.map(s => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.first_name} {s.last_name} {s.class?.name ? `(${s.class.name})` : ''}
