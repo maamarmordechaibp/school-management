@@ -89,7 +89,7 @@ const RemindersView = ({ role, currentUser }) => {
     const { data } = await supabase
       .from('students')
       .select('id, first_name, last_name, hebrew_name')
-      .eq('is_active', true)
+      .eq('status', 'active')
       .order('last_name');
     setStudents(data || []);
   };

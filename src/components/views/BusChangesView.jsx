@@ -63,7 +63,7 @@ const BusChangesView = ({ role, currentUser }) => {
           original_bus:bus_routes!original_bus_id(route_name, route_number),
           new_bus:bus_routes!new_bus_id(route_name, route_number)
         `).gte('change_date', selectedDate).order('change_date', { ascending: true }),
-        supabase.from('students').select('id, first_name, last_name, hebrew_name, class_id, class:classes!class_id(name)').eq('is_active', true).order('last_name')
+        supabase.from('students').select('id, first_name, last_name, hebrew_name, class_id, class:classes!class_id(name)').eq('status', 'active').order('last_name')
       ]);
 
       setBusRoutes(routesRes.data || []);

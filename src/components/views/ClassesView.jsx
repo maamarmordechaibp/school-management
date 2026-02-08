@@ -24,8 +24,8 @@ const ClassesView = ({ role, currentUser }) => {
   const [formData, setFormData] = useState({
     name: '',
     grade_id: '',
-    hebrew_staff_id: '',
-    english_staff_id: '',
+    hebrew_teacher_id: '',
+    english_teacher_id: '',
     academic_year: '2024-2025',
     is_active: true
   });
@@ -49,8 +49,8 @@ const ClassesView = ({ role, currentUser }) => {
         .select(`
           *,
           grade:grades(id, name, grade_number),
-          hebrew_staff:staff_members!hebrew_staff_id(id, first_name, last_name, position),
-          english_staff:staff_members!english_staff_id(id, first_name, last_name, position),
+          hebrew_teacher:app_users!hebrew_teacher_id(id, first_name, last_name),
+          english_teacher:app_users!english_teacher_id(id, first_name, last_name),
           students:students!class_id(id)
         `)
         .order('name');
@@ -107,15 +107,15 @@ const ClassesView = ({ role, currentUser }) => {
       setFormData({
         name: cls.name || '',
         grade_id: cls.grade_id || '',
-        hebrew_staff_id: cls.hebrew_staff_id || '',
-        english_staff_id: cls.english_staff_id || '',
+        hebrew_teacher_id: cls.hebrew_teacher_id || '',
+        english_teacher_id: cls.english_teacher_id || '',
         academic_year: cls.academic_year || '2024-2025',
         is_active: cls.is_active !== false
       });
     } else {
       setEditingClass(null);
       setFormData({
-        name: '', grade_id: '', hebrew_staff_id: '', english_staff_id: '',
+        name: '', grade_id: '', hebrew_teacher_id: '', english_teacher_id: '',
         academic_year: '2024-2025', is_active: true
       });
     }
@@ -132,8 +132,8 @@ const ClassesView = ({ role, currentUser }) => {
       const payload = {
         name: formData.name,
         grade_id: formData.grade_id,
-        hebrew_staff_id: formData.hebrew_staff_id || null,
-        english_staff_id: formData.english_staff_id || null,
+        hebrew_teacher_id: formData.hebrew_teacher_id || null,
+        english_teacher_id: formData.english_teacher_id || null,
         academic_year: formData.academic_year,
         is_active: formData.is_active
       };
@@ -451,8 +451,8 @@ const ClassesView = ({ role, currentUser }) => {
             <div className="space-y-2">
               <Label>Hebrew Teacher ({hebrewTeachers.length} available)</Label>
               <Select 
-                value={formData.hebrew_staff_id || 'none'} 
-                onValueChange={(v) => setFormData({ ...formData, hebrew_staff_id: v === 'none' ? '' : v })}
+                value={formData.hebrew_teacher_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, hebrew_teacher_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Hebrew teacher" />
@@ -475,8 +475,8 @@ const ClassesView = ({ role, currentUser }) => {
             <div className="space-y-2">
               <Label>English Teacher ({englishTeachers.length} available)</Label>
               <Select 
-                value={formData.english_staff_id || 'none'} 
-                onValueChange={(v) => setFormData({ ...formData, english_staff_id: v === 'none' ? '' : v })}
+                value={formData.english_teacher_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, english_teacher_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select English teacher" />

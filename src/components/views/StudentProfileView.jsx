@@ -147,7 +147,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
           const [sources, evals, tutoring] = await Promise.all([
             supabase.from('special_ed_info_sources').select('*').eq('special_ed_student_id', sedData.id).order('created_at', { ascending: false }),
             supabase.from('special_ed_evaluations').select('*').eq('special_ed_student_id', sedData.id).order('evaluation_date', { ascending: false }),
-            supabase.from('special_ed_tutoring').select('*, tutor:special_ed_staff(first_name, last_name, hebrew_name)').eq('special_ed_student_id', sedData.id).eq('is_active', true)
+            supabase.from('special_ed_tutoring').select('*, tutor:special_ed_staff(name, hebrew_name)').eq('special_ed_student_id', sedData.id).eq('is_active', true)
           ]);
           setSpecialEdData({
             ...sedData,
@@ -1479,7 +1479,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="font-medium">
-                              {t.tutor?.hebrew_name || `${t.tutor?.first_name} ${t.tutor?.last_name}`}
+                              {t.tutor?.hebrew_name || t.tutor?.name || t.tutor_name}
                             </p>
                             <p className="text-sm text-slate-600">{t.subject}</p>
                           </div>

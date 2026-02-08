@@ -75,8 +75,8 @@ const ClassDetailView = ({ role, currentUser }) => {
         .select(`
           *,
           grade:grades(id, name, grade_number),
-          hebrew_staff:staff_members!hebrew_staff_id(id, first_name, last_name, hebrew_name),
-          english_staff:staff_members!english_staff_id(id, first_name, last_name),
+          hebrew_staff:app_users!hebrew_teacher_id(id, first_name, last_name),
+          english_staff:app_users!english_teacher_id(id, first_name, last_name),
           students:students!class_id(id)
         `)
         .eq('is_active', true)
@@ -99,7 +99,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           class:classes!class_id(name, grade:grades(name))
         `)
         .eq('class_id', classId)
-        .eq('is_active', true)
+        .eq('status', 'active')
         .order('last_name');
       setStudents(studentsData || []);
 
@@ -261,7 +261,7 @@ const ClassDetailView = ({ role, currentUser }) => {
                   {cls.hebrew_staff && (
                     <div className="flex justify-between">
                       <span>מלמד:</span>
-                      <span>{cls.hebrew_staff.hebrew_name || `${cls.hebrew_staff.first_name} ${cls.hebrew_staff.last_name}`}</span>
+                      <span>{cls.hebrew_staff.first_name} {cls.hebrew_staff.last_name}</span>
                     </div>
                   )}
                   {cls.english_staff && (
@@ -292,7 +292,7 @@ const ClassDetailView = ({ role, currentUser }) => {
             <h1 className="text-2xl font-bold text-slate-800">כיתה {selectedClass.name}</h1>
             <p className="text-slate-500">
               {selectedClass.grade?.name} | {students.length} תלמידים
-              {selectedClass.hebrew_staff && ` | מלמד: ${selectedClass.hebrew_staff.hebrew_name || selectedClass.hebrew_staff.first_name}`}
+              {selectedClass.hebrew_staff && ` | מלמד: ${selectedClass.hebrew_staff.first_name} ${selectedClass.hebrew_staff.last_name}`}
             </p>
           </div>
         </div>

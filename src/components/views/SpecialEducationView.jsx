@@ -171,7 +171,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
       const { data: studentsData } = await supabase
         .from('students')
         .select('id, first_name, last_name, hebrew_name, class_id, class:classes!class_id(name)')
-        .eq('is_active', true)
+        .eq('status', 'active')
         .order('last_name');
       setAllStudents(studentsData || []);
 
