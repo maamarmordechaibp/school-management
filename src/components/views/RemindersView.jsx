@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { sendEmail } from '@/lib/emailService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -124,19 +125,28 @@ const RemindersView = ({ role, currentUser }) => {
         toast({ title: 'Added', description: 'Reminder has been added' });
       }
 
-      // If send_email is on, log the email
+      // If send_email is on, send via Resend and log the email
       if (form.send_email && form.email_recipients) {
-        await supabase.from('email_log').insert([{
-          to_addresses: form.email_recipients.split(',').map(e => e.trim()),
-          subject: `Reminder: ${form.title}`,
-          body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`,
-          related_type: 'reminder',
-          sent_by: currentUser?.id,
-          sent_by_name: currentUser?.name || currentUser?.first_name,
-        }]);
-        // Open mailto
-        const mailtoLink = `mailto:${form.email_recipients}?subject=${encodeURIComponent('Reminder: ' + form.title)}&body=${encodeURIComponent(form.description || form.title)}`;
-        window.open(mailtoLink);
+        try {
+          const recipients = form.email_recipients.split(',').map(e => e.trim());
+          await sendEmail({
+            to: recipients,
+            subject: `Reminder: ${form.title}`,
+            body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`
+          });
+          await supabase.from('email_log').insert([{
+            to_addresses: recipients,
+            subject: `Reminder: ${form.title}`,
+            body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`,
+            related_type: 'reminder',
+            sent_by: currentUser?.id,
+            sent_by_name: currentUser?.name || currentUser?.first_name,
+          }]);
+          toast({ title: 'Email Sent', description: `Reminder email sent to ${recipients.length} recipient(s)` });
+        } catch (emailErr) {
+          console.error('Failed to send reminder email:', emailErr);
+          toast({ variant: 'destructive', title: 'Email Failed', description: emailErr.message || 'Could not send reminder email' });
+        }
       }
 
       setIsModalOpen(false);

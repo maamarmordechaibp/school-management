@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { sendEmail } from '@/lib/emailService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,34 +62,49 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
 
     setSending(true);
     try {
-      // Log the email in the system
-      const { error } = await supabase.from('email_log').insert([{
-        recipients: validRecipients,
+      // Send email via Resend API
+      const result = await sendEmail({
+        to: validRecipients,
         subject: formData.subject,
-        body: formData.body,
-        related_type: relatedType || null,
-        related_id: relatedId || null,
-        sent_by: currentUser?.id,
-        status: 'sent'
-      }]);
+        body: formData.body
+      });
 
-      if (error) throw error;
+      // Log the email in the system
+      try {
+        await supabase.from('email_log').insert([{
+          recipients: validRecipients,
+          subject: formData.subject,
+          body: formData.body,
+          related_type: relatedType || null,
+          related_id: relatedId || null,
+          sent_by: currentUser?.id,
+          status: 'sent'
+        }]);
+      } catch (logErr) {
+        console.warn('Failed to log email:', logErr);
+      }
 
-      // In a production environment, you would call an edge function to actually send the email
-      // For now, we log it and construct a mailto link as fallback
-      const mailtoLink = `mailto:${validRecipients.join(',')}?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(formData.body)}`;
-      window.open(mailtoLink, '_blank');
-
-      toast({ title: 'Email', description: `Email is ready to send to ${validRecipients.length} recipients` });
+      toast({ title: 'Email Sent', description: `Email sent successfully to ${validRecipients.length} recipient(s)` });
       onClose();
     } catch (error) {
-      console.error('Error logging email:', error);
-      // Even if DB logging fails, still open mailto
-      const validRecipients = formData.recipients.filter(r => r.trim() && r.includes('@'));
-      const mailtoLink = `mailto:${validRecipients.join(',')}?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(formData.body)}`;
-      window.open(mailtoLink, '_blank');
-      toast({ title: 'Email', description: 'Email opened in your email program' });
-      onClose();
+      console.error('Error sending email:', error);
+
+      // Log failure
+      try {
+        await supabase.from('email_log').insert([{
+          recipients: validRecipients,
+          subject: formData.subject,
+          body: formData.body,
+          related_type: relatedType || null,
+          related_id: relatedId || null,
+          sent_by: currentUser?.id,
+          status: 'failed'
+        }]);
+      } catch (logErr) {
+        console.warn('Failed to log email failure:', logErr);
+      }
+
+      toast({ variant: 'destructive', title: 'Email Failed', description: error.message || 'Failed to send email. Please try again.' });
     } finally {
       setSending(false);
     }
