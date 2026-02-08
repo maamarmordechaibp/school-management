@@ -20,55 +20,55 @@ import {
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
-  { value: 'monitoring', label: 'מאניטארינג', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'referral_pending', label: 'ווארט אויף בדיקה', color: 'bg-orange-100 text-orange-800' },
-  { value: 'being_evaluated', label: 'ווערט בודק', color: 'bg-blue-100 text-blue-800' },
-  { value: 'has_plan', label: 'האט א פלאן', color: 'bg-purple-100 text-purple-800' },
-  { value: 'receiving_services', label: 'באקומט הילף', color: 'bg-green-100 text-green-800' },
-  { value: 'discharged', label: 'פארטיג', color: 'bg-gray-100 text-gray-800' },
+  { value: 'monitoring', label: 'Monitoring', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'referral_pending', label: 'Referral Pending', color: 'bg-orange-100 text-orange-800' },
+  { value: 'being_evaluated', label: 'Being Evaluated', color: 'bg-blue-100 text-blue-800' },
+  { value: 'has_plan', label: 'Has Plan', color: 'bg-purple-100 text-purple-800' },
+  { value: 'receiving_services', label: 'Receiving Services', color: 'bg-green-100 text-green-800' },
+  { value: 'discharged', label: 'Discharged', color: 'bg-gray-100 text-gray-800' },
 ];
 
 const HELP_TYPES = [
-  { value: 'speech', label: 'שפראך טעראפיע' },
-  { value: 'OT', label: 'OT - אקיופעישענאל טעראפיע' },
-  { value: 'PT', label: 'PT - פיזיקאל טעראפיע' },
-  { value: 'behavioral', label: 'ביהייוויער' },
-  { value: 'academic', label: 'לערנען הילף' },
-  { value: 'social_skills', label: 'סאשיאל סקילס' },
-  { value: 'reading', label: 'לייענען' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'speech', label: 'Speech Therapy' },
+  { value: 'OT', label: 'OT - Occupational Therapy' },
+  { value: 'PT', label: 'PT - Physical Therapy' },
+  { value: 'behavioral', label: 'Behavioral' },
+  { value: 'academic', label: 'Academic Support' },
+  { value: 'social_skills', label: 'Social Skills' },
+  { value: 'reading', label: 'Reading' },
+  { value: 'other', label: 'Other' },
 ];
 
 const SOURCE_TYPES = [
-  { value: 'principal', label: 'מנהל' },
-  { value: 'teacher', label: 'מלמד' },
-  { value: 'parent', label: 'עלטערן' },
-  { value: 'private_tutor', label: 'פריוואטע מלמד' },
-  { value: 'therapist', label: 'טעראפיסט' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'principal', label: 'Principal' },
+  { value: 'teacher', label: 'Teacher' },
+  { value: 'parent', label: 'Parent' },
+  { value: 'private_tutor', label: 'Private Tutor' },
+  { value: 'therapist', label: 'Therapist' },
+  { value: 'other', label: 'Other' },
 ];
 
 const EVAL_TYPES = [
-  { value: 'psychoeducational', label: 'פסיכא-עדיוקעישאנאל' },
-  { value: 'speech', label: 'שפראך' },
+  { value: 'psychoeducational', label: 'Psychoeducational' },
+  { value: 'speech', label: 'Speech' },
   { value: 'OT', label: 'OT' },
-  { value: 'behavioral', label: 'ביהייוויער' },
-  { value: 'academic', label: 'אקאדעמיש' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'behavioral', label: 'Behavioral' },
+  { value: 'academic', label: 'Academic' },
+  { value: 'other', label: 'Other' },
 ];
 
 const STAFF_ROLES = [
-  { value: 'coordinator', label: 'קאארדינאטאר' },
-  { value: 'psychologist', label: 'פסיכאלאגיסט' },
-  { value: 'speech_therapist', label: 'שפראך טעראפיסט' },
-  { value: 'OT', label: 'OT טעראפיסט' },
-  { value: 'PT', label: 'PT טעראפיסט' },
-  { value: 'resource_teacher', label: 'ריסורס מלמד' },
-  { value: 'aide', label: 'עוזר/הילף' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'coordinator', label: 'Coordinator' },
+  { value: 'psychologist', label: 'Psychologist' },
+  { value: 'speech_therapist', label: 'Speech Therapist' },
+  { value: 'OT', label: 'OT Therapist' },
+  { value: 'PT', label: 'PT Therapist' },
+  { value: 'resource_teacher', label: 'Resource Teacher' },
+  { value: 'aide', label: 'Aide' },
+  { value: 'other', label: 'Other' },
 ];
 
-const DAYS = ['זונטאג', 'מאנטאג', 'דינסטאג', 'מיטוואך', 'דאנערשטאג', 'פרייטאג', 'שבת'];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'];
 
 const SpecialEducationView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -449,23 +449,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6" dir="ltr">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">חינוך מיוחד</h1>
-          <p className="text-slate-500">ניהול חינוך מיוחד - תלמידים, סטעף, בדיקות, און פלענער</p>
+          <h1 className="text-2xl font-bold text-slate-800">Special Education</h1>
+          <p className="text-slate-500">Special Education Management - Students, Staff, Evaluations, and Plans</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadData}>
-            <RefreshCw className="h-4 w-4 ml-2" /> רענו
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
           </Button>
           <Button onClick={() => {
             setSelectedSpecEd(null);
             setStudentForm({ student_id: '', status: 'monitoring', referral_reason: '', help_type: '', help_description: '', current_plan: '', referral_date: new Date().toISOString().split('T')[0] });
             setIsStudentModalOpen(true);
           }} className="bg-orange-600 hover:bg-orange-700">
-            <Plus className="h-4 w-4 ml-2" /> צולייגן תלמיד
+            <Plus className="h-4 w-4 mr-2" /> Add Student
           </Button>
         </div>
       </div>
@@ -475,25 +475,25 @@ const SpecialEducationView = ({ role, currentUser }) => {
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-orange-100 rounded-lg"><Users className="h-6 w-6 text-orange-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.total}</p><p className="text-sm text-slate-500">סה״כ תלמידים</p></div>
+            <div><p className="text-2xl font-bold">{stats.total}</p><p className="text-sm text-slate-500">Total Students</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-yellow-100 rounded-lg"><AlertCircle className="h-6 w-6 text-yellow-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.monitoring}</p><p className="text-sm text-slate-500">מאניטארינג</p></div>
+            <div><p className="text-2xl font-bold">{stats.monitoring}</p><p className="text-sm text-slate-500">Monitoring</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg"><ClipboardList className="h-6 w-6 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.pendingEval}</p><p className="text-sm text-slate-500">ווארט/ווערט בודק</p></div>
+            <div><p className="text-2xl font-bold">{stats.pendingEval}</p><p className="text-sm text-slate-500">Pending / Being Evaluated</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-lg"><UserCheck className="h-6 w-6 text-green-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.active}</p><p className="text-sm text-slate-500">באקומט הילף</p></div>
+            <div><p className="text-2xl font-bold">{stats.active}</p><p className="text-sm text-slate-500">Receiving Services</p></div>
           </CardContent>
         </Card>
       </div>
@@ -501,9 +501,9 @@ const SpecialEducationView = ({ role, currentUser }) => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="students">תלמידים ({specEdStudents.length})</TabsTrigger>
-          <TabsTrigger value="staff">סטעף ({specEdStaff.length})</TabsTrigger>
-          <TabsTrigger value="overview">איבערבליק</TabsTrigger>
+          <TabsTrigger value="students">Students ({specEdStudents.length})</TabsTrigger>
+          <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
         {/* ===== STUDENTS TAB ===== */}
@@ -511,13 +511,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
           {/* Search & Filter */}
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input placeholder="זוך תלמיד..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pr-10" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="סטאטוס" /></SelectTrigger>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">אלע סטאטוסן</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -542,7 +542,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           {specEd.student?.hebrew_name || `${specEd.student?.first_name} ${specEd.student?.last_name}`}
                         </h3>
                         <p className="text-sm text-slate-500">
-                          {specEd.student?.class?.name || 'אהן קלאס'} | {specEd.help_type ? HELP_TYPES.find(h => h.value === specEd.help_type)?.label : 'N/A'}
+                          {specEd.student?.class?.name || 'No Class'} | {specEd.help_type ? HELP_TYPES.find(h => h.value === specEd.help_type)?.label : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -561,7 +561,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                   {specEd.referral_reason && (
                     <div className="px-4 pb-2">
                       <p className="text-sm text-orange-700 bg-orange-50 p-2 rounded">
-                        <strong>סיבה/זארג:</strong> {specEd.referral_reason}
+                        <strong>Reason/Concern:</strong> {specEd.referral_reason}
                       </p>
                     </div>
                   )}
@@ -585,7 +585,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           });
                           setIsStudentModalOpen(true);
                         }}>
-                          <Edit className="h-4 w-4 ml-1" /> עדיט סטאטוס
+                          <Edit className="h-4 w-4 mr-1" /> Edit Status
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
@@ -593,7 +593,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           setInfoForm({ source_type: 'teacher', source_name: '', content: '', date_gathered: new Date().toISOString().split('T')[0] });
                           setIsInfoModalOpen(true);
                         }}>
-                          <FileText className="h-4 w-4 ml-1" /> צולייגן אינפארמאציע
+                          <FileText className="h-4 w-4 mr-1" /> Add Information
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
@@ -601,7 +601,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           setEvalForm({ evaluation_type: 'psychoeducational', evaluator_name: '', evaluation_date: new Date().toISOString().split('T')[0], results: '', recommendations: '', plan: '', actual_actions: '' });
                           setIsEvalModalOpen(true);
                         }}>
-                          <ClipboardList className="h-4 w-4 ml-1" /> צולייגן בדיקה
+                          <ClipboardList className="h-4 w-4 mr-1" /> Add Evaluation
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
@@ -609,7 +609,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           setTutoringForm({ tutor_name: '', tutor_phone: '', tutor_type: 'private_teacher', subject: '', schedule_days: '', schedule_time: '', location: '', frequency: 'weekly', session_duration_minutes: 45, notes: '', start_date: new Date().toISOString().split('T')[0] });
                           setIsTutoringModalOpen(true);
                         }}>
-                          <BookOpen className="h-4 w-4 ml-1" /> צולייגן מלמד פרטי
+                          <BookOpen className="h-4 w-4 mr-1" /> Add Private Tutor
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
@@ -617,23 +617,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           setSessionForm({ special_ed_staff_id: '', tutor_name: '', session_date: new Date().toISOString().split('T')[0], session_time: '', duration_minutes: 30, subject: '', content: '', progress_notes: '', goals_worked_on: '' });
                           setIsSessionLogModalOpen(true);
                         }}>
-                          <Calendar className="h-4 w-4 ml-1" /> לאג סעסיע
+                          <Calendar className="h-4 w-4 mr-1" /> Log Session
                         </Button>
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
                           openSendEmail(
-                            `חינוך מיוחד אפדעיט - ${specEd.student?.hebrew_name || specEd.student?.first_name}`,
-                            `עס איז דא א נייע אפדעיט וועגן ${specEd.student?.hebrew_name || specEd.student?.first_name} ${specEd.student?.last_name}\n\nסטאטוס: ${STATUS_OPTIONS.find(s => s.value === specEd.status)?.label}\n${specEd.referral_reason ? `סיבה: ${specEd.referral_reason}` : ''}`
+                            `Special Education Update - ${specEd.student?.hebrew_name || specEd.student?.first_name}`,
+                            `There is a new update regarding ${specEd.student?.hebrew_name || specEd.student?.first_name} ${specEd.student?.last_name}\n\nStatus: ${STATUS_OPTIONS.find(s => s.value === specEd.status)?.label}\n${specEd.referral_reason ? `Reason: ${specEd.referral_reason}` : ''}`
                           );
                         }}>
-                          <Mail className="h-4 w-4 ml-1" /> שיק אימעיל
+                          <Mail className="h-4 w-4 mr-1" /> Send Email
                         </Button>
                       </div>
 
                       {/* Current Plan */}
                       {specEd.current_plan && (
                         <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                          <h4 className="font-semibold text-purple-800 mb-1">פלאן:</h4>
+                          <h4 className="font-semibold text-purple-800 mb-1">Plan:</h4>
                           <p className="text-sm text-purple-700">{specEd.current_plan}</p>
                         </div>
                       )}
@@ -641,7 +641,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Help Description */}
                       {specEd.help_description && (
                         <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <h4 className="font-semibold text-green-800 mb-1">הילף באשרייבונג:</h4>
+                          <h4 className="font-semibold text-green-800 mb-1">Help Description:</h4>
                           <p className="text-sm text-green-700">{specEd.help_description}</p>
                         </div>
                       )}
@@ -649,7 +649,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Info Sources */}
                       {detailData.infoSources.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">אינפארמאציע צוזאמגענומען ({detailData.infoSources.length})</h4>
+                          <h4 className="font-semibold text-slate-700 mb-2">Information Gathered ({detailData.infoSources.length})</h4>
                           <div className="space-y-2 max-h-48 overflow-y-auto">
                             {detailData.infoSources.map(info => (
                               <div key={info.id} className="p-3 bg-white rounded border text-sm">
@@ -657,7 +657,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                   <Badge variant="outline">{SOURCE_TYPES.find(s => s.value === info.source_type)?.label || info.source_type}</Badge>
                                   <span className="text-xs text-slate-400">{new Date(info.date_gathered).toLocaleDateString('he-IL')}</span>
                                 </div>
-                                {info.source_name && <p className="text-xs text-slate-500 mb-1">פון: {info.source_name}</p>}
+                                {info.source_name && <p className="text-xs text-slate-500 mb-1">From: {info.source_name}</p>}
                                 <p className="text-slate-700">{info.content}</p>
                               </div>
                             ))}
@@ -668,7 +668,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Evaluations */}
                       {detailData.evaluations.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">בדיקות ({detailData.evaluations.length})</h4>
+                          <h4 className="font-semibold text-slate-700 mb-2">Evaluations ({detailData.evaluations.length})</h4>
                           <div className="space-y-2 max-h-60 overflow-y-auto">
                             {detailData.evaluations.map(ev => (
                               <div key={ev.id} className="p-3 bg-white rounded border text-sm space-y-1">
@@ -676,11 +676,11 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                   <Badge variant="outline">{EVAL_TYPES.find(e => e.value === ev.evaluation_type)?.label || ev.evaluation_type}</Badge>
                                   <span className="text-xs text-slate-400">{ev.evaluation_date && new Date(ev.evaluation_date).toLocaleDateString('he-IL')}</span>
                                 </div>
-                                {ev.evaluator_name && <p className="text-xs text-slate-500">בודק: {ev.evaluator_name}</p>}
-                                {ev.results && <div className="bg-blue-50 p-2 rounded"><strong>תוצאה:</strong> {ev.results}</div>}
-                                {ev.recommendations && <div className="bg-yellow-50 p-2 rounded"><strong>הצעה:</strong> {ev.recommendations}</div>}
-                                {ev.plan && <div className="bg-green-50 p-2 rounded"><strong>פלאן:</strong> {ev.plan}</div>}
-                                {ev.actual_actions && <div className="bg-purple-50 p-2 rounded"><strong>פאקטישע אקציע:</strong> {ev.actual_actions}</div>}
+                                {ev.evaluator_name && <p className="text-xs text-slate-500">Evaluator: {ev.evaluator_name}</p>}
+                                {ev.results && <div className="bg-blue-50 p-2 rounded"><strong>Results:</strong> {ev.results}</div>}
+                                {ev.recommendations && <div className="bg-yellow-50 p-2 rounded"><strong>Recommendation:</strong> {ev.recommendations}</div>}
+                                {ev.plan && <div className="bg-green-50 p-2 rounded"><strong>Plan:</strong> {ev.plan}</div>}
+                                {ev.actual_actions && <div className="bg-purple-50 p-2 rounded"><strong>Actual Actions:</strong> {ev.actual_actions}</div>}
                               </div>
                             ))}
                           </div>
@@ -690,14 +690,14 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Tutoring */}
                       {detailData.tutoring.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">מלמדים פרטיים ({detailData.tutoring.length})</h4>
+                          <h4 className="font-semibold text-slate-700 mb-2">Private Tutors ({detailData.tutoring.length})</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {detailData.tutoring.map(t => (
                               <div key={t.id} className="p-3 bg-white rounded border text-sm">
                                 <p className="font-bold">{t.tutor_name}</p>
                                 {t.tutor_phone && <p className="text-slate-500">{t.tutor_phone}</p>}
                                 <p className="text-orange-600">{t.subject || 'N/A'} | {t.schedule_days} {t.schedule_time}</p>
-                                <p className="text-xs text-slate-400">{t.frequency} | {t.session_duration_minutes} מינוט</p>
+                                <p className="text-xs text-slate-400">{t.frequency} | {t.session_duration_minutes} min</p>
                               </div>
                             ))}
                           </div>
@@ -707,7 +707,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Session Logs */}
                       {detailData.sessionLogs.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">סעסיע לאגס ({detailData.sessionLogs.length})</h4>
+                          <h4 className="font-semibold text-slate-700 mb-2">Session Logs ({detailData.sessionLogs.length})</h4>
                           <div className="space-y-2 max-h-48 overflow-y-auto">
                             {detailData.sessionLogs.map(sess => (
                               <div key={sess.id} className="p-3 bg-white rounded border text-sm">
@@ -716,7 +716,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                   <span className="text-xs text-slate-400">{new Date(sess.session_date).toLocaleDateString('he-IL')}</span>
                                 </div>
                                 <p className="text-slate-600 mt-1">{sess.content}</p>
-                                {sess.progress_notes && <p className="text-green-600 text-xs mt-1">פראגרעס: {sess.progress_notes}</p>}
+                                {sess.progress_notes && <p className="text-green-600 text-xs mt-1">Progress: {sess.progress_notes}</p>}
                               </div>
                             ))}
                           </div>
@@ -731,7 +731,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
             {filteredStudents.length === 0 && (
               <div className="text-center py-12 text-slate-500">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>קיין תלמידים נישט געפונען</p>
+                <p>No students found</p>
               </div>
             )}
           </div>
@@ -740,13 +740,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
         {/* ===== STAFF TAB ===== */}
         <TabsContent value="staff" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">סטעף פון חינוך מיוחד</h3>
+            <h3 className="text-lg font-semibold">Special Education Staff</h3>
             <Button onClick={() => {
               setSelectedStaff(null);
               setStaffForm({ name: '', hebrew_name: '', role: 'resource_teacher', phone: '', email: '', specialization: '', certification: '', notes: '' });
               setIsStaffModalOpen(true);
             }}>
-              <Plus className="h-4 w-4 ml-2" /> צולייגן סטעף
+              <Plus className="h-4 w-4 mr-2" /> Add Staff
             </Button>
           </div>
 
@@ -783,7 +783,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       await loadStaffSchedules(staff.id);
                       setIsScheduleModalOpen(true);
                     }}>
-                      <Clock className="h-3 w-3 ml-1" /> צייטן
+                      <Clock className="h-3 w-3 mr-1" /> Schedule
                     </Button>
                   </div>
                 </CardContent>
@@ -794,7 +794,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
           {specEdStaff.length === 0 && (
             <div className="text-center py-12 text-slate-500">
               <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>קיין סטעף נישט צוגעלייגט</p>
+              <p>No staff added yet</p>
             </div>
           )}
         </TabsContent>
@@ -804,7 +804,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* By Status */}
             <Card>
-              <CardHeader><CardTitle>תלמידים לויט סטאטוס</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Students by Status</CardTitle></CardHeader>
               <CardContent>
                 {STATUS_OPTIONS.map(s => {
                   const count = specEdStudents.filter(se => se.status === s.value).length;
@@ -820,7 +820,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
             {/* By Help Type */}
             <Card>
-              <CardHeader><CardTitle>תלמידים לויט הילף טיפ</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Students by Help Type</CardTitle></CardHeader>
               <CardContent>
                 {HELP_TYPES.map(h => {
                   const count = specEdStudents.filter(se => se.help_type === h.value).length;
@@ -836,15 +836,15 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
             {/* Staff Schedule Overview */}
             <Card className="md:col-span-2">
-              <CardHeader><CardTitle>סטעף איבערבליק</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Staff Overview</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>נאמען</TableHead>
-                      <TableHead>ראלע</TableHead>
-                      <TableHead>טעלעפאן</TableHead>
-                      <TableHead>ספעציאליזאציע</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Specialization</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -868,23 +868,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
       {/* Student Modal */}
       <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedSpecEd ? 'עדיט תלמיד' : 'צולייגן תלמיד צו חינוך מיוחד'}</DialogTitle>
+            <DialogTitle>{selectedSpecEd ? 'Edit Student' : 'Add Student to Special Education'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>תלמיד *</Label>
+              <Label>Student *</Label>
               <StudentPicker
                 students={allStudents}
                 value={studentForm.student_id}
                 onChange={(id) => setStudentForm({ ...studentForm, student_id: id })}
-                placeholder="זוך תלמיד..."
+                placeholder="Search student..."
                 disabled={!!selectedSpecEd}
               />
             </div>
             <div>
-              <Label>סטאטוס</Label>
+              <Label>Status</Label>
               <Select value={studentForm.status} onValueChange={(v) => setStudentForm({ ...studentForm, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -893,51 +893,51 @@ const SpecialEducationView = ({ role, currentUser }) => {
               </Select>
             </div>
             <div>
-              <Label>סיבה / זארג (וואס מ'דארף בודק זיין)</Label>
-              <Textarea value={studentForm.referral_reason} onChange={(e) => setStudentForm({ ...studentForm, referral_reason: e.target.value })} placeholder="פארוואס דארף מען בודק זיין דעם קינד?" rows={3} />
+              <Label>Reason / Concern (what needs to be evaluated)</Label>
+              <Textarea value={studentForm.referral_reason} onChange={(e) => setStudentForm({ ...studentForm, referral_reason: e.target.value })} placeholder="Why does this child need to be evaluated?" rows={3} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>הילף טיפ</Label>
+                <Label>Help Type</Label>
                 <Select value={studentForm.help_type || 'none'} onValueChange={(v) => setStudentForm({ ...studentForm, help_type: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Choose..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">קיינס</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {HELP_TYPES.map(h => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>דאטום</Label>
+                <Label>Date</Label>
                 <Input type="date" value={studentForm.referral_date} onChange={(e) => setStudentForm({ ...studentForm, referral_date: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>באשרייבונג פון הילף</Label>
+              <Label>Help Description</Label>
               <Textarea value={studentForm.help_description} onChange={(e) => setStudentForm({ ...studentForm, help_description: e.target.value })} rows={2} />
             </div>
             <div>
-              <Label>פלאן</Label>
+              <Label>Plan</Label>
               <Textarea value={studentForm.current_plan} onChange={(e) => setStudentForm({ ...studentForm, current_plan: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsStudentModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveStudent} className="bg-orange-600 hover:bg-orange-700">{selectedSpecEd ? 'אפדעיט' : 'צולייגן'}</Button>
+            <Button variant="outline" onClick={() => setIsStudentModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveStudent} className="bg-orange-600 hover:bg-orange-700">{selectedSpecEd ? 'Update' : 'Add'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Info Source Modal */}
       <Dialog open={isInfoModalOpen} onOpenChange={setIsInfoModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>צולייגן אינפארמאציע</DialogTitle>
+            <DialogTitle>Add Information</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>מקור</Label>
+                <Label>Source</Label>
                 <Select value={infoForm.source_type} onValueChange={(v) => setInfoForm({ ...infoForm, source_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -946,36 +946,36 @@ const SpecialEducationView = ({ role, currentUser }) => {
                 </Select>
               </div>
               <div>
-                <Label>נאמען (אפציאנאל)</Label>
-                <Input value={infoForm.source_name} onChange={(e) => setInfoForm({ ...infoForm, source_name: e.target.value })} placeholder="נאמען פון מקור" />
+                <Label>Name (optional)</Label>
+                <Input value={infoForm.source_name} onChange={(e) => setInfoForm({ ...infoForm, source_name: e.target.value })} placeholder="Source name" />
               </div>
             </div>
             <div>
-              <Label>דאטום</Label>
+              <Label>Date</Label>
               <Input type="date" value={infoForm.date_gathered} onChange={(e) => setInfoForm({ ...infoForm, date_gathered: e.target.value })} />
             </div>
             <div>
-              <Label>אינפארמאציע *</Label>
-              <Textarea value={infoForm.content} onChange={(e) => setInfoForm({ ...infoForm, content: e.target.value })} rows={4} placeholder="וואס האט מען געזאגט / געפונען..." />
+              <Label>Information *</Label>
+              <Textarea value={infoForm.content} onChange={(e) => setInfoForm({ ...infoForm, content: e.target.value })} rows={4} placeholder="What was said / found..." />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInfoModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveInfoSource}>שמור</Button>
+            <Button variant="outline" onClick={() => setIsInfoModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveInfoSource}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Evaluation Modal */}
       <Dialog open={isEvalModalOpen} onOpenChange={setIsEvalModalOpen}>
-        <DialogContent className="max-w-2xl" dir="rtl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>צולייגן בדיקה תוצאות</DialogTitle>
+            <DialogTitle>Add Evaluation Results</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>טיפ בדיקה</Label>
+                <Label>Evaluation Type</Label>
                 <Select value={evalForm.evaluation_type} onValueChange={(v) => setEvalForm({ ...evalForm, evaluation_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -984,139 +984,139 @@ const SpecialEducationView = ({ role, currentUser }) => {
                 </Select>
               </div>
               <div>
-                <Label>בודק נאמען</Label>
+                <Label>Evaluator Name</Label>
                 <Input value={evalForm.evaluator_name} onChange={(e) => setEvalForm({ ...evalForm, evaluator_name: e.target.value })} />
               </div>
               <div>
-                <Label>דאטום</Label>
+                <Label>Date</Label>
                 <Input type="date" value={evalForm.evaluation_date} onChange={(e) => setEvalForm({ ...evalForm, evaluation_date: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>תוצאה (רעזולטס)</Label>
+              <Label>Results</Label>
               <Textarea value={evalForm.results} onChange={(e) => setEvalForm({ ...evalForm, results: e.target.value })} rows={3} />
             </div>
             <div>
-              <Label>הצעה (רעקאמענדעישאן)</Label>
+              <Label>Recommendations</Label>
               <Textarea value={evalForm.recommendations} onChange={(e) => setEvalForm({ ...evalForm, recommendations: e.target.value })} rows={3} />
             </div>
             <div>
-              <Label>פלאן</Label>
+              <Label>Plan</Label>
               <Textarea value={evalForm.plan} onChange={(e) => setEvalForm({ ...evalForm, plan: e.target.value })} rows={3} />
             </div>
             <div>
-              <Label>וואס מ'גייט פאקטיש טון</Label>
+              <Label>Actual Actions Planned</Label>
               <Textarea value={evalForm.actual_actions} onChange={(e) => setEvalForm({ ...evalForm, actual_actions: e.target.value })} rows={3} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEvalModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveEvaluation} className="bg-blue-600 hover:bg-blue-700">שמור בדיקה</Button>
+            <Button variant="outline" onClick={() => setIsEvalModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEvaluation} className="bg-blue-600 hover:bg-blue-700">Save Evaluation</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Tutoring Modal */}
       <Dialog open={isTutoringModalOpen} onOpenChange={setIsTutoringModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>צולייגן מלמד פרטי / טעראפיסט</DialogTitle>
+            <DialogTitle>Add Private Tutor / Therapist</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>נאמען *</Label>
+                <Label>Name *</Label>
                 <Input value={tutoringForm.tutor_name} onChange={(e) => setTutoringForm({ ...tutoringForm, tutor_name: e.target.value })} />
               </div>
               <div>
-                <Label>טעלעפאן</Label>
+                <Label>Phone</Label>
                 <Input value={tutoringForm.tutor_phone} onChange={(e) => setTutoringForm({ ...tutoringForm, tutor_phone: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>טיפ</Label>
+                <Label>Type</Label>
                 <Select value={tutoringForm.tutor_type} onValueChange={(v) => setTutoringForm({ ...tutoringForm, tutor_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private_teacher">פריוואטע מלמד</SelectItem>
-                    <SelectItem value="speech">שפראך</SelectItem>
+                    <SelectItem value="private_teacher">Private Teacher</SelectItem>
+                    <SelectItem value="speech">Speech</SelectItem>
                     <SelectItem value="OT">OT</SelectItem>
-                    <SelectItem value="reading_specialist">לייענען ספעציאליסט</SelectItem>
+                    <SelectItem value="reading_specialist">Reading Specialist</SelectItem>
                     <SelectItem value="the">THE</SelectItem>
-                    <SelectItem value="other">אנדערע</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>וואס לערנט מען</Label>
+                <Label>Subject</Label>
                 <Input value={tutoringForm.subject} onChange={(e) => setTutoringForm({ ...tutoringForm, subject: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>טעג</Label>
-                <Input value={tutoringForm.schedule_days} onChange={(e) => setTutoringForm({ ...tutoringForm, schedule_days: e.target.value })} placeholder="מאנטיג, מיטוואך" />
+                <Label>Days</Label>
+                <Input value={tutoringForm.schedule_days} onChange={(e) => setTutoringForm({ ...tutoringForm, schedule_days: e.target.value })} placeholder="Monday, Wednesday" />
               </div>
               <div>
-                <Label>צייט</Label>
+                <Label>Time</Label>
                 <Input value={tutoringForm.schedule_time} onChange={(e) => setTutoringForm({ ...tutoringForm, schedule_time: e.target.value })} placeholder="2:00-3:00" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>פלאץ</Label>
+                <Label>Location</Label>
                 <Input value={tutoringForm.location} onChange={(e) => setTutoringForm({ ...tutoringForm, location: e.target.value })} />
               </div>
               <div>
-                <Label>ווי אפט</Label>
+                <Label>Frequency</Label>
                 <Select value={tutoringForm.frequency} onValueChange={(v) => setTutoringForm({ ...tutoringForm, frequency: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="daily">טעגליך</SelectItem>
-                    <SelectItem value="weekly">וועכנטליך</SelectItem>
-                    <SelectItem value="bi-weekly">אלע 2 וואכן</SelectItem>
-                    <SelectItem value="monthly">חודשליך</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="bi-weekly">Bi-Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>מינוטן</Label>
+                <Label>Minutes</Label>
                 <Input type="number" value={tutoringForm.session_duration_minutes} onChange={(e) => setTutoringForm({ ...tutoringForm, session_duration_minutes: parseInt(e.target.value) })} />
               </div>
             </div>
             <div>
-              <Label>נאטיצן</Label>
+              <Label>Notes</Label>
               <Textarea value={tutoringForm.notes} onChange={(e) => setTutoringForm({ ...tutoringForm, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTutoringModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveTutoring}>שמור</Button>
+            <Button variant="outline" onClick={() => setIsTutoringModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveTutoring}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Staff Modal */}
       <Dialog open={isStaffModalOpen} onOpenChange={setIsStaffModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedStaff ? 'עדיט סטעף' : 'צולייגן סטעף מעמבער'}</DialogTitle>
+            <DialogTitle>{selectedStaff ? 'Edit Staff' : 'Add Staff Member'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>נאמען *</Label>
+                <Label>Name *</Label>
                 <Input value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} />
               </div>
               <div>
-                <Label>אידישער נאמען</Label>
+                <Label>Hebrew Name</Label>
                 <Input value={staffForm.hebrew_name} onChange={(e) => setStaffForm({ ...staffForm, hebrew_name: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>ראלע</Label>
+                <Label>Role</Label>
                 <Select value={staffForm.role} onValueChange={(v) => setStaffForm({ ...staffForm, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1125,52 +1125,52 @@ const SpecialEducationView = ({ role, currentUser }) => {
                 </Select>
               </div>
               <div>
-                <Label>ספעציאליזאציע</Label>
+                <Label>Specialization</Label>
                 <Input value={staffForm.specialization} onChange={(e) => setStaffForm({ ...staffForm, specialization: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>טעלעפאן</Label>
+                <Label>Phone</Label>
                 <Input value={staffForm.phone} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} />
               </div>
               <div>
-                <Label>אימעיל</Label>
+                <Label>Email</Label>
                 <Input type="email" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>סערטיפיקאט</Label>
+              <Label>Certification</Label>
               <Input value={staffForm.certification} onChange={(e) => setStaffForm({ ...staffForm, certification: e.target.value })} />
             </div>
             <div>
-              <Label>נאטיצן</Label>
+              <Label>Notes</Label>
               <Textarea value={staffForm.notes} onChange={(e) => setStaffForm({ ...staffForm, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsStaffModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveStaff} className="bg-orange-600 hover:bg-orange-700">{selectedStaff ? 'אפדעיט' : 'צולייגן'}</Button>
+            <Button variant="outline" onClick={() => setIsStaffModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveStaff} className="bg-orange-600 hover:bg-orange-700">{selectedStaff ? 'Update' : 'Add'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Schedule Modal */}
       <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>צייטן פון {selectedStaff?.hebrew_name || selectedStaff?.name}</DialogTitle>
+            <DialogTitle>Schedule for {selectedStaff?.hebrew_name || selectedStaff?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Existing Schedule */}
             {staffSchedules.length > 0 && (
               <div className="space-y-2">
-                <h4 className="font-semibold text-sm">אקטועלע צייטן:</h4>
+                <h4 className="font-semibold text-sm">Current Schedule:</h4>
                 {staffSchedules.map(sch => (
                   <div key={sch.id} className="p-2 bg-slate-50 rounded border text-sm flex justify-between items-center">
                     <span>{DAYS[sch.day_of_week]}: {sch.start_time} - {sch.end_time}</span>
                     <Badge variant={sch.status === 'available' || sch.status === 'in_school' ? 'default' : 'destructive'}>
-                      {sch.status === 'available' ? 'אוועילעבל' : sch.status === 'busy' ? 'פארנומען' : sch.status === 'in_school' ? 'אין חדר' : 'נישט דא'}
+                      {sch.status === 'available' ? 'Available' : sch.status === 'busy' ? 'Busy' : sch.status === 'in_school' ? 'In School' : 'Unavailable'}
                     </Badge>
                   </div>
                 ))}
@@ -1178,10 +1178,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
             )}
             
             <div className="border-t pt-4">
-              <h4 className="font-semibold text-sm mb-3">צולייגן נייע צייט:</h4>
+              <h4 className="font-semibold text-sm mb-3">Add New Time Slot:</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>טאג</Label>
+                  <Label>Day</Label>
                   <Select value={String(scheduleForm.day_of_week)} onValueChange={(v) => setScheduleForm({ ...scheduleForm, day_of_week: parseInt(v) })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1190,98 +1190,98 @@ const SpecialEducationView = ({ role, currentUser }) => {
                   </Select>
                 </div>
                 <div>
-                  <Label>סטאטוס</Label>
+                  <Label>Status</Label>
                   <Select value={scheduleForm.status} onValueChange={(v) => setScheduleForm({ ...scheduleForm, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="in_school">אין חדר</SelectItem>
-                      <SelectItem value="available">אוועילעבל</SelectItem>
-                      <SelectItem value="busy">פארנומען</SelectItem>
-                      <SelectItem value="unavailable">נישט דא</SelectItem>
+                      <SelectItem value="in_school">In School</SelectItem>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="busy">Busy</SelectItem>
+                      <SelectItem value="unavailable">Unavailable</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>
-                  <Label>פון</Label>
+                  <Label>From</Label>
                   <Input type="time" value={scheduleForm.start_time} onChange={(e) => setScheduleForm({ ...scheduleForm, start_time: e.target.value })} />
                 </div>
                 <div>
-                  <Label>ביז</Label>
+                  <Label>To</Label>
                   <Input type="time" value={scheduleForm.end_time} onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })} />
                 </div>
               </div>
               <div className="mt-2">
-                <Label>פלאץ</Label>
-                <Input value={scheduleForm.location} onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })} placeholder="רום נומער" />
+                <Label>Location</Label>
+                <Input value={scheduleForm.location} onChange={(e) => setScheduleForm({ ...scheduleForm, location: e.target.value })} placeholder="Room number" />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsScheduleModalOpen(false)}>פארמאך</Button>
-            <Button onClick={handleSaveSchedule}>צולייגן צייט</Button>
+            <Button variant="outline" onClick={() => setIsScheduleModalOpen(false)}>Close</Button>
+            <Button onClick={handleSaveSchedule}>Add Time Slot</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Session Log Modal */}
       <Dialog open={isSessionLogModalOpen} onOpenChange={setIsSessionLogModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>לאג סעסיע</DialogTitle>
+            <DialogTitle>Log Session</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>סטעף מעמבער</Label>
+                <Label>Staff Member</Label>
                 <Select value={sessionForm.special_ed_staff_id || 'none'} onValueChange={(v) => setSessionForm({ ...sessionForm, special_ed_staff_id: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Choose..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">אנדערע / אויסערליך</SelectItem>
+                    <SelectItem value="none">Other / External</SelectItem>
                     {specEdStaff.map(s => <SelectItem key={s.id} value={s.id}>{s.hebrew_name || s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>אדער: אויסערליכע נאמען</Label>
-                <Input value={sessionForm.tutor_name} onChange={(e) => setSessionForm({ ...sessionForm, tutor_name: e.target.value })} placeholder="נאמען" />
+                <Label>Or: External Name</Label>
+                <Input value={sessionForm.tutor_name} onChange={(e) => setSessionForm({ ...sessionForm, tutor_name: e.target.value })} placeholder="Name" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>דאטום</Label>
+                <Label>Date</Label>
                 <Input type="date" value={sessionForm.session_date} onChange={(e) => setSessionForm({ ...sessionForm, session_date: e.target.value })} />
               </div>
               <div>
-                <Label>צייט</Label>
+                <Label>Time</Label>
                 <Input type="time" value={sessionForm.session_time} onChange={(e) => setSessionForm({ ...sessionForm, session_time: e.target.value })} />
               </div>
               <div>
-                <Label>מינוטן</Label>
+                <Label>Minutes</Label>
                 <Input type="number" value={sessionForm.duration_minutes} onChange={(e) => setSessionForm({ ...sessionForm, duration_minutes: parseInt(e.target.value) })} />
               </div>
             </div>
             <div>
-              <Label>סאביעקט/נושא</Label>
+              <Label>Subject</Label>
               <Input value={sessionForm.subject} onChange={(e) => setSessionForm({ ...sessionForm, subject: e.target.value })} />
             </div>
             <div>
-              <Label>אינהאלט *</Label>
-              <Textarea value={sessionForm.content} onChange={(e) => setSessionForm({ ...sessionForm, content: e.target.value })} rows={3} placeholder="וואס האט מען געטון..." />
+              <Label>Content *</Label>
+              <Textarea value={sessionForm.content} onChange={(e) => setSessionForm({ ...sessionForm, content: e.target.value })} rows={3} placeholder="What was done..." />
             </div>
             <div>
-              <Label>פראגרעס נאטיצן</Label>
+              <Label>Progress Notes</Label>
               <Textarea value={sessionForm.progress_notes} onChange={(e) => setSessionForm({ ...sessionForm, progress_notes: e.target.value })} rows={2} />
             </div>
             <div>
-              <Label>גאולס וואס מ'האט געארבעט</Label>
+              <Label>Goals Worked On</Label>
               <Input value={sessionForm.goals_worked_on} onChange={(e) => setSessionForm({ ...sessionForm, goals_worked_on: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSessionLogModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveSessionLog}>שמור</Button>
+            <Button variant="outline" onClick={() => setIsSessionLogModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveSessionLog}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

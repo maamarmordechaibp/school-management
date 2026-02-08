@@ -34,7 +34,7 @@ const LateTrackingView = ({ role, currentUser }) => {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailContext, setEmailContext] = useState({});
   const [formData, setFormData] = useState({
-    student_id: '', arrival_time: '', minutes_late: '', reason: '', notes: ''
+    student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: ''
   });
 
   useEffect(() => {
@@ -82,7 +82,7 @@ const LateTrackingView = ({ role, currentUser }) => {
 
   const handleSave = async () => {
     if (!formData.student_id) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע וועל אויס א תלמיד' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a student' });
       return;
     }
     try {
@@ -94,11 +94,11 @@ const LateTrackingView = ({ role, currentUser }) => {
         reason: formData.reason || null,
         notes: formData.notes || null,
         recorded_by: currentUser?.id
-      }]).select('*, student:students(*, class:classes(*))');
+      }]).select('*, student:students(*, class:classes!class_id(*))');
       if (error) throw error;
-      toast({ title: 'רעקאָרדירט', description: 'שפעט אנקומען איז רעקאָרדירט' });
+      toast({ title: 'Recorded', description: 'Late arrival has been recorded' });
       setIsModalOpen(false);
-      setFormData({ student_id: '', arrival_time: '', minutes_late: '', reason: '', notes: '' });
+      setFormData({ student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: '' });
       loadData();
       // Auto-print the late slip
       if (inserted && inserted[0]) {
@@ -132,15 +132,15 @@ const LateTrackingView = ({ role, currentUser }) => {
       </style></head>
       <body>
         <div class="header">
-          <h2>צעטל - שפעט אנגעקומען</h2>
-          <p>${new Date(selectedDate).toLocaleDateString('he-IL')}</p>
+          <h2>Slip - Late Arrival</h2>
+          <p>${new Date(selectedDate).toLocaleDateString('en-US')}</p>
         </div>
-        <div class="field"><span class="label">תלמיד:</span> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</div>
-        <div class="field"><span class="label">כיתה:</span> ${late.student?.class?.name || 'N/A'}</div>
-        <div class="field"><span class="label">צייט אנגעקומען:</span> ${late.arrival_time || 'N/A'}</div>
-        <div class="field"><span class="label">מינוטן שפעט:</span> ${late.minutes_late || 'N/A'}</div>
-        ${late.reason ? `<div class="field"><span class="label">סיבה:</span> ${late.reason}</div>` : ''}
-        <div class="footer">רעקאָרדירט דורך סגן מנהל</div>
+        <div class="field"><span class="label">Student:</span> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</div>
+        <div class="field"><span class="label">Class:</span> ${late.student?.class?.name || 'N/A'}</div>
+        <div class="field"><span class="label">Arrival Time:</span> ${late.arrival_time || 'N/A'}</div>
+        <div class="field"><span class="label">Minutes Late:</span> ${late.minutes_late || 'N/A'}</div>
+        ${late.reason ? `<div class="field"><span class="label">Reason:</span> ${late.reason}</div>` : ''}
+        <div class="footer">Recorded by Assistant Principal</div>
       </body></html>
     `;
     const printWindow = window.open('', '_blank');
@@ -154,20 +154,20 @@ const LateTrackingView = ({ role, currentUser }) => {
   const printAllSlips = () => {
     const unprintedSlips = filteredLateArrivals.filter(l => !l.slip_printed);
     if (unprintedSlips.length === 0) {
-      toast({ title: 'Info', description: 'אלע צעטליך זענען שוין אויסגעפרינט' });
+      toast({ title: 'Info', description: 'All slips have already been printed' });
       return;
     }
 
     const slipsHtml = unprintedSlips.map(late => `
       <div style="page-break-after: always; padding: 20px; max-width: 400px; margin: 0 auto; border: 1px solid #ccc; margin-bottom: 20px;">
         <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
-          <h3>צעטל - שפעט אנגעקומען</h3>
-          <p>${new Date(selectedDate).toLocaleDateString('he-IL')}</p>
+          <h3>Slip - Late Arrival</h3>
+          <p>${new Date(selectedDate).toLocaleDateString('en-US')}</p>
         </div>
-        <p><strong>תלמיד:</strong> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</p>
-        <p><strong>כיתה:</strong> ${late.student?.class?.name || 'N/A'}</p>
-        <p><strong>צייט:</strong> ${late.arrival_time || 'N/A'} (${late.minutes_late || '?'} מינוטן שפעט)</p>
-        ${late.reason ? `<p><strong>סיבה:</strong> ${late.reason}</p>` : ''}
+        <p><strong>Student:</strong> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</p>
+        <p><strong>Class:</strong> ${late.student?.class?.name || 'N/A'}</p>
+        <p><strong>Time:</strong> ${late.arrival_time || 'N/A'} (${late.minutes_late || '?'} minutes late)</p>
+        ${late.reason ? `<p><strong>Reason:</strong> ${late.reason}</p>` : ''}
       </div>
     `).join('');
 
@@ -193,7 +193,7 @@ const LateTrackingView = ({ role, currentUser }) => {
   // Group by class for teacher distribution
   const lateByClass = {};
   filteredLateArrivals.forEach(l => {
-    const className = l.student?.class?.name || 'אהן קלאס';
+    const className = l.student?.class?.name || 'No Class';
     if (!lateByClass[className]) lateByClass[className] = [];
     lateByClass[className].push(l);
   });
@@ -207,18 +207,18 @@ const LateTrackingView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">שפעט אנקומען</h1>
-          <p className="text-slate-500">האלט חשבון אויף קינדער וואס קומען שפעט, פרינט צעטליך פאר מלמדים</p>
+          <h1 className="text-2xl font-bold text-slate-800">Late Arrivals</h1>
+          <p className="text-slate-500">Track students who arrive late, print slips for teachers</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={printAllSlips}>
-            <Printer className="h-4 w-4 ml-2" /> פרינט אלע צעטליך
+            <Printer className="h-4 w-4 ml-2" /> Print All Slips
           </Button>
           <Button onClick={() => {
             setFormData({ student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: '' });
             setIsModalOpen(true);
           }} className="bg-amber-600 hover:bg-amber-700">
-            <Plus className="h-4 w-4 ml-2" /> צולייגן שפעט
+            <Plus className="h-4 w-4 ml-2" /> Add Late Arrival
           </Button>
         </div>
       </div>
@@ -228,25 +228,25 @@ const LateTrackingView = ({ role, currentUser }) => {
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-amber-100 rounded-lg"><AlertCircle className="h-6 w-6 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold">{lateArrivals.length}</p><p className="text-sm text-slate-500">שפעט היינט</p></div>
+            <div><p className="text-2xl font-bold">{lateArrivals.length}</p><p className="text-sm text-slate-500">Late Today</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-red-100 rounded-lg"><Printer className="h-6 w-6 text-red-600" /></div>
-            <div><p className="text-2xl font-bold">{lateArrivals.filter(l => !l.slip_printed).length}</p><p className="text-sm text-slate-500">נישט אויסגעפרינט</p></div>
+            <div><p className="text-2xl font-bold">{lateArrivals.filter(l => !l.slip_printed).length}</p><p className="text-sm text-slate-500">Not Printed</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-lg"><FileText className="h-6 w-6 text-green-600" /></div>
-            <div><p className="text-2xl font-bold">{lateArrivals.filter(l => l.slip_given_to_teacher).length}</p><p className="text-sm text-slate-500">געגעבן צום מלמד</p></div>
+            <div><p className="text-2xl font-bold">{lateArrivals.filter(l => l.slip_given_to_teacher).length}</p><p className="text-sm text-slate-500">Given to Teacher</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg"><Users className="h-6 w-6 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{Object.keys(lateByClass).length}</p><p className="text-sm text-slate-500">קלאסן באטראפן</p></div>
+            <div><p className="text-2xl font-bold">{Object.keys(lateByClass).length}</p><p className="text-sm text-slate-500">Classes Affected</p></div>
           </CardContent>
         </Card>
       </div>
@@ -256,22 +256,22 @@ const LateTrackingView = ({ role, currentUser }) => {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div>
-              <Label>דאטום</Label>
+              <Label>Date</Label>
               <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[200px]" />
             </div>
             <div className="flex-1">
-              <Label>זוך</Label>
+              <Label>Search</Label>
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="זוך תלמיד..." className="pr-10" />
+                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search student..." className="pr-10" />
               </div>
             </div>
             <div>
-              <Label>קלאס</Label>
+              <Label>Class</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">אלע קלאסן</SelectItem>
+                  <SelectItem value="all">All Classes</SelectItem>
                   {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -283,19 +283,19 @@ const LateTrackingView = ({ role, currentUser }) => {
       {/* Late Arrivals Table */}
       <Card>
         <CardHeader>
-          <CardTitle>שפעט אנקומען - {new Date(selectedDate).toLocaleDateString('he-IL')}</CardTitle>
+          <CardTitle>Late Arrivals - {new Date(selectedDate).toLocaleDateString('en-US')}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>תלמיד</TableHead>
-                <TableHead>כיתה</TableHead>
-                <TableHead>צייט</TableHead>
-                <TableHead>מינוטן שפעט</TableHead>
-                <TableHead>סיבה</TableHead>
-                <TableHead>צעטל</TableHead>
-                <TableHead>אקציעס</TableHead>
+                <TableHead>Student</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Minutes Late</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Slip</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -309,7 +309,7 @@ const LateTrackingView = ({ role, currentUser }) => {
                   <TableCell>
                     {late.minutes_late && (
                       <Badge className={late.minutes_late > 15 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>
-                        {late.minutes_late} מינוטן
+                        {late.minutes_late} min
                       </Badge>
                     )}
                   </TableCell>
@@ -317,29 +317,29 @@ const LateTrackingView = ({ role, currentUser }) => {
                   <TableCell>
                     <div className="flex gap-1">
                       {late.slip_printed ? (
-                        <Badge className="bg-green-100 text-green-800">אויסגעפרינט</Badge>
+                        <Badge className="bg-green-100 text-green-800">Printed</Badge>
                       ) : (
-                        <Badge className="bg-gray-100 text-gray-600">נישט</Badge>
+                        <Badge className="bg-gray-100 text-gray-600">No</Badge>
                       )}
                       {late.slip_given_to_teacher && (
-                        <Badge className="bg-blue-100 text-blue-800">געגעבן</Badge>
+                        <Badge className="bg-blue-100 text-blue-800">Given</Badge>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => printSlip(late)} title="פרינט צעטל">
+                      <Button variant="ghost" size="sm" onClick={() => printSlip(late)} title="Print Slip">
                         <Printer className="h-4 w-4" />
                       </Button>
                       {!late.slip_given_to_teacher && late.slip_printed && (
-                        <Button variant="ghost" size="sm" onClick={() => markSlipGiven(late.id)} title="מארקיר אלס געגעבן">
+                        <Button variant="ghost" size="sm" onClick={() => markSlipGiven(late.id)} title="Mark as Given">
                           <FileText className="h-4 w-4 text-green-600" />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEmailContext({
-                          subject: `שפעט אנגעקומען - ${late.student?.hebrew_name || late.student?.first_name}`,
-                          body: `${late.student?.hebrew_name || late.student?.first_name} ${late.student?.last_name} איז שפעט אנגעקומען ${new Date(selectedDate).toLocaleDateString('he-IL')}\n\nצייט: ${late.arrival_time || 'N/A'}\nמינוטן שפעט: ${late.minutes_late || 'N/A'}\nסיבה: ${late.reason || 'N/A'}`
+                          subject: `Late Arrival - ${late.student?.hebrew_name || late.student?.first_name}`,
+                          body: `${late.student?.hebrew_name || late.student?.first_name} ${late.student?.last_name} arrived late on ${new Date(selectedDate).toLocaleDateString('en-US')}\n\nTime: ${late.arrival_time || 'N/A'}\nMinutes Late: ${late.minutes_late || 'N/A'}\nReason: ${late.reason || 'N/A'}`
                         });
                         setIsEmailModalOpen(true);
                       }}>
@@ -353,7 +353,7 @@ const LateTrackingView = ({ role, currentUser }) => {
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                     <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>קיינער איז נישט שפעט אנגעקומען {new Date(selectedDate).toLocaleDateString('he-IL')}</p>
+                    <p>No one arrived late on {new Date(selectedDate).toLocaleDateString('en-US')}</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -369,8 +369,8 @@ const LateTrackingView = ({ role, currentUser }) => {
             <Card key={className}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center justify-between">
-                  <span>כיתה {className}</span>
-                  <Badge>{lates.length} שפעט</Badge>
+                  <span>Class {className}</span>
+                  <Badge>{lates.length} late</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -392,40 +392,40 @@ const LateTrackingView = ({ role, currentUser }) => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
-            <DialogTitle>צולייגן שפעט אנקומען</DialogTitle>
+            <DialogTitle>Record Late Arrival</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>תלמיד *</Label>
+              <Label>Student *</Label>
               <StudentPicker
                 students={students}
                 value={formData.student_id}
                 onChange={(id) => setFormData({ ...formData, student_id: id })}
-                placeholder="זוך תלמיד..."
+                placeholder="Search student..."
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>צייט אנגעקומען</Label>
+                <Label>Arrival Time</Label>
                 <Input type="time" value={formData.arrival_time} onChange={(e) => setFormData({ ...formData, arrival_time: e.target.value })} />
               </div>
               <div>
-                <Label>מינוטן שפעט</Label>
+                <Label>Minutes Late</Label>
                 <Input type="number" value={formData.minutes_late} onChange={(e) => setFormData({ ...formData, minutes_late: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>סיבה</Label>
-              <Input value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="פארוואס שפעט?" />
+              <Label>Reason</Label>
+              <Input value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="Why late?" />
             </div>
             <div>
-              <Label>נאטיצן</Label>
+              <Label>Notes</Label>
               <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSave} className="bg-amber-600 hover:bg-amber-700">רעקאָרדיר</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-amber-600 hover:bg-amber-700">Record</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

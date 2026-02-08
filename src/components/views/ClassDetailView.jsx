@@ -19,13 +19,13 @@ import {
 } from 'lucide-react';
 
 const NOTE_TYPES = [
-  { value: 'general', label: 'כללי' },
-  { value: 'teacher_meeting', label: 'געזעסן מיט מלמד' },
-  { value: 'discipline', label: 'דיסציפלין' },
-  { value: 'academic', label: 'לערנען' },
-  { value: 'behavioral', label: 'אויפפירונג' },
-  { value: 'parent_feedback', label: 'פידבעק פון עלטערן' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'general', label: 'General' },
+  { value: 'teacher_meeting', label: 'Met with Teacher' },
+  { value: 'discipline', label: 'Discipline' },
+  { value: 'academic', label: 'Academic' },
+  { value: 'behavioral', label: 'Behavior' },
+  { value: 'parent_feedback', label: 'Parent Feedback' },
+  { value: 'other', label: 'Other' },
 ];
 
 const ClassDetailView = ({ role, currentUser }) => {
@@ -139,7 +139,7 @@ const ClassDetailView = ({ role, currentUser }) => {
   // Save class note
   const handleSaveClassNote = async () => {
     if (!classNoteForm.content) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע שרייב אינהאלט' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter content' });
       return;
     }
     try {
@@ -153,7 +153,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           updated_at: new Date().toISOString()
         }).eq('id', editingNote.id);
         if (error) throw error;
-        toast({ title: 'עדיטעד', description: 'נאטיץ איז געטוישט געווארן' });
+        toast({ title: 'Edited', description: 'Note has been updated' });
       } else {
         // UPDATE mode: add new note
         const { error } = await supabase.from('class_notes').insert([{
@@ -165,7 +165,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           created_by_name: currentUser?.name || currentUser?.first_name
         }]);
         if (error) throw error;
-        toast({ title: 'צוגעלייגט', description: 'נאטיץ איז צוגעלייגט געווארן' });
+        toast({ title: 'Added', description: 'Note has been added' });
       }
       setIsClassNoteModalOpen(false);
       setEditingNote(null);
@@ -178,7 +178,7 @@ const ClassDetailView = ({ role, currentUser }) => {
   // Save student note
   const handleSaveStudentNote = async () => {
     if (!noteForm.content) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע שרייב אינהאלט' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter content' });
       return;
     }
     try {
@@ -193,7 +193,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           updated_at: new Date().toISOString()
         }).eq('id', editingNote.id);
         if (error) throw error;
-        toast({ title: 'עדיטעד', description: 'נאטיץ איז געטוישט געווארן (פריערדיגע איז געבליבן אלס רעקארד)' });
+        toast({ title: 'Edited', description: 'Note has been updated (previous version kept as record)' });
       } else {
         // UPDATE mode
         const { error } = await supabase.from('student_notes').insert([{
@@ -206,7 +206,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           created_by_name: currentUser?.name || currentUser?.first_name
         }]);
         if (error) throw error;
-        toast({ title: 'צוגעלייגט', description: 'נאטיץ איז צוגעלייגט געווארן ביי דעם קינד' });
+        toast({ title: 'Added', description: 'Note has been added for this student' });
       }
       setIsStudentNoteModalOpen(false);
       setEditingNote(null);
@@ -239,8 +239,8 @@ const ClassDetailView = ({ role, currentUser }) => {
     return (
       <div className="space-y-6" dir="rtl">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">קלאסן - דעטאל וויו</h1>
-          <p className="text-slate-500">עפן א קלאס צו זען אלע תלמידים מיט אלע אינפארמאציע און קענען אריינפילן</p>
+          <h1 className="text-2xl font-bold text-slate-800">Classes - Detail View</h1>
+          <p className="text-slate-500">Open a class to see all students with all information</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -255,18 +255,18 @@ const ClassDetailView = ({ role, currentUser }) => {
                 <Badge variant="outline" className="mb-3">{cls.grade?.name}</Badge>
                 <div className="space-y-2 text-sm text-slate-600">
                   <div className="flex justify-between">
-                    <span>תלמידים:</span>
+                    <span>Students:</span>
                     <Badge variant="secondary">{cls.student_count}</Badge>
                   </div>
                   {cls.hebrew_staff && (
                     <div className="flex justify-between">
-                      <span>מלמד:</span>
+                      <span>Teacher:</span>
                       <span>{cls.hebrew_staff.first_name} {cls.hebrew_staff.last_name}</span>
                     </div>
                   )}
                   {cls.english_staff && (
                     <div className="flex justify-between">
-                      <span>ענגליש:</span>
+                      <span>English:</span>
                       <span>{cls.english_staff.first_name} {cls.english_staff.last_name}</span>
                     </div>
                   )}
@@ -289,10 +289,10 @@ const ClassDetailView = ({ role, currentUser }) => {
             <ArrowRight className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">כיתה {selectedClass.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Class {selectedClass.name}</h1>
             <p className="text-slate-500">
-              {selectedClass.grade?.name} | {students.length} תלמידים
-              {selectedClass.hebrew_staff && ` | מלמד: ${selectedClass.hebrew_staff.first_name} ${selectedClass.hebrew_staff.last_name}`}
+              {selectedClass.grade?.name} | {students.length} Students
+              {selectedClass.hebrew_staff && ` | Teacher: ${selectedClass.hebrew_staff.first_name} ${selectedClass.hebrew_staff.last_name}`}
             </p>
           </div>
         </div>
@@ -302,16 +302,16 @@ const ClassDetailView = ({ role, currentUser }) => {
             setClassNoteForm({ title: '', content: '', edit_mode: 'update' });
             setIsClassNoteModalOpen(true);
           }}>
-            <FileText className="h-4 w-4 ml-2" /> נאטיץ פאר קלאס
+            <FileText className="h-4 w-4 ml-2" /> Note for Class
           </Button>
           <Button variant="outline" onClick={() => {
             setEmailContext({
-              subject: `כיתה ${selectedClass.name} - אפדעיט`,
-              body: `אפדעיט וועגן כיתה ${selectedClass.name}\n\n`
+              subject: `Class ${selectedClass.name} - Update`,
+              body: `Update about Class ${selectedClass.name}\n\n`
             });
             setIsEmailModalOpen(true);
           }}>
-            <Mail className="h-4 w-4 ml-2" /> שיק אימעיל
+            <Mail className="h-4 w-4 ml-2" /> Send Email
           </Button>
         </div>
       </div>
@@ -322,7 +322,7 @@ const ClassDetailView = ({ role, currentUser }) => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" />
-              נאטיצן פון קלאס ({classNotes.length})
+              Class Notes ({classNotes.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -332,7 +332,7 @@ const ClassDetailView = ({ role, currentUser }) => {
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-2">
                       {note.title && <span className="font-bold">{note.title}</span>}
-                      {note.edit_mode === 'edit' && <Badge className="bg-orange-100 text-orange-800 text-xs">עדיטעד</Badge>}
+                      {note.edit_mode === 'edit' && <Badge className="bg-orange-100 text-orange-800 text-xs">Edited</Badge>}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400">{new Date(note.created_at).toLocaleDateString('he-IL')}</span>
@@ -348,11 +348,11 @@ const ClassDetailView = ({ role, currentUser }) => {
                   <p className="text-slate-700">{note.content}</p>
                   {note.previous_content && (
                     <details className="mt-2">
-                      <summary className="text-xs text-orange-600 cursor-pointer">פריערדיגע ווערזיע</summary>
+                      <summary className="text-xs text-orange-600 cursor-pointer">Previous version</summary>
                       <p className="text-xs text-slate-400 mt-1 p-2 bg-white rounded">{note.previous_content}</p>
                     </details>
                   )}
-                  {note.created_by_name && <p className="text-xs text-slate-400 mt-1">דורך: {note.created_by_name}</p>}
+                  {note.created_by_name && <p className="text-xs text-slate-400 mt-1">By: {note.created_by_name}</p>}
                 </div>
               ))}
             </div>
@@ -363,7 +363,7 @@ const ClassDetailView = ({ role, currentUser }) => {
       {/* Search */}
       <div className="relative">
         <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="זוך תלמיד אין קלאס..." className="pr-10" />
+        <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search student in class..." className="pr-10" />
       </div>
 
       {/* Students Grid */}
@@ -387,16 +387,16 @@ const ClassDetailView = ({ role, currentUser }) => {
                     setEditingNote(null);
                     setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
                     setIsStudentNoteModalOpen(true);
-                  }} title="צולייגן נאטיץ">
+                  }} title="Add Note">
                     <MessageSquare className="h-4 w-4 text-blue-600" />
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => {
                     setEmailContext({
-                      subject: `וועגן ${student.hebrew_name || student.first_name} ${student.last_name}`,
-                      body: `אינפארמאציע וועגן ${student.hebrew_name || student.first_name} ${student.last_name}\nכיתה: ${selectedClass.name}\n\n`
+                      subject: `About ${student.hebrew_name || student.first_name} ${student.last_name}`,
+                      body: `Information about ${student.hebrew_name || student.first_name} ${student.last_name}\nClass: ${selectedClass.name}\n\n`
                     });
                     setIsEmailModalOpen(true);
-                  }} title="שיק אימעיל">
+                  }} title="Send Email">
                     <Mail className="h-4 w-4 text-green-600" />
                   </Button>
                 </div>
@@ -405,25 +405,25 @@ const ClassDetailView = ({ role, currentUser }) => {
               {/* Personal Info */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 mb-3">
                 {student.father_name && (
-                  <div><span className="font-medium">טאטע:</span> {student.father_name}</div>
+                  <div><span className="font-medium">Father:</span> {student.father_name}</div>
                 )}
                 {student.father_phone && (
-                  <div><span className="font-medium">טעל:</span> <a href={`tel:${student.father_phone}`} className="text-blue-600">{student.father_phone}</a></div>
+                  <div><span className="font-medium">Phone:</span> <a href={`tel:${student.father_phone}`} className="text-blue-600">{student.father_phone}</a></div>
                 )}
                 {student.mother_name && (
-                  <div><span className="font-medium">מאמע:</span> {student.mother_name}</div>
+                  <div><span className="font-medium">Mother:</span> {student.mother_name}</div>
                 )}
                 {student.mother_phone && (
-                  <div><span className="font-medium">טעל:</span> <a href={`tel:${student.mother_phone}`} className="text-blue-600">{student.mother_phone}</a></div>
+                  <div><span className="font-medium">Phone:</span> <a href={`tel:${student.mother_phone}`} className="text-blue-600">{student.mother_phone}</a></div>
                 )}
                 {student.address && (
-                  <div className="col-span-2"><span className="font-medium">אדרעס:</span> {student.address}</div>
+                  <div className="col-span-2"><span className="font-medium">Address:</span> {student.address}</div>
                 )}
                 {student.date_of_birth && (
-                  <div><span className="font-medium">געבורטסטאג:</span> {new Date(student.date_of_birth).toLocaleDateString('he-IL')}</div>
+                  <div><span className="font-medium">Birthday:</span> {new Date(student.date_of_birth).toLocaleDateString('he-IL')}</div>
                 )}
                 {student.emergency_contact && (
-                  <div><span className="font-medium">נויטפאל:</span> {student.emergency_contact} {student.emergency_phone}</div>
+                  <div><span className="font-medium">Emergency:</span> {student.emergency_contact} {student.emergency_phone}</div>
                 )}
               </div>
 
@@ -438,7 +438,7 @@ const ClassDetailView = ({ role, currentUser }) => {
               {studentNotes[student.id] && studentNotes[student.id].length > 0 && (
                 <div className="border-t pt-2 mt-2">
                   <p className="text-xs font-semibold text-slate-500 mb-1">
-                    נאטיצן ({studentNotes[student.id].length}):
+                    Notes ({studentNotes[student.id].length}):
                   </p>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                     {studentNotes[student.id].slice(0, 3).map(note => (
@@ -472,7 +472,7 @@ const ClassDetailView = ({ role, currentUser }) => {
                     ))}
                     {studentNotes[student.id].length > 3 && (
                       <p className="text-xs text-blue-600 cursor-pointer" onClick={() => setViewingProfileId(student.id)}>
-                        + {studentNotes[student.id].length - 3} מער נאטיצן...
+                        + {studentNotes[student.id].length - 3} more notes...
                       </p>
                     )}
                   </div>
@@ -486,7 +486,7 @@ const ClassDetailView = ({ role, currentUser }) => {
       {filteredStudents.length === 0 && (
         <div className="text-center py-12 text-slate-500">
           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>קיין תלמידים נישט געפונען אין דעם קלאס</p>
+          <p>No students found in this class</p>
         </div>
       )}
 
@@ -494,34 +494,34 @@ const ClassDetailView = ({ role, currentUser }) => {
       <Dialog open={isClassNoteModalOpen} onOpenChange={setIsClassNoteModalOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingNote ? 'עדיט קלאס נאטיץ' : 'נייע נאטיץ פאר כיתה ' + selectedClass?.name}</DialogTitle>
+            <DialogTitle>{editingNote ? 'Edit Class Note' : 'New Note for Class ' + selectedClass?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {editingNote && (
               <div>
-                <Label>מאָדע</Label>
+                <Label>Mode</Label>
                 <Select value={classNoteForm.edit_mode} onValueChange={(v) => setClassNoteForm({ ...classNoteForm, edit_mode: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="update">UPDATE - לאז פריערדיגע, לייג צו נייע</SelectItem>
-                    <SelectItem value="edit">EDIT - טוישט וואס עס שטייט (האלט רעקארד)</SelectItem>
+                    <SelectItem value="update">UPDATE - Keep old, add new</SelectItem>
+                    <SelectItem value="edit">EDIT - Replace text (keep record)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div>
-              <Label>טיטל (אפציאנאל)</Label>
-              <Input value={classNoteForm.title} onChange={(e) => setClassNoteForm({ ...classNoteForm, title: e.target.value })} placeholder="קורצע באשרייבונג" />
+              <Label>Title (optional)</Label>
+              <Input value={classNoteForm.title} onChange={(e) => setClassNoteForm({ ...classNoteForm, title: e.target.value })} placeholder="Short description" />
             </div>
             <div>
-              <Label>אינהאלט *</Label>
-              <Textarea value={classNoteForm.content} onChange={(e) => setClassNoteForm({ ...classNoteForm, content: e.target.value })} rows={5} placeholder="שרייבט דא..." />
+              <Label>Content *</Label>
+              <Textarea value={classNoteForm.content} onChange={(e) => setClassNoteForm({ ...classNoteForm, content: e.target.value })} rows={5} placeholder="Write here..." />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsClassNoteModalOpen(false)}>בטל</Button>
+            <Button variant="outline" onClick={() => setIsClassNoteModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveClassNote}>
-              {editingNote && classNoteForm.edit_mode === 'edit' ? 'EDIT - טוישן' : 'UPDATE - צולייגן'}
+              {editingNote && classNoteForm.edit_mode === 'edit' ? 'EDIT - Replace' : 'UPDATE - Add'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -532,25 +532,25 @@ const ClassDetailView = ({ role, currentUser }) => {
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
             <DialogTitle>
-              {editingNote ? 'עדיט נאטיץ' : 'נייע נאטיץ'} - {selectedStudent?.hebrew_name || selectedStudent?.first_name}
+              {editingNote ? 'Edit Note' : 'New Note'} - {selectedStudent?.hebrew_name || selectedStudent?.first_name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {editingNote && (
               <div>
-                <Label>מאָדע</Label>
+                <Label>Mode</Label>
                 <Select value={noteForm.edit_mode} onValueChange={(v) => setNoteForm({ ...noteForm, edit_mode: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="update">UPDATE - לאז פריערדיגע, לייג צו נייע</SelectItem>
-                    <SelectItem value="edit">EDIT - טוישט וואס עס שטייט (האלט רעקארד)</SelectItem>
+                    <SelectItem value="update">UPDATE - Keep old, add new</SelectItem>
+                    <SelectItem value="edit">EDIT - Replace text (keep record)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>טיפ</Label>
+                <Label>Type</Label>
                 <Select value={noteForm.note_type} onValueChange={(v) => setNoteForm({ ...noteForm, note_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -559,29 +559,29 @@ const ClassDetailView = ({ role, currentUser }) => {
                 </Select>
               </div>
               <div>
-                <Label>טיטל</Label>
+                <Label>Title</Label>
                 <Input value={noteForm.title} onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} />
               </div>
             </div>
             <div>
-              <Label>אינהאלט * (יעדע מאל וואס מ'רעדט מיט/וועגן דעם קינד)</Label>
-              <Textarea value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })} rows={5} placeholder="וואס איז גערעדט געווארן..." />
+              <Label>Content * (Every communication about/with this child)</Label>
+              <Textarea value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })} rows={5} placeholder="What was discussed..." />
             </div>
           </div>
           <DialogFooter className="flex justify-between">
             <Button variant="outline" onClick={() => {
               setEmailContext({
-                subject: `נאטיץ - ${selectedStudent?.hebrew_name || selectedStudent?.first_name}`,
+                subject: `Note - ${selectedStudent?.hebrew_name || selectedStudent?.first_name}`,
                 body: `${noteForm.title ? noteForm.title + '\n\n' : ''}${noteForm.content}`
               });
               setIsEmailModalOpen(true);
             }}>
-              <Mail className="h-4 w-4 ml-1" /> שיק אימעיל
+              <Mail className="h-4 w-4 ml-1" /> Send Email
             </Button>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsStudentNoteModalOpen(false)}>בטל</Button>
+              <Button variant="outline" onClick={() => setIsStudentNoteModalOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveStudentNote}>
-                {editingNote && noteForm.edit_mode === 'edit' ? 'EDIT - טוישן' : 'UPDATE - צולייגן'}
+                {editingNote && noteForm.edit_mode === 'edit' ? 'EDIT - Replace' : 'UPDATE - Add'}
               </Button>
             </div>
           </DialogFooter>

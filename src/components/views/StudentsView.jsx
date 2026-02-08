@@ -110,7 +110,7 @@ const StudentsView = ({ role, currentUser }) => {
         `);
       
       // Role based filtering
-      if (role === 'teacher_hebrew' || role === 'teacher_english') {
+      if (role === 'teacher' || role === 'teacher_hebrew' || role === 'teacher_english') {
         // Teachers see students in their assigned class
         const { data: teacherClasses } = await supabase
           .from('classes')
@@ -287,7 +287,7 @@ const StudentsView = ({ role, currentUser }) => {
         <div>
           <h2 className="text-3xl font-bold text-slate-800">Students</h2>
           <p className="text-slate-600 mt-1">
-            {role === 'teacher_hebrew' || role === 'teacher_english' ? 'Students in your classes' : 
+            {role === 'teacher' || role === 'teacher_hebrew' || role === 'teacher_english' ? 'Students in your classes' : 
              role === 'tutor' ? 'Your assigned students' : 
              `${students.length} students registered`}
           </p>
@@ -298,7 +298,7 @@ const StudentsView = ({ role, currentUser }) => {
               <Upload size={18} /> Import
             </Button>
           )}
-          {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher_hebrew', 'teacher_english'].includes(role) && (
+          {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher', 'teacher_hebrew', 'teacher_english'].includes(role) && (
             <Button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-500 to-blue-600">
               <Plus size={20} className="mr-2" /> Add Student
             </Button>
@@ -422,7 +422,7 @@ const StudentsView = ({ role, currentUser }) => {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher_hebrew', 'teacher_english'].includes(role) && (
+                  {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher', 'teacher_hebrew', 'teacher_english'].includes(role) && (
                     <Button variant="ghost" size="icon" onClick={() => { setSelectedStudent(student); setIsModalOpen(true); }}>
                       <Edit size={16} />
                     </Button>

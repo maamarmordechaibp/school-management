@@ -50,12 +50,12 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
     const validRecipients = formData.recipients.filter(r => r.trim() && r.includes('@'));
     
     if (validRecipients.length === 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע לייג צו כאטש איין אימעיל אדרעס' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please add at least one email address' });
       return;
     }
 
     if (!formData.subject.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע שרייב א סאביעקט' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a subject' });
       return;
     }
 
@@ -79,7 +79,7 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
       const mailtoLink = `mailto:${validRecipients.join(',')}?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(formData.body)}`;
       window.open(mailtoLink, '_blank');
 
-      toast({ title: 'אימעיל', description: `אימעיל איז גרייט צו שיקן צו ${validRecipients.length} מענטשן` });
+      toast({ title: 'Email', description: `Email is ready to send to ${validRecipients.length} recipients` });
       onClose();
     } catch (error) {
       console.error('Error logging email:', error);
@@ -87,7 +87,7 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
       const validRecipients = formData.recipients.filter(r => r.trim() && r.includes('@'));
       const mailtoLink = `mailto:${validRecipients.join(',')}?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(formData.body)}`;
       window.open(mailtoLink, '_blank');
-      toast({ title: 'אימעיל', description: 'אימעיל געעפנט אין אייער אימעיל פראגראם' });
+      toast({ title: 'Email', description: 'Email opened in your email program' });
       onClose();
     } finally {
       setSending(false);
@@ -100,14 +100,14 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-blue-600" />
-            שיק אימעיל
+            Send Email
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Recipients */}
           <div className="space-y-2">
-            <Label>צו וועם (אימעיל אדרעסן)</Label>
+            <Label>To (email addresses)</Label>
             {formData.recipients.map((recipient, index) => (
               <div key={index} className="flex gap-2">
                 <Input
@@ -126,37 +126,37 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
               </div>
             ))}
             <Button variant="outline" size="sm" onClick={addRecipient}>
-              <Plus className="h-4 w-4 ml-1" /> צולייגן אימעיל
+              <Plus className="h-4 w-4 ml-1" /> Add Email
             </Button>
           </div>
 
           {/* Subject */}
           <div>
-            <Label>סאביעקט</Label>
+            <Label>Subject</Label>
             <Input
               value={formData.subject}
               onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-              placeholder="סאביעקט פון אימעיל"
+              placeholder="Email subject"
             />
           </div>
 
           {/* Body */}
           <div>
-            <Label>אינהאלט</Label>
+            <Label>Content</Label>
             <Textarea
               value={formData.body}
               onChange={(e) => setFormData({ ...formData, body: e.target.value })}
               rows={6}
-              placeholder="שרייבט דא דעם אינהאלט פון דעם אימעיל..."
+              placeholder="Write the email content here..."
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>בטל</Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSend} disabled={sending} className="bg-blue-600 hover:bg-blue-700">
             {sending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Mail className="h-4 w-4 ml-2" />}
-            שיק אימעיל
+            Send Email
           </Button>
         </DialogFooter>
       </DialogContent>

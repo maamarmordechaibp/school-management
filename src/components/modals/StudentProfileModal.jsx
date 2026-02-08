@@ -244,7 +244,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
   // Add a new charge
   const handleAddCharge = async () => {
     if (!newCharge.fee_id) {
-      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע וועל אויס א טשאַרדזש' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a charge' });
       return;
     }
 
@@ -263,20 +263,20 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
 
       if (error) throw error;
 
-      toast({ title: 'צוגעלייגט', description: 'טשאַרדזש איז צוגעלייגט געווארן' });
+      toast({ title: 'Added', description: 'Charge has been added' });
       setNewCharge({ fee_id: '', amount: '', notes: '' });
       setShowAddCharge(false);
       loadProfile();
     } catch (error) {
       console.error('Error adding charge:', error);
-      toast({ variant: 'destructive', title: 'טעות', description: 'קען נישט צולייגן טשאַרדזש' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add charge' });
     }
   };
 
   // Add a new payment
   const handleAddPayment = async () => {
     if (!newPayment.student_fee_id || !newPayment.amount) {
-      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע פיל אויס אלע פעלדער' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all fields' });
       return;
     }
 
@@ -309,13 +309,13 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
           .eq('id', newPayment.student_fee_id);
       }
 
-      toast({ title: 'באַצאָלט', description: 'צאָלונג איז רעקאָרדירט געווארן' });
+      toast({ title: 'Paid', description: 'Payment has been recorded' });
       setNewPayment({ student_fee_id: '', amount: '', payment_method: 'cash', reference_number: '', notes: '' });
       setShowAddPayment(false);
       loadProfile();
     } catch (error) {
       console.error('Error adding payment:', error);
-      toast({ variant: 'destructive', title: 'טעות', description: 'קען נישט רעקאָרדירן צאָלונג' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot record payment' });
     }
   };
 
@@ -337,7 +337,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
   // Handle family payment - split payment across multiple students
   const handleFamilyPayment = async () => {
     if (!familyPayment.totalAmount || parseFloat(familyPayment.totalAmount) <= 0) {
-      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע שרייב אריין א סומע' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter an amount' });
       return;
     }
 
@@ -361,7 +361,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
     });
 
     if (selectedFees.length === 0) {
-      toast({ variant: 'destructive', title: 'טעות', description: 'ביטע וועל אויס תלמידים מיט אפענע באַלאַנסן' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select students with open balances' });
       return;
     }
 
@@ -383,7 +383,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
         payment_method: familyPayment.payment_method,
         reference_number: familyPayment.reference_number || null,
         payment_date: new Date().toISOString(),
-        notes: familyPayment.notes || `משפחה צאָלונג - ${fee.studentName}`
+        notes: familyPayment.notes || `Family Payment - ${fee.studentName}`
       });
 
       // Calculate new status
@@ -412,8 +412,8 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
       }
 
       toast({ 
-        title: 'משפחה צאָלונג רעקאָרדירט', 
-        description: `$${parseFloat(familyPayment.totalAmount).toFixed(2)} צעטיילט צווישן ${paymentsToInsert.length} טשאַרדזשעס` 
+        title: 'Family Payment Recorded', 
+        description: `$${parseFloat(familyPayment.totalAmount).toFixed(2)} split across ${paymentsToInsert.length} charges` 
       });
       
       setFamilyPayment({
@@ -427,7 +427,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
       loadProfile();
     } catch (error) {
       console.error('Error processing family payment:', error);
-      toast({ variant: 'destructive', title: 'טעות', description: 'קען נישט פראצעסירן צאָלונג' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot process payment' });
     }
   };
 
@@ -467,11 +467,11 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
       overdue: 'bg-red-100 text-red-800'
     };
     const labels = {
-      pending: 'ווארט',
-      partial: 'טיילווייז',
-      paid: 'באצאלט',
-      waived: 'מחול',
-      overdue: 'פארפאלן'
+      pending: 'Pending',
+      partial: 'Partial',
+      paid: 'Paid',
+      waived: 'Waived',
+      overdue: 'Overdue'
     };
     return <Badge className={styles[status] || 'bg-gray-100'}>{labels[status] || status}</Badge>;
   };
@@ -499,38 +499,38 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             {student.hebrew_name || student.name || `${student.first_name} ${student.last_name}`}
           </DialogTitle>
           <p className="text-slate-500">
-            כיתה: {student.class?.name || 'N/A'} | 
+            Class: {student.class?.name || 'N/A'} | 
             {student.class?.grade?.name && ` ${student.class.grade.name}`}
           </p>
         </DialogHeader>
 
         <Tabs defaultValue="details" className="mt-4">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">פרטים</TabsTrigger>
+            <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="financial" className="flex items-center gap-1">
               <DollarSign className="h-4 w-4" />
-              חשבון ({financials.openBalance > 0 ? `$${financials.openBalance.toFixed(2)}` : 'באַלאַנס'})
+              Account ({financials.openBalance > 0 ? `$${financials.openBalance.toFixed(2)}` : 'Balance'})
             </TabsTrigger>
-            <TabsTrigger value="issues">בעיות ({issues.length})</TabsTrigger>
-            <TabsTrigger value="remarks">הערות ({remarks.length})</TabsTrigger>
+            <TabsTrigger value="issues">Issues ({issues.length})</TabsTrigger>
+            <TabsTrigger value="remarks">Remarks ({remarks.length})</TabsTrigger>
           </TabsList>
 
           {/* Details Tab */}
           <TabsContent value="details" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-slate-50 rounded-lg border">
-                <h4 className="font-semibold mb-3 flex items-center gap-2"><User size={16}/> עלטערן</h4>
+                <h4 className="font-semibold mb-3 flex items-center gap-2"><User size={16}/> Parents</h4>
                 <div className="space-y-2 text-sm">
-                  <p><span className="font-medium">טאטי:</span> {student.father_name || 'N/A'}</p>
-                  <p><span className="font-medium">מאמע:</span> {student.mother_name || 'N/A'}</p>
+                  <p><span className="font-medium">Father:</span> {student.father_name || 'N/A'}</p>
+                  <p><span className="font-medium">Mother:</span> {student.mother_name || 'N/A'}</p>
                 </div>
               </div>
               <div className="p-4 bg-slate-50 rounded-lg border">
-                <h4 className="font-semibold mb-3 flex items-center gap-2"><Phone size={16}/> קאנטאקט</h4>
+                <h4 className="font-semibold mb-3 flex items-center gap-2"><Phone size={16}/> Contact</h4>
                 <div className="space-y-2 text-sm">
-                  <p><span className="font-medium">טאטי טעלעפאן:</span> {student.father_phone || 'N/A'}</p>
-                  <p><span className="font-medium">מאמע טעלעפאן:</span> {student.mother_phone || 'N/A'}</p>
-                  <p><span className="font-medium">אדרעס:</span> {student.address || 'N/A'}, {student.city || ''}</p>
+                  <p><span className="font-medium">Father Phone:</span> {student.father_phone || 'N/A'}</p>
+                  <p><span className="font-medium">Mother Phone:</span> {student.mother_phone || 'N/A'}</p>
+                  <p><span className="font-medium">Address:</span> {student.address || 'N/A'}, {student.city || ''}</p>
                 </div>
               </div>
             </div>
@@ -540,7 +540,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Users size={16} className="text-purple-600" />
-                  ברידער אין שולע ({siblings.length})
+                  Siblings in School ({siblings.length})
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {siblings.map(sibling => (
@@ -559,45 +559,45 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             {/* Year Selector */}
             <div className="flex items-center gap-3 p-3 bg-slate-100 rounded-lg">
               <Calendar className="h-5 w-5 text-slate-600" />
-              <Label className="font-medium">שנה:</Label>
+              <Label className="font-medium">Year:</Label>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="וועל אויס יאר..." />
+                  <SelectValue placeholder="Select year..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">אלע יארן</SelectItem>
+                  <SelectItem value="all">All Years</SelectItem>
                   {availableYears.map(year => (
                     <SelectItem key={year} value={year}>
-                      {year} {year === getCurrentAcademicYear() && '(היינט)'}
+                      {year} {year === getCurrentAcademicYear() && '(Current)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <span className="text-sm text-slate-500">
                 {selectedYear === 'all' 
-                  ? `ווייזט אלע ${allStudentFees.length} טשאַרדזשעס` 
-                  : `ווייזט ${studentFees.length} טשאַרדזשעס פאר ${selectedYear}`}
+                  ? `Showing all ${allStudentFees.length} charges` 
+                  : `Showing ${studentFees.length} charges for ${selectedYear}`}
               </span>
             </div>
 
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-600 font-medium">סה״כ טשאַרדזשעס</p>
+                <p className="text-sm text-blue-600 font-medium">Total Charges</p>
                 <p className="text-2xl font-bold text-blue-800">${financials.totalCharges.toFixed(2)}</p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-sm text-green-600 font-medium">באצאלט</p>
+                <p className="text-sm text-green-600 font-medium">Paid</p>
                 <p className="text-2xl font-bold text-green-800">${financials.totalPaid.toFixed(2)}</p>
               </div>
               <div className={`p-4 rounded-lg border ${financials.openBalance > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                <p className={`text-sm font-medium ${financials.openBalance > 0 ? 'text-red-600' : 'text-gray-600'}`}>אפענע באַלאַנס</p>
+                <p className={`text-sm font-medium ${financials.openBalance > 0 ? 'text-red-600' : 'text-gray-600'}`}>Open Balance</p>
                 <p className={`text-2xl font-bold ${financials.openBalance > 0 ? 'text-red-800' : 'text-gray-800'}`}>
                   ${financials.openBalance.toFixed(2)}
                 </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 font-medium">מחול</p>
+                <p className="text-sm text-gray-600 font-medium">Waived</p>
                 <p className="text-2xl font-bold text-gray-800">${financials.waived.toFixed(2)}</p>
               </div>
             </div>
@@ -610,7 +610,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                 size="sm"
               >
                 <Plus className="h-4 w-4 ml-1" />
-                צולייגן טשאַרדזש
+                Add Charge
               </Button>
               <Button 
                 onClick={() => setShowAddPayment(!showAddPayment)} 
@@ -618,7 +618,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                 size="sm"
               >
                 <CreditCard className="h-4 w-4 ml-1" />
-                רעקאָרדירן צאָלונג
+                Record Payment
               </Button>
               {siblings.length > 0 && (
                 <Button 
@@ -628,7 +628,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                   className="bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-300"
                 >
                   <Users className="h-4 w-4 ml-1" />
-                  משפחה צאָלונג ({siblings.length + 1} קינדער)
+                  Family Payment ({siblings.length + 1} children)
                 </Button>
               )}
             </div>
@@ -638,15 +638,15 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
               <div className="p-4 bg-purple-50 rounded-lg border border-purple-300 space-y-4">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Users className="h-5 w-5 text-purple-600" />
-                  משפחה צאָלונג - {student.father_name || 'משפחה'}
+                  Family Payment - {student.father_name || 'Family'}
                 </h4>
                 <p className="text-sm text-purple-700">
-                  וועל אויס קינדער און די צאָלונג וועט זיך צעטיילן צווישן זייערע אפענע באַלאַנסן
+                  Select children and the payment will be split across their open balances
                 </p>
                 
                 {/* Student Selection */}
                 <div className="space-y-2">
-                  <Label>וועל אויס קינדער:</Label>
+                  <Label>Select Children:</Label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {/* Current student */}
                     <div 
@@ -669,7 +669,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                           <p className="text-xs text-gray-500">{student.class?.name}</p>
                           {familyPayment.selectedStudents[studentId]?.fees && (
                             <p className="text-sm text-red-600 font-medium">
-                              באַלאַנס: ${familyPayment.selectedStudents[studentId].fees
+                              Balance: ${familyPayment.selectedStudents[studentId].fees
                                 .reduce((sum, f) => sum + parseFloat(f.amount) - parseFloat(f.amount_paid || 0), 0)
                                 .toFixed(2)}
                             </p>
@@ -701,7 +701,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                             <p className="text-xs text-gray-500">{sibling.class?.name}</p>
                             {familyPayment.selectedStudents[sibling.id]?.fees && (
                               <p className="text-sm text-red-600 font-medium">
-                                באַלאַנס: ${familyPayment.selectedStudents[sibling.id].fees
+                                Balance: ${familyPayment.selectedStudents[sibling.id].fees
                                   .reduce((sum, f) => sum + parseFloat(f.amount) - parseFloat(f.amount_paid || 0), 0)
                                   .toFixed(2)}
                               </p>
@@ -716,35 +716,35 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                 {/* Payment Details */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-purple-200">
                   <div>
-                    <Label>סה״כ סומע</Label>
+                    <Label>Total Amount</Label>
                     <Input 
                       type="number" 
                       step="0.01"
-                      placeholder={`מאקסימום: $${calculateFamilyBalance().toFixed(2)}`}
+                      placeholder={`Maximum: $${calculateFamilyBalance().toFixed(2)}`}
                       value={familyPayment.totalAmount}
                       onChange={(e) => setFamilyPayment({...familyPayment, totalAmount: e.target.value})}
                       className="text-lg font-bold"
                     />
                     <p className="text-xs text-purple-600 mt-1">
-                      סה״כ אויסגעוועלטע באַלאַנס: ${calculateFamilyBalance().toFixed(2)}
+                      Total Selected Balance: ${calculateFamilyBalance().toFixed(2)}
                     </p>
                   </div>
                   <div>
-                    <Label>צאָלונג מעטאָד</Label>
+                    <Label>Payment Method</Label>
                     <Select value={familyPayment.payment_method} onValueChange={(v) => setFamilyPayment({...familyPayment, payment_method: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">קעש</SelectItem>
-                        <SelectItem value="check">טשעק</SelectItem>
-                        <SelectItem value="credit_card">קרעדיט קארד</SelectItem>
-                        <SelectItem value="bank_transfer">באנק טראנספער</SelectItem>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>רעפערענס # (טשעק/קארד)</Label>
+                    <Label>Reference # (Check/Card)</Label>
                     <Input 
-                      placeholder="רעפערענס נומער"
+                      placeholder="Reference number"
                       value={familyPayment.reference_number}
                       onChange={(e) => setFamilyPayment({...familyPayment, reference_number: e.target.value})}
                     />
@@ -758,7 +758,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                   disabled={calculateFamilyBalance() === 0}
                 >
                   <CreditCard className="h-4 w-4 ml-1" />
-                  רעקאָרדירן משפחה צאָלונג
+                  Record Family Payment
                 </Button>
               </div>
             )}
@@ -766,12 +766,12 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             {/* Add Charge Form */}
             {showAddCharge && (
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-4">
-                <h4 className="font-semibold">צולייגן נייע טשאַרדזש</h4>
+                <h4 className="font-semibold">Add New Charge</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label>טשאַרדזש טיפ</Label>
+                    <Label>Charge Type</Label>
                     <Select value={newCharge.fee_id} onValueChange={(v) => setNewCharge({...newCharge, fee_id: v})}>
-                      <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
                         {availableFees.map(fee => (
                           <SelectItem key={fee.id} value={fee.id}>
@@ -782,80 +782,80 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                     </Select>
                   </div>
                   <div>
-                    <Label>סומע (אויב אנדערש)</Label>
+                    <Label>Amount (if different)</Label>
                     <Input 
                       type="number" 
                       step="0.01"
-                      placeholder="סומע"
+                      placeholder="Amount"
                       value={newCharge.amount}
                       onChange={(e) => setNewCharge({...newCharge, amount: e.target.value})}
                     />
                   </div>
                   <div>
-                    <Label>נאטיצן</Label>
+                    <Label>Notes</Label>
                     <Input 
-                      placeholder="נאטיצן"
+                      placeholder="Notes"
                       value={newCharge.notes}
                       onChange={(e) => setNewCharge({...newCharge, notes: e.target.value})}
                     />
                   </div>
                 </div>
-                <Button onClick={handleAddCharge} size="sm">צולייגן טשאַרדזש</Button>
+                <Button onClick={handleAddCharge} size="sm">Add Charge</Button>
               </div>
             )}
 
             {/* Add Payment Form */}
             {showAddPayment && (
               <div className="p-4 bg-green-50 rounded-lg border border-green-200 space-y-4">
-                <h4 className="font-semibold">רעקאָרדירן צאָלונג</h4>
+                <h4 className="font-semibold">Record Payment</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>פאר וואס טשאַרדזש</Label>
+                    <Label>For Which Charge</Label>
                     <Select value={newPayment.student_fee_id} onValueChange={(v) => setNewPayment({...newPayment, student_fee_id: v})}>
-                      <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
                         {studentFees.filter(sf => sf.status !== 'paid' && sf.status !== 'waived').map(sf => (
                           <SelectItem key={sf.id} value={sf.id}>
-                            {sf.fee?.name} - באלאנס: ${(parseFloat(sf.amount) - parseFloat(sf.amount_paid || 0)).toFixed(2)}
+                            {sf.fee?.name} - Balance: ${(parseFloat(sf.amount) - parseFloat(sf.amount_paid || 0)).toFixed(2)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>סומע</Label>
+                    <Label>Amount</Label>
                     <Input 
                       type="number" 
                       step="0.01"
-                      placeholder="סומע"
+                      placeholder="Amount"
                       value={newPayment.amount}
                       onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
                     />
                   </div>
                   <div>
-                    <Label>צאָלונג מעטאָד</Label>
+                    <Label>Payment Method</Label>
                     <Select value={newPayment.payment_method} onValueChange={(v) => setNewPayment({...newPayment, payment_method: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="cash">קעש</SelectItem>
-                        <SelectItem value="check">טשעק</SelectItem>
-                        <SelectItem value="credit_card">קרעדיט קארד</SelectItem>
-                        <SelectItem value="bank_transfer">באנק טראנספער</SelectItem>
-                        <SelectItem value="other">אנדערע</SelectItem>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="check">Check</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>רעפערענס # (טשעק/קארד)</Label>
+                    <Label>Reference # (Check/Card)</Label>
                     <Input 
-                      placeholder="רעפערענס נומער"
+                      placeholder="Reference number"
                       value={newPayment.reference_number}
                       onChange={(e) => setNewPayment({...newPayment, reference_number: e.target.value})}
                     />
                   </div>
                 </div>
                 <Button onClick={handleAddPayment} size="sm" className="bg-green-600 hover:bg-green-700">
-                  רעקאָרדירן צאָלונג
+                  Record Payment
                 </Button>
               </div>
             )}
@@ -864,20 +864,20 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             <div>
               <h4 className="font-semibold mb-3 flex items-center gap-2">
                 <Receipt className="h-5 w-5" />
-                טשאַרדזשעס ({studentFees.length})
+                Charges ({studentFees.length})
               </h4>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {studentFees.length === 0 ? (
                   <p className="text-slate-500 text-center py-4">
                     {selectedYear === 'all' 
-                      ? 'קיין טשאַרדזשעס נישט געפונען' 
-                      : `קיין טשאַרדזשעס נישט געפונען פאר ${selectedYear}`}
+                      ? 'No charges found' 
+                      : `No charges found for ${selectedYear}`}
                   </p>
                 ) : (
                   studentFees.map(sf => (
                     <div key={sf.id} className="p-3 bg-white border rounded-lg flex justify-between items-center">
                       <div>
-                        <p className="font-medium">{sf.fee?.name || 'טשאַרדזש'}</p>
+                        <p className="font-medium">{sf.fee?.name || 'Charge'}</p>
                         <p className="text-sm text-slate-500">
                           {sf.fee?.fee_type?.name} 
                           {sf.fee?.academic_year && <span className="mx-1">|</span>}
@@ -889,7 +889,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                       </div>
                       <div className="text-left">
                         <p className="font-bold">${parseFloat(sf.amount).toFixed(2)}</p>
-                        <p className="text-sm text-green-600">באצאלט: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
+                        <p className="text-sm text-green-600">Paid: ${parseFloat(sf.amount_paid || 0).toFixed(2)}</p>
                         {getStatusBadge(sf.status)}
                       </div>
                     </div>
@@ -902,20 +902,20 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
             <div className="p-4 bg-green-50 rounded-lg border-2 border-green-300">
               <h4 className="font-bold text-lg mb-4 flex items-center gap-2 text-green-800">
                 <CreditCard className="h-6 w-6" />
-                📜 היסטאריע פון צאָלונגען ({payments.length})
+                📜 Payment History ({payments.length})
               </h4>
               
               {payments.length === 0 ? (
                 <p className="text-slate-500 text-center py-6 bg-white rounded-lg">
                   {selectedYear === 'all' 
-                    ? 'קיין צאָלונגען נישט געפונען - דער תלמיד האט נאך נישט באצאלט' 
-                    : `קיין צאָלונגען נישט געפונען פאר ${selectedYear}`}
+                    ? 'No payments found - this student has not paid yet' 
+                    : `No payments found for ${selectedYear}`}
                 </p>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto">
                   {/* Payment Summary */}
                   <div className="mb-3 p-3 bg-green-100 rounded-lg flex justify-between items-center">
-                    <span className="font-medium text-green-800">סה״כ באצאלט:</span>
+                    <span className="font-medium text-green-800">Total Paid:</span>
                     <span className="text-xl font-bold text-green-700">
                       ${payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}
                     </span>
@@ -925,12 +925,12 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                   {payments.map(payment => (
                     <div key={payment.id} className="p-3 bg-white border border-green-200 rounded-lg flex justify-between items-center shadow-sm">
                       <div>
-                        <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || payment.description || 'צאָלונג'}</p>
+                        <p className="font-medium text-green-900">{payment.student_fee?.fee?.name || payment.description || 'Payment'}</p>
                         <p className="text-sm text-slate-600">
-                          {payment.payment_method === 'cash' ? '💵 קעש' : 
-                           payment.payment_method === 'check' ? '📝 טשעק' :
-                           payment.payment_method === 'credit_card' ? '💳 קרעדיט קארד' : 
-                           payment.payment_method === 'bank_transfer' ? '🏦 באנק טראנספער' : payment.payment_method}
+                          {payment.payment_method === 'cash' ? '💵 Cash' : 
+                           payment.payment_method === 'check' ? '📝 Check' :
+                           payment.payment_method === 'credit_card' ? '💳 Credit Card' : 
+                           payment.payment_method === 'bank_transfer' ? '🏦 Bank Transfer' : payment.payment_method}
                           {payment.reference_number && ` - #${payment.reference_number}`}
                           {payment.student_fee?.fee?.academic_year && (
                             <span className="text-blue-600 mr-2"> | {payment.student_fee.fee.academic_year}</span>
@@ -955,7 +955,7 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
           <TabsContent value="issues" className="mt-4">
             <div className="space-y-3">
               {issues.length === 0 ? (
-                <p className="text-slate-500 text-center py-4">קיין בעיות נישט רעקאָרדירט</p>
+                <p className="text-slate-500 text-center py-4">No issues recorded</p>
               ) : (
                 issues.map(issue => (
                   <div key={issue.id} className="p-3 border rounded-lg bg-white shadow-sm">
@@ -965,11 +965,11 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                         issue.status === 'open' ? 'bg-red-100 text-red-700' : 
                         issue.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-green-100 text-green-700'
-                      }`}>{issue.status === 'open' ? 'אפן' : issue.status === 'in_progress' ? 'אין פראצעס' : 'פארטיג'}</span>
+                      }`}>{issue.status === 'open' ? 'Open' : issue.status === 'in_progress' ? 'In Progress' : 'Done'}</span>
                     </div>
                     <p className="text-sm text-slate-600 mt-1">{issue.description}</p>
                     <div className="flex justify-between mt-2 text-xs text-slate-400">
-                      <span>באריכטעט דורך: {issue.reported_by_user?.first_name} {issue.reported_by_user?.last_name}</span>
+                      <span>Reported by: {issue.reported_by_user?.first_name} {issue.reported_by_user?.last_name}</span>
                       <span>{new Date(issue.created_at).toLocaleDateString('he-IL')}</span>
                     </div>
                   </div>
@@ -984,19 +984,19 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="צולייגן א הערה..."
+                  placeholder="Add a remark..."
                   className="flex-1 px-3 py-2 border rounded-lg"
                   value={newRemark}
                   onChange={(e) => setNewRemark(e.target.value)}
                 />
                 <Button onClick={addRemark} size="sm">
-                  <MessageSquare className="h-4 w-4 ml-2" /> צולייגן
+                  <MessageSquare className="h-4 w-4 ml-2" /> Add
                 </Button>
               </div>
               
               <div className="space-y-3 max-h-60 overflow-y-auto">
                 {remarks.length === 0 ? (
-                  <p className="text-slate-500 text-center py-4">קיין הערות נישט געפונען</p>
+                  <p className="text-slate-500 text-center py-4">No remarks found</p>
                 ) : (
                   remarks.map(remark => (
                     <div key={remark.id} className="p-3 bg-slate-50 rounded-lg border">

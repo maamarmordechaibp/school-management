@@ -237,7 +237,7 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
                   value={formData.hebrew_name}
                   onChange={(e) => setFormData({ ...formData, hebrew_name: e.target.value })}
                   dir="rtl"
-                  placeholder="שם עברי"
+                  placeholder="Hebrew Name"
                 />
               </div>
             </div>

@@ -545,19 +545,19 @@ const CallLogsView = ({ role, currentUser }) => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Direction (ריכטונג)</Label>
+                <Label>Direction</Label>
                 <Select value={formData.direction} onValueChange={(v) => setFormData({ ...formData, direction: v, call_type: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="outgoing">📤 Outgoing (ארויסגערופן)</SelectItem>
-                    <SelectItem value="incoming">📥 Incoming (אריינגערופן)</SelectItem>
+                    <SelectItem value="outgoing">📤 Outgoing</SelectItem>
+                    <SelectItem value="incoming">📥 Incoming</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Duration (מינוטן)</Label>
+                <Label>Duration (minutes)</Label>
                 <Input
                   type="number"
                   value={formData.duration_minutes}
@@ -569,7 +569,7 @@ const CallLogsView = ({ role, currentUser }) => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Reminder Date (רימיינדער)</Label>
+                <Label>Reminder Date</Label>
                 <Input
                   type="date"
                   value={formData.reminder_date}

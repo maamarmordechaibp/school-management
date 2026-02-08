@@ -386,7 +386,7 @@ const StaffView = ({ role, currentUser }) => {
                 <TableRow className="bg-slate-50">
                   <TableHead className="font-semibold">Position</TableHead>
                   <TableHead className="font-semibold">Name</TableHead>
-                  <TableHead className="font-semibold text-right" dir="rtl">שם</TableHead>
+                  <TableHead className="font-semibold text-right" dir="rtl">Hebrew Name</TableHead>
                   <TableHead className="font-semibold">Class</TableHead>
                   <TableHead className="font-semibold">Cell Phone</TableHead>
                   <TableHead className="font-semibold">Home Phone</TableHead>
@@ -510,12 +510,12 @@ const StaffView = ({ role, currentUser }) => {
                 />
               </div>
               <div>
-                <Label>Hebrew Name (שם)</Label>
+                <Label>Hebrew Name</Label>
                 <Input
                   value={formData.hebrew_name}
                   onChange={(e) => setFormData({ ...formData, hebrew_name: e.target.value })}
                   dir="rtl"
-                  placeholder="שם מלא"
+                  placeholder="Full name"
                 />
               </div>
             </div>
@@ -600,7 +600,7 @@ const StaffView = ({ role, currentUser }) => {
               <Input
                 value={formData.class_assignment}
                 onChange={(e) => setFormData({ ...formData, class_assignment: e.target.value })}
-                placeholder="e.g., א, ב, ג/1st"
+                placeholder="e.g., A, B, C/1st"
               />
             </div>
 

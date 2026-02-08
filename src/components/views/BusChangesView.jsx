@@ -80,7 +80,7 @@ const BusChangesView = ({ role, currentUser }) => {
   // Save Route
   const handleSaveRoute = async () => {
     if (!routeForm.route_name) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע שרייב א נאמען פאר די ראוט' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a route name' });
       return;
     }
     try {
@@ -91,7 +91,7 @@ const BusChangesView = ({ role, currentUser }) => {
         const { error } = await supabase.from('bus_routes').insert([routeForm]);
         if (error) throw error;
       }
-      toast({ title: 'שמור', description: 'באס ראוט געשמורט' });
+      toast({ title: 'Saved', description: 'Bus route saved successfully' });
       setIsRouteModalOpen(false);
       loadData();
     } catch (error) {
@@ -99,10 +99,29 @@ const BusChangesView = ({ role, currentUser }) => {
     }
   };
 
+  // Pre-fill bus route when student is selected
+  const handleStudentSelectedForChange = async (studentId) => {
+    setChangeForm(prev => ({ ...prev, student_id: studentId, original_bus_id: '' }));
+    if (!studentId) return;
+    try {
+      const { data } = await supabase
+        .from('student_bus_assignments')
+        .select('bus_route_id')
+        .eq('student_id', studentId)
+        .eq('is_active', true)
+        .single();
+      if (data?.bus_route_id) {
+        setChangeForm(prev => ({ ...prev, original_bus_id: data.bus_route_id }));
+      }
+    } catch (err) {
+      // No active assignment found, leave original_bus_id empty
+    }
+  };
+
   // Save Change
   const handleSaveChange = async () => {
     if (!changeForm.student_id) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ביטע וועל אויס א תלמיד' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a student' });
       return;
     }
     try {
@@ -115,7 +134,7 @@ const BusChangesView = ({ role, currentUser }) => {
         created_by: currentUser?.id
       }]);
       if (error) throw error;
-      toast({ title: 'נייע טשיינדזש', description: 'באס טשיינדזש רעקאָרדירט' });
+      toast({ title: 'New Change', description: 'Bus change recorded' });
       setIsChangeModalOpen(false);
       loadData();
     } catch (error) {
@@ -127,7 +146,7 @@ const BusChangesView = ({ role, currentUser }) => {
   const printChanges = () => {
     const todayChanges = busChanges.filter(c => c.change_date === selectedDate);
     if (todayChanges.length === 0) {
-      toast({ title: 'Info', description: 'קיין טשיינדזשעס פאר היינט' });
+      toast({ title: 'Info', description: 'No changes for today' });
       return;
     }
 
@@ -142,16 +161,16 @@ const BusChangesView = ({ role, currentUser }) => {
         .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
       </style></head>
       <body>
-        <h1>באס טשיינדזשעס - ${new Date(selectedDate).toLocaleDateString('he-IL')}</h1>
+        <h1>Bus Changes - ${new Date(selectedDate).toLocaleDateString('en-US')}</h1>
         <table>
           <thead>
             <tr>
-              <th>תלמיד</th>
-              <th>כיתה</th>
-              <th>פון באס</th>
-              <th>צו באס</th>
-              <th>טיפ</th>
-              <th>סיבה</th>
+              <th>Student</th>
+              <th>Class</th>
+              <th>From Bus</th>
+              <th>To Bus</th>
+              <th>Type</th>
+              <th>Reason</th>
             </tr>
           </thead>
           <tbody>
@@ -161,13 +180,13 @@ const BusChangesView = ({ role, currentUser }) => {
                 <td>${c.student?.class?.name || 'N/A'}</td>
                 <td>${c.original_bus?.route_name || '-'}</td>
                 <td>${c.new_bus?.route_name || '-'}</td>
-                <td>${c.change_type === 'one_time' ? 'איין מאל' : c.change_type === 'temporary' ? 'צייטווייליג' : 'פערמאנענט'}</td>
+                <td>${c.change_type === 'one_time' ? 'One Time' : c.change_type === 'temporary' ? 'Temporary' : 'Permanent'}</td>
                 <td>${c.reason || '-'}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
-        <div class="footer">אויסגעפרינט פון סיסטעם</div>
+        <div class="footer">Printed from system</div>
       </body></html>
     `;
     const printWindow = window.open('', '_blank');
@@ -178,7 +197,7 @@ const BusChangesView = ({ role, currentUser }) => {
 
   // Delete route
   const deleteRoute = async (id) => {
-    if (!confirm('זענט איר זיכער?')) return;
+    if (!confirm('Are you sure?')) return;
     await supabase.from('bus_routes').update({ is_active: false }).eq('id', id);
     loadData();
   };
@@ -198,19 +217,19 @@ const BusChangesView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">באס טשיינדזשעס</h1>
-          <p className="text-slate-500">מאכן און פרינטן באס טשיינדזשעס</p>
+          <h1 className="text-2xl font-bold text-slate-800">Bus Changes</h1>
+          <p className="text-slate-500">Create and print bus changes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={printChanges}>
-            <Printer className="h-4 w-4 ml-2" /> פרינט
+            <Printer className="h-4 w-4 ml-2" /> Print
           </Button>
           <Button variant="outline" onClick={() => {
             setEditingRoute(null);
             setRouteForm({ route_name: '', route_number: '', driver_name: '', driver_phone: '' });
             setIsRouteModalOpen(true);
           }}>
-            <Route className="h-4 w-4 ml-2" /> נייע ראוט
+            <Route className="h-4 w-4 ml-2" /> New Route
           </Button>
           <Button onClick={() => {
             setChangeForm({
@@ -220,7 +239,7 @@ const BusChangesView = ({ role, currentUser }) => {
             });
             setIsChangeModalOpen(true);
           }} className="bg-cyan-600 hover:bg-cyan-700">
-            <Plus className="h-4 w-4 ml-2" /> נייע טשיינדזש
+            <Plus className="h-4 w-4 ml-2" /> New Change
           </Button>
         </div>
       </div>
@@ -230,19 +249,19 @@ const BusChangesView = ({ role, currentUser }) => {
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-cyan-100 rounded-lg"><Bus className="h-6 w-6 text-cyan-600" /></div>
-            <div><p className="text-2xl font-bold">{busRoutes.length}</p><p className="text-sm text-slate-500">באס ראוטן</p></div>
+            <div><p className="text-2xl font-bold">{busRoutes.length}</p><p className="text-sm text-slate-500">Bus Routes</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-amber-100 rounded-lg"><AlertCircle className="h-6 w-6 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold">{busChanges.filter(c => c.change_date === selectedDate).length}</p><p className="text-sm text-slate-500">טשיינדזשעס היינט</p></div>
+            <div><p className="text-2xl font-bold">{busChanges.filter(c => c.change_date === selectedDate).length}</p><p className="text-sm text-slate-500">Changes Today</p></div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-lg"><Calendar className="h-6 w-6 text-purple-600" /></div>
-            <div><p className="text-2xl font-bold">{busChanges.length}</p><p className="text-sm text-slate-500">סה״כ צוקומענדיגע</p></div>
+            <div><p className="text-2xl font-bold">{busChanges.length}</p><p className="text-sm text-slate-500">Total Upcoming</p></div>
           </CardContent>
         </Card>
       </div>
@@ -251,18 +270,18 @@ const BusChangesView = ({ role, currentUser }) => {
       <Card>
         <CardContent className="p-4 flex flex-col md:flex-row gap-4">
           <div>
-            <Label>פון דאטום</Label>
+            <Label>From Date</Label>
             <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[200px]" />
           </div>
           <div>
-            <Label>טיפ טשיינדזש</Label>
+            <Label>Change Type</Label>
             <Select value={changeTypeFilter} onValueChange={setChangeTypeFilter}>
               <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">אלע</SelectItem>
-                <SelectItem value="one_time">איין מאל</SelectItem>
-                <SelectItem value="temporary">צייטווייליג</SelectItem>
-                <SelectItem value="permanent">פערמאנענט</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="one_time">One Time</SelectItem>
+                <SelectItem value="temporary">Temporary</SelectItem>
+                <SelectItem value="permanent">Permanent</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -273,18 +292,18 @@ const BusChangesView = ({ role, currentUser }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bus className="h-5 w-5" /> באס ראוטן ({busRoutes.length})
+            <Bus className="h-5 w-5" /> Bus Routes ({busRoutes.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ראוט נאמען</TableHead>
-                <TableHead>נומער</TableHead>
-                <TableHead>דרייווער</TableHead>
-                <TableHead>טעלעפאן</TableHead>
-                <TableHead>אקציעס</TableHead>
+                <TableHead>Route Name</TableHead>
+                <TableHead>Number</TableHead>
+                <TableHead>Driver</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -317,7 +336,7 @@ const BusChangesView = ({ role, currentUser }) => {
               ))}
               {busRoutes.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">קיין ראוטן נישט געפונען</TableCell>
+                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">No routes found</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -329,27 +348,27 @@ const BusChangesView = ({ role, currentUser }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-600" /> טשיינדזשעס ({filteredChanges.length})
+            <AlertCircle className="h-5 w-5 text-amber-600" /> Changes ({filteredChanges.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>דאטום</TableHead>
-                <TableHead>תלמיד</TableHead>
-                <TableHead>כיתה</TableHead>
-                <TableHead>פון באס</TableHead>
-                <TableHead>צו באס</TableHead>
-                <TableHead>טיפ</TableHead>
-                <TableHead>סיבה</TableHead>
-                <TableHead>אקציעס</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Student</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>From Bus</TableHead>
+                <TableHead>To Bus</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredChanges.map(change => (
                 <TableRow key={change.id}>
-                  <TableCell>{new Date(change.change_date).toLocaleDateString('he-IL')}</TableCell>
+                  <TableCell>{new Date(change.change_date).toLocaleDateString('en-US')}</TableCell>
                   <TableCell className="font-medium">
                     {change.student?.hebrew_name || `${change.student?.first_name} ${change.student?.last_name}`}
                   </TableCell>
@@ -362,15 +381,15 @@ const BusChangesView = ({ role, currentUser }) => {
                       change.change_type === 'temporary' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-blue-100 text-blue-800'
                     }>
-                      {change.change_type === 'one_time' ? 'איין מאל' : change.change_type === 'temporary' ? 'צייטווייליג' : 'פערמאנענט'}
+                      {change.change_type === 'one_time' ? 'One Time' : change.change_type === 'temporary' ? 'Temporary' : 'Permanent'}
                     </Badge>
                   </TableCell>
                   <TableCell className="max-w-[150px] truncate">{change.reason || '-'}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" onClick={() => {
                       setEmailContext({
-                        subject: `באס טשיינדזש - ${change.student?.hebrew_name || change.student?.first_name}`,
-                        body: `באס טשיינדזש פאר ${change.student?.hebrew_name || change.student?.first_name}\n\nדאטום: ${new Date(change.change_date).toLocaleDateString('he-IL')}\nפון: ${change.original_bus?.route_name || 'N/A'}\nצו: ${change.new_bus?.route_name || 'N/A'}\nסיבה: ${change.reason || 'N/A'}`
+                      subject: `Bus Change - ${change.student?.hebrew_name || change.student?.first_name}`,
+                      body: `Bus change for ${change.student?.hebrew_name || change.student?.first_name}\n\nDate: ${new Date(change.change_date).toLocaleDateString('en-US')}\nFrom: ${change.original_bus?.route_name || 'N/A'}\nTo: ${change.new_bus?.route_name || 'N/A'}\nReason: ${change.reason || 'N/A'}`
                       });
                       setIsEmailModalOpen(true);
                     }}>
@@ -383,7 +402,7 @@ const BusChangesView = ({ role, currentUser }) => {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                     <Bus className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>קיין טשיינדזשעס נישט געפונען</p>
+                    <p>No changes found</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -396,33 +415,33 @@ const BusChangesView = ({ role, currentUser }) => {
       <Dialog open={isRouteModalOpen} onOpenChange={setIsRouteModalOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
-            <DialogTitle>{editingRoute ? 'עדיט ראוט' : 'נייע באס ראוט'}</DialogTitle>
+            <DialogTitle>{editingRoute ? 'Edit Route' : 'New Bus Route'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>ראוט נאמען *</Label>
-                <Input value={routeForm.route_name} onChange={(e) => setRouteForm({ ...routeForm, route_name: e.target.value })} placeholder="באס 1" />
+                <Label>Route Name *</Label>
+                <Input value={routeForm.route_name} onChange={(e) => setRouteForm({ ...routeForm, route_name: e.target.value })} placeholder="Bus 1" />
               </div>
               <div>
-                <Label>ראוט נומער</Label>
+                <Label>Route Number</Label>
                 <Input value={routeForm.route_number} onChange={(e) => setRouteForm({ ...routeForm, route_number: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>דרייווער נאמען</Label>
+                <Label>Driver Name</Label>
                 <Input value={routeForm.driver_name} onChange={(e) => setRouteForm({ ...routeForm, driver_name: e.target.value })} />
               </div>
               <div>
-                <Label>דרייווער טעלעפאן</Label>
+                <Label>Driver Phone</Label>
                 <Input value={routeForm.driver_phone} onChange={(e) => setRouteForm({ ...routeForm, driver_phone: e.target.value })} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRouteModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveRoute} className="bg-cyan-600 hover:bg-cyan-700">{editingRoute ? 'אפדעיט' : 'צולייגן'}</Button>
+            <Button variant="outline" onClick={() => setIsRouteModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveRoute} className="bg-cyan-600 hover:bg-cyan-700">{editingRoute ? 'Update' : 'Add'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -431,35 +450,35 @@ const BusChangesView = ({ role, currentUser }) => {
       <Dialog open={isChangeModalOpen} onOpenChange={setIsChangeModalOpen}>
         <DialogContent className="max-w-lg" dir="rtl">
           <DialogHeader>
-            <DialogTitle>נייע באס טשיינדזש</DialogTitle>
+            <DialogTitle>New Bus Change</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>תלמיד *</Label>
+              <Label>Student *</Label>
               <StudentPicker
                 students={students}
                 value={changeForm.student_id}
-                onChange={(id) => setChangeForm({ ...changeForm, student_id: id })}
-                placeholder="זוך תלמיד..."
+                onChange={handleStudentSelectedForChange}
+                placeholder="Search student..."
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>פון באס</Label>
+                <Label>From Bus</Label>
                 <Select value={changeForm.original_bus_id || 'none'} onValueChange={(v) => setChangeForm({ ...changeForm, original_bus_id: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">קיינס</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {busRoutes.map(r => <SelectItem key={r.id} value={r.id}>{r.route_name} ({r.route_number})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>צו באס</Label>
+                <Label>To Bus</Label>
                 <Select value={changeForm.new_bus_id || 'none'} onValueChange={(v) => setChangeForm({ ...changeForm, new_bus_id: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="וועל אויס..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">קיינס</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {busRoutes.map(r => <SelectItem key={r.id} value={r.id}>{r.route_name} ({r.route_number})</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -467,17 +486,17 @@ const BusChangesView = ({ role, currentUser }) => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>דאטום</Label>
+                <Label>Date</Label>
                 <Input type="date" value={changeForm.change_date} onChange={(e) => setChangeForm({ ...changeForm, change_date: e.target.value })} />
               </div>
               <div>
-                <Label>טיפ</Label>
+                <Label>Type</Label>
                 <Select value={changeForm.change_type} onValueChange={(v) => setChangeForm({ ...changeForm, change_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="one_time">איין מאל</SelectItem>
-                    <SelectItem value="temporary">צייטווייליג</SelectItem>
-                    <SelectItem value="permanent">פערמאנענט</SelectItem>
+                    <SelectItem value="one_time">One Time</SelectItem>
+                    <SelectItem value="temporary">Temporary</SelectItem>
+                    <SelectItem value="permanent">Permanent</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -485,31 +504,31 @@ const BusChangesView = ({ role, currentUser }) => {
             {changeForm.change_type === 'temporary' && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>פון דאטום</Label>
+                  <Label>From Date</Label>
                   <Input type="date" value={changeForm.effective_from} onChange={(e) => setChangeForm({ ...changeForm, effective_from: e.target.value })} />
                 </div>
                 <div>
-                  <Label>ביז דאטום</Label>
+                  <Label>Until Date</Label>
                   <Input type="date" value={changeForm.effective_until} onChange={(e) => setChangeForm({ ...changeForm, effective_until: e.target.value })} />
                 </div>
               </div>
             )}
             <div>
-              <Label>אנדערע אדרעס (אויב פאראן)</Label>
-              <Input value={changeForm.pickup_address} onChange={(e) => setChangeForm({ ...changeForm, pickup_address: e.target.value })} placeholder="נייע פיקאפ אדרעס" />
+              <Label>Alternate Address (if applicable)</Label>
+              <Input value={changeForm.pickup_address} onChange={(e) => setChangeForm({ ...changeForm, pickup_address: e.target.value })} placeholder="New pickup address" />
             </div>
             <div>
-              <Label>סיבה</Label>
+              <Label>Reason</Label>
               <Input value={changeForm.reason} onChange={(e) => setChangeForm({ ...changeForm, reason: e.target.value })} />
             </div>
             <div>
-              <Label>נאטיצן</Label>
+              <Label>Notes</Label>
               <Textarea value={changeForm.notes} onChange={(e) => setChangeForm({ ...changeForm, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsChangeModalOpen(false)}>בטל</Button>
-            <Button onClick={handleSaveChange} className="bg-cyan-600 hover:bg-cyan-700">רעקאָרדיר</Button>
+            <Button variant="outline" onClick={() => setIsChangeModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveChange} className="bg-cyan-600 hover:bg-cyan-700">Record</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

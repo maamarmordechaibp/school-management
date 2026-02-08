@@ -16,14 +16,14 @@ import {
 } from 'lucide-react';
 
 const REMINDER_TYPES = [
-  { value: 'general', label: 'כללי' },
-  { value: 'meeting', label: 'געשפרעך/מיטינג' },
-  { value: 'call', label: 'אנרוף' },
-  { value: 'deadline', label: 'דעדליין' },
-  { value: 'follow_up', label: 'נאכפאלגן' },
-  { value: 'evaluation', label: 'עוואלואציע' },
-  { value: 'payment', label: 'צאלונג' },
-  { value: 'other', label: 'אנדערע' },
+  { value: 'general', label: 'General' },
+  { value: 'meeting', label: 'Meeting' },
+  { value: 'call', label: 'Call' },
+  { value: 'deadline', label: 'Deadline' },
+  { value: 'follow_up', label: 'Follow-up' },
+  { value: 'evaluation', label: 'Evaluation' },
+  { value: 'payment', label: 'Payment' },
+  { value: 'other', label: 'Other' },
 ];
 
 const RemindersView = ({ role, currentUser }) => {
@@ -96,7 +96,7 @@ const RemindersView = ({ role, currentUser }) => {
 
   const handleSave = async () => {
     if (!form.title || !form.reminder_date) {
-      toast({ variant: 'destructive', title: 'פעלער', description: 'ביטע פיל אויס טיטל און דאטום' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill in title and date' });
       return;
     }
     try {
@@ -117,25 +117,25 @@ const RemindersView = ({ role, currentUser }) => {
       if (editingReminder) {
         const { error } = await supabase.from('reminders').update(payload).eq('id', editingReminder.id);
         if (error) throw error;
-        toast({ title: 'אפדעיטעד', description: 'רימיינדער איז געטוישט געווארן' });
+        toast({ title: 'Updated', description: 'Reminder has been updated' });
       } else {
         const { error } = await supabase.from('reminders').insert([payload]);
         if (error) throw error;
-        toast({ title: 'צוגעלייגט', description: 'רימיינדער איז צוגעלייגט געווארן' });
+        toast({ title: 'Added', description: 'Reminder has been added' });
       }
 
       // If send_email is on, log the email
       if (form.send_email && form.email_recipients) {
         await supabase.from('email_log').insert([{
           to_addresses: form.email_recipients.split(',').map(e => e.trim()),
-          subject: `רימיינדער: ${form.title}`,
-          body: `${form.description || form.title}\n\nדאטום: ${form.reminder_date} ${form.reminder_time}`,
+          subject: `Reminder: ${form.title}`,
+          body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`,
           related_type: 'reminder',
           sent_by: currentUser?.id,
           sent_by_name: currentUser?.name || currentUser?.first_name,
         }]);
         // Open mailto
-        const mailtoLink = `mailto:${form.email_recipients}?subject=${encodeURIComponent('רימיינדער: ' + form.title)}&body=${encodeURIComponent(form.description || form.title)}`;
+        const mailtoLink = `mailto:${form.email_recipients}?subject=${encodeURIComponent('Reminder: ' + form.title)}&body=${encodeURIComponent(form.description || form.title)}`;
         window.open(mailtoLink);
       }
 
@@ -143,7 +143,7 @@ const RemindersView = ({ role, currentUser }) => {
       setEditingReminder(null);
       loadReminders();
     } catch (error) {
-      toast({ variant: 'destructive', title: 'פעלער', description: error.message });
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
   };
 
@@ -154,7 +154,7 @@ const RemindersView = ({ role, currentUser }) => {
         completed_at: new Date().toISOString()
       }).eq('id', id);
       if (error) throw error;
-      toast({ title: 'פערטיג', description: 'רימיינדער איז מסוים געווארן' });
+      toast({ title: 'Done', description: 'Reminder has been completed' });
       loadReminders();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -165,7 +165,7 @@ const RemindersView = ({ role, currentUser }) => {
     try {
       const { error } = await supabase.from('reminders').update({ is_active: false }).eq('id', id);
       if (error) throw error;
-      toast({ title: 'אויסגעמעקט', description: 'רימיינדער איז אויסגעמעקט געווארן' });
+      toast({ title: 'Deleted', description: 'Reminder has been deleted' });
       loadReminders();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -233,22 +233,22 @@ const RemindersView = ({ role, currentUser }) => {
   }).slice(0, 5);
 
   const getPriorityBadge = (p) => {
-    if (p === 'high') return <Badge className="bg-red-100 text-red-800">הויך</Badge>;
-    if (p === 'low') return <Badge className="bg-slate-100 text-slate-600">נידעריג</Badge>;
-    return <Badge className="bg-blue-100 text-blue-800">נארמאל</Badge>;
+    if (p === 'high') return <Badge className="bg-red-100 text-red-800">High</Badge>;
+    if (p === 'low') return <Badge className="bg-slate-100 text-slate-600">Low</Badge>;
+    return <Badge className="bg-blue-100 text-blue-800">Normal</Badge>;
   };
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Bell className="h-6 w-6 text-amber-600" /> רימיינדערס
+            <Bell className="h-6 w-6 text-amber-600" /> Reminders
           </h1>
-          <p className="text-slate-500">אלע רימיינדערס - מיט אימעיל אפציע</p>
+          <p className="text-slate-500">All reminders - with email option</p>
         </div>
         <Button onClick={openAddModal}>
-          <Plus className="h-4 w-4 ml-2" /> נייער רימיינדער
+          <Plus className="h-4 w-4 mr-2" /> New Reminder
         </Button>
       </div>
 
@@ -258,28 +258,28 @@ const RemindersView = ({ role, currentUser }) => {
           <CardContent className="p-4 text-center">
             <Bell className="h-6 w-6 mx-auto mb-1 text-blue-600" />
             <p className="text-2xl font-bold">{reminders.length}</p>
-            <p className="text-xs text-slate-500">אקטיוו</p>
+            <p className="text-xs text-slate-500">Active</p>
           </CardContent>
         </Card>
         <Card className={`cursor-pointer ${filter === 'overdue' ? 'ring-2 ring-red-400' : ''}`} onClick={() => setFilter('overdue')}>
           <CardContent className="p-4 text-center">
             <AlertCircle className="h-6 w-6 mx-auto mb-1 text-red-600" />
             <p className="text-2xl font-bold text-red-600">{overdueCount}</p>
-            <p className="text-xs text-slate-500">פארפאלן</p>
+            <p className="text-xs text-slate-500">Overdue</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Calendar className="h-6 w-6 mx-auto mb-1 text-amber-600" />
             <p className="text-2xl font-bold text-amber-600">{todayCount}</p>
-            <p className="text-xs text-slate-500">הייַנט</p>
+            <p className="text-xs text-slate-500">Today</p>
           </CardContent>
         </Card>
         <Card className={`cursor-pointer ${filter === 'completed' ? 'ring-2 ring-green-400' : ''}`} onClick={() => setFilter('completed')}>
           <CardContent className="p-4 text-center">
             <CheckCircle className="h-6 w-6 mx-auto mb-1 text-green-600" />
             <p className="text-2xl font-bold text-green-600">✓</p>
-            <p className="text-xs text-slate-500">ערלעדיגט</p>
+            <p className="text-xs text-slate-500">Completed</p>
           </CardContent>
         </Card>
       </div>
@@ -287,18 +287,18 @@ const RemindersView = ({ role, currentUser }) => {
       {/* Search */}
       <div className="flex gap-3">
         <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="זוך רימיינדער..." className="pr-10" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search reminders..." className="pl-10" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">אקטיוו</SelectItem>
-            <SelectItem value="overdue">פארפאלן</SelectItem>
-            <SelectItem value="completed">ערלעדיגט</SelectItem>
-            <SelectItem value="all">אלע</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -309,7 +309,7 @@ const RemindersView = ({ role, currentUser }) => {
       ) : filteredReminders.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
           <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>קיין רימיינדערס נישט געפונען</p>
+          <p>No reminders found</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -327,9 +327,9 @@ const RemindersView = ({ role, currentUser }) => {
                           {REMINDER_TYPES.find(t => t.value === r.reminder_type)?.label || r.reminder_type}
                         </Badge>
                         {getPriorityBadge(r.priority)}
-                        {overdue && <Badge className="bg-red-500 text-white">פארפאלן!</Badge>}
-                        {todayItem && !r.is_completed && <Badge className="bg-amber-500 text-white">הייַנט</Badge>}
-                        {r.send_email && <Badge className="bg-purple-100 text-purple-800"><Mail className="h-3 w-3 ml-1" /> אימעיל</Badge>}
+                        {overdue && <Badge className="bg-red-500 text-white">Overdue!</Badge>}
+                        {todayItem && !r.is_completed && <Badge className="bg-amber-500 text-white">Today</Badge>}
+                        {r.send_email && <Badge className="bg-purple-100 text-purple-800"><Mail className="h-3 w-3 mr-1" /> Email</Badge>}
                       </div>
                       {r.description && <p className="text-sm text-slate-600 mb-1">{r.description}</p>}
                       <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
@@ -342,21 +342,21 @@ const RemindersView = ({ role, currentUser }) => {
                           {r.reminder_date && new Date(r.reminder_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {r.related_student_name && (
-                          <span>תלמיד: {r.related_student_name}</span>
+                          <span>Student: {r.related_student_name}</span>
                         )}
-                        {r.created_by_name && <span>דורך: {r.created_by_name}</span>}
+                        {r.created_by_name && <span>By: {r.created_by_name}</span>}
                       </div>
                     </div>
                     <div className="flex gap-1">
                       {!r.is_completed && (
-                        <Button variant="ghost" size="sm" onClick={() => handleComplete(r.id)} title="סיים">
+                        <Button variant="ghost" size="sm" onClick={() => handleComplete(r.id)} title="Complete">
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => openEditModal(r)} title="עדיט">
+                      <Button variant="ghost" size="sm" onClick={() => openEditModal(r)} title="Edit">
                         <Edit className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)} title="מחק">
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)} title="Delete">
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
@@ -370,22 +370,22 @@ const RemindersView = ({ role, currentUser }) => {
 
       {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingReminder ? 'טוישן רימיינדער' : 'נייער רימיינדער'}</DialogTitle>
+            <DialogTitle>{editingReminder ? 'Edit Reminder' : 'New Reminder'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
             <div>
-              <Label>טיטל *</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="וועגן וואס?" />
+              <Label>Title *</Label>
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="What about?" />
             </div>
             <div>
-              <Label>באשרייבונג</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="מער דעטאלן..." />
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="More details..." />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>טיפ</Label>
+                <Label>Type</Label>
                 <Select value={form.reminder_type} onValueChange={(v) => setForm({ ...form, reminder_type: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -394,30 +394,30 @@ const RemindersView = ({ role, currentUser }) => {
                 </Select>
               </div>
               <div>
-                <Label>דרינגלעכקייט</Label>
+                <Label>Priority</Label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">הויך</SelectItem>
-                    <SelectItem value="normal">נארמאל</SelectItem>
-                    <SelectItem value="low">נידעריג</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>דאטום *</Label>
+                <Label>Date *</Label>
                 <Input type="date" value={form.reminder_date} onChange={(e) => setForm({ ...form, reminder_date: e.target.value })} />
               </div>
               <div>
-                <Label>צייט</Label>
+                <Label>Time</Label>
                 <Input type="time" value={form.reminder_time} onChange={(e) => setForm({ ...form, reminder_time: e.target.value })} />
               </div>
             </div>
             {/* Student Link */}
             <div>
-              <Label>פארבינד מיט א תלמיד (אפציאנאל)</Label>
+              <Label>Link to a student (optional)</Label>
               {form.related_student_name ? (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
                   <span>{form.related_student_name}</span>
@@ -427,7 +427,7 @@ const RemindersView = ({ role, currentUser }) => {
                 </div>
               ) : (
                 <div>
-                  <Input value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="זוך תלמיד..." />
+                  <Input value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="Search student..." />
                   {filteredStudentSearch.length > 0 && (
                     <div className="mt-1 border rounded-md shadow-sm max-h-32 overflow-y-auto">
                       {filteredStudentSearch.map(s => (
@@ -453,11 +453,11 @@ const RemindersView = ({ role, currentUser }) => {
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="send_email" checked={form.send_email}
                   onChange={(e) => setForm({ ...form, send_email: e.target.checked })} className="rounded" />
-                <Label htmlFor="send_email" className="cursor-pointer">שיק אימעיל נאטיפיקעישאן</Label>
+                <Label htmlFor="send_email" className="cursor-pointer">Send email notification</Label>
               </div>
               {form.send_email && (
                 <div>
-                  <Label>אימעיל אדרעסן (קאמע-געטרענט)</Label>
+                  <Label>Email addresses (comma-separated)</Label>
                   <Input type="email" value={form.email_recipients}
                     onChange={(e) => setForm({ ...form, email_recipients: e.target.value })}
                     placeholder="email1@example.com, email2@example.com" />
@@ -466,9 +466,9 @@ const RemindersView = ({ role, currentUser }) => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>בטל</Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSave}>
-              {editingReminder ? 'אפדעיט' : 'צולייגן'}
+              {editingReminder ? 'Update' : 'Add'}
             </Button>
           </DialogFooter>
         </DialogContent>

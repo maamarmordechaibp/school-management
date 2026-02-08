@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/lib/customSupabaseClient';
 
 // Views
 import StudentsView from '@/components/views/StudentsView';
@@ -43,16 +45,46 @@ const Dashboard = () => {
 
   const userRole = profile?.role || 'teacher'; 
 
-  // Simplified menu - organized by function
+  // Custom menu visibility from admin settings
+  const [menuVisibility, setMenuVisibility] = useState(null);
+  const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    loadMenuVisibility();
+  }, []);
+
+  const loadMenuVisibility = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'menu_visibility')
+        .maybeSingle();
+      if (data?.value) setMenuVisibility(JSON.parse(data.value));
+    } catch (e) { /* settings table may not exist yet */ }
+  };
+
+  const saveMenuVisibility = async (newVisibility) => {
+    try {
+      await supabase.from('app_settings').upsert({
+        key: 'menu_visibility',
+        value: JSON.stringify(newVisibility),
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+      setMenuVisibility(newVisibility);
+    } catch (e) { console.log('Could not save menu settings'); }
+  };
+
+  // All menu items
   const menuItems = [
     // Main Sections
-    { id: 'overview', label: 'Dashboard', icon: Layout, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Quick overview' },
+    { id: 'overview', label: 'Dashboard', icon: Layout, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
     
     // Students & Classes
     { id: 'students', label: 'Students', icon: Users, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Student directory' },
     { id: 'grades', label: 'Grades', icon: Layers, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
     { id: 'classes', label: 'Classes', icon: School, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
-    { id: 'class-detail', label: 'כיתה דעטאלן', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'קלאס אינפארמאציע מיט נאטיצן' },
+    { id: 'class-detail', label: 'Class Detail', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
     
     // Issues & Communication
     { id: 'issues', label: 'Issues', icon: AlertTriangle, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Track issues' },
@@ -63,10 +95,10 @@ const Dashboard = () => {
     { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
     
     // Special Ed & Assistant Principal
-    { id: 'special-ed', label: 'חינוך מיוחד', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin'], description: 'ספעשל עדיוקעישאן מענעדזשמענט' },
-    { id: 'late-tracking', label: 'שפעט קומען', icon: Clock, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'טרעק שפעט קומענדע / פרינט צעטלעך' },
-    { id: 'bus-changes', label: 'באס ענדערונגען', icon: Bus, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'באס רוטס און ענדערונגען' },
-    { id: 'reminders', label: 'רימיינדערס', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'רימיינדערס מיט אימעיל' },
+    { id: 'special-ed', label: 'Special Education', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
+    { id: 'late-tracking', label: 'Late Tracking', icon: Clock, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
+    { id: 'bus-changes', label: 'Bus Changes', icon: Bus, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
+    { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Reminders with email' },
     
     // Financial - Books & Fees
     { id: 'books', label: 'Books', icon: BookMarked, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
@@ -124,7 +156,16 @@ const Dashboard = () => {
     );
   }
 
-  const allowedMenuItems = menuItems.filter(item => item.roles.includes(userRole));
+  const allowedMenuItems = menuItems.filter(item => {
+    // Check role-based access
+    if (!item.roles.includes(userRole)) return false;
+    // Check admin-configured visibility
+    if (menuVisibility && menuVisibility[userRole]) {
+      const roleSettings = menuVisibility[userRole];
+      if (roleSettings[item.id] === false) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="flex h-screen overflow-hidden" dir="ltr">
@@ -185,7 +226,17 @@ const Dashboard = () => {
               })}
             </nav>
 
-            <div className="p-3 border-t bg-slate-50">
+            <div className="p-3 border-t bg-slate-50 space-y-1">
+               {(userRole === 'admin' || userRole === 'principal') && (
+                 <Button 
+                   variant="ghost" 
+                   className="w-full justify-start text-blue-600 hover:bg-blue-50 rounded-xl text-sm" 
+                   onClick={() => setIsMenuSettingsOpen(true)}
+                 >
+                    <Settings className="ml-2 h-4 w-4" />
+                    <span>Menu Settings</span>
+                 </Button>
+               )}
                <Button 
                  variant="ghost" 
                  className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl" 
@@ -250,6 +301,57 @@ const Dashboard = () => {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Menu Settings Dialog - Admin only */}
+      <Dialog open={isMenuSettingsOpen} onOpenChange={setIsMenuSettingsOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Menu Settings - Configure which options each role can see</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {['teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'principal_hebrew', 'principal_english', 'special_ed'].map(targetRole => {
+              const roleLabels = {
+                teacher: 'Teacher',
+                teacher_hebrew: 'Hebrew Teacher',
+                teacher_english: 'English Teacher',
+                tutor: 'Tutor',
+                principal_hebrew: 'Hebrew Principal',
+                principal_english: 'English Principal',
+                special_ed: 'Special Education'
+              };
+              const roleItems = menuItems.filter(m => m.roles.includes(targetRole));
+              if (roleItems.length === 0) return null;
+              const currentSettings = menuVisibility?.[targetRole] || {};
+              return (
+                <div key={targetRole} className="border rounded-lg p-4">
+                  <h3 className="font-bold text-lg mb-3">{roleLabels[targetRole]}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {roleItems.map(item => {
+                      const isEnabled = currentSettings[item.id] !== false;
+                      return (
+                        <label key={item.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer border ${isEnabled ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              const newVis = { ...menuVisibility };
+                              if (!newVis[targetRole]) newVis[targetRole] = {};
+                              newVis[targetRole][item.id] = e.target.checked;
+                              saveMenuVisibility(newVis);
+                            }}
+                            className="h-4 w-4"
+                          />
+                          <span className="text-sm font-medium">{item.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

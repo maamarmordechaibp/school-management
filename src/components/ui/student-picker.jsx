@@ -21,7 +21,7 @@ const StudentPicker = ({
   value,
   onChange,
   onStudentSelect,
-  placeholder = 'זוך תלמיד...',
+  placeholder = 'Search student...',
   disabled = false,
   label,
 }) => {
@@ -72,7 +72,7 @@ const StudentPicker = ({
   const studentsByClass = {};
   if (browseMode) {
     sortedStudents.forEach(s => {
-      const className = s.class?.name || 'אהן קלאס';
+      const className = s.class?.name || 'No class';
       if (!studentsByClass[className]) studentsByClass[className] = [];
       studentsByClass[className].push(s);
     });
@@ -149,7 +149,7 @@ const StudentPicker = ({
           {/* Browse / Search Toggle */}
           <div className="flex items-center justify-between px-3 py-2 border-b bg-slate-50">
             <span className="text-xs text-slate-500">
-              {browseMode ? `${sortedStudents.length} תלמידים` : searchQuery ? `${sortedStudents.length} רעזולטאטן` : 'שרייבט א נאמען אדער בראוזט'}
+              {browseMode ? `${sortedStudents.length} students` : searchQuery ? `${sortedStudents.length} results` : 'Type a name or browse'}
             </span>
             <Button
               variant="ghost"
@@ -161,9 +161,9 @@ const StudentPicker = ({
               }}
             >
               {browseMode ? (
-                <>סוכן <Search className="h-3 w-3 mr-1" /></>
+                <>Search <Search className="h-3 w-3 mr-1" /></>
               ) : (
-                <>אלע תלמידים <ChevronDown className="h-3 w-3 mr-1" /></>
+                <>All Students <ChevronDown className="h-3 w-3 mr-1" /></>
               )}
             </Button>
           </div>
@@ -205,13 +205,13 @@ const StudentPicker = ({
             {(searchQuery && sortedStudents.length === 0) && (
               <div className="p-4 text-center text-sm text-slate-400">
                 <User className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                קיין תלמידים נישט געפונען פאר "{searchQuery}"
+                No students found for "{searchQuery}"
               </div>
             )}
 
             {!searchQuery && !browseMode && (
               <div className="p-4 text-center text-sm text-slate-400">
-                שרייבט א נאמען צו זוכן, אדער דרוקט "אלע תלמידים" צו בראוזן
+                Type a name to search, or click "All Students" to browse
               </div>
             )}
           </div>
