@@ -19,6 +19,10 @@ import {
 import AssessmentForm from '@/components/forms/AssessmentForm';
 import { WorkflowBadge } from '@/components/ui/workflow-badge';
 import StudentPlanModal from '@/components/modals/StudentPlanModal';
+import SendEmailModal from '@/components/modals/SendEmailModal';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { MessageSquare, Edit, Heart as HeartIcon } from 'lucide-react';
 
 const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
@@ -53,6 +57,15 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [editingAssessment, setEditingAssessment] = useState(null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+
+  // Student notes & special ed state
+  const [studentNotes, setStudentNotes] = useState([]);
+  const [specialEdData, setSpecialEdData] = useState(null);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [noteForm, setNoteForm] = useState({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailContext, setEmailContext] = useState({});
 
   useEffect(() => {
     fetchStudentData();
@@ -109,6 +122,43 @@ const StudentProfileView = ({ studentId, onBack }) => {
         studentFees: studentFees.data || [],
         payments: payments.data || []
       });
+
+      // Fetch student notes (communication log)
+      try {
+        const { data: notesData } = await supabase
+          .from('student_notes')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        setStudentNotes(notesData || []);
+      } catch (e) { console.log('student_notes not available yet'); }
+
+      // Fetch special ed data if exists
+      try {
+        const { data: sedData } = await supabase
+          .from('special_ed_students')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (sedData) {
+          // Also fetch info sources and evaluations
+          const [sources, evals, tutoring] = await Promise.all([
+            supabase.from('special_ed_info_sources').select('*').eq('special_ed_student_id', sedData.id).order('created_at', { ascending: false }),
+            supabase.from('special_ed_evaluations').select('*').eq('special_ed_student_id', sedData.id).order('evaluation_date', { ascending: false }),
+            supabase.from('special_ed_tutoring').select('*, tutor:special_ed_staff(first_name, last_name, hebrew_name)').eq('special_ed_student_id', sedData.id).eq('is_active', true)
+          ]);
+          setSpecialEdData({
+            ...sedData,
+            info_sources: sources.data || [],
+            evaluations: evals.data || [],
+            tutoring: tutoring.data || []
+          });
+        } else {
+          setSpecialEdData(null);
+        }
+      } catch (e) { console.log('special_ed tables not available yet'); }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load student profile' });
@@ -317,6 +367,43 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
   if (!student) return <div className="p-8 text-center">Loading profile...</div>;
 
+  const NOTE_TYPES = [
+    { value: 'general', label: 'כללי' },
+    { value: 'teacher_meeting', label: 'געזעסן מיט מלמד' },
+    { value: 'discipline', label: 'דיסציפלין' },
+    { value: 'academic', label: 'לערנען' },
+    { value: 'behavioral', label: 'אויפפירונג' },
+    { value: 'parent_feedback', label: 'פידבעק פון עלטערן' },
+    { value: 'other', label: 'אנדערע' },
+  ];
+
+  const handleSaveNote = async () => {
+    if (!noteForm.content) {
+      toast({ variant: 'destructive', title: 'Error', description: 'ביטע שרייב אינהאלט' });
+      return;
+    }
+    try {
+      if (editingNote && noteForm.edit_mode === 'edit') {
+        await supabase.from('student_notes').update({
+          title: noteForm.title, content: noteForm.content, note_type: noteForm.note_type,
+          previous_content: editingNote.content, edit_mode: 'edit', updated_at: new Date().toISOString()
+        }).eq('id', editingNote.id);
+        toast({ title: 'עדיטעד', description: 'נאטיץ איז געטוישט געווארן' });
+      } else {
+        await supabase.from('student_notes').insert([{
+          student_id: studentId, title: noteForm.title || null, content: noteForm.content,
+          note_type: noteForm.note_type, edit_mode: 'update'
+        }]);
+        toast({ title: 'צוגעלייגט', description: 'נאטיץ איז צוגעלייגט געווארן' });
+      }
+      setIsNoteModalOpen(false);
+      setEditingNote(null);
+      fetchStudentData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
   if (isAssessmentMode) {
     return (
       <AssessmentForm 
@@ -376,6 +463,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <TabsTrigger value="academic" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Academic</TabsTrigger>
           <TabsTrigger value="communication" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Communication</TabsTrigger>
           <TabsTrigger value="intervention" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Assessments</TabsTrigger>
+          <TabsTrigger value="notes" className="data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <MessageSquare size={14} />
+            נאטיצן ({studentNotes.length})
+          </TabsTrigger>
+          {specialEdData && (
+            <TabsTrigger value="special-ed" className="data-[state=active]:border-b-2 data-[state=active]:border-pink-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+              <HeartIcon size={14} />
+              חינוך מיוחד
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Overview Tab */}
@@ -1229,8 +1326,256 @@ const StudentProfileView = ({ studentId, onBack }) => {
            </div>
         </TabsContent>
 
+        {/* Notes / Communication Log Tab */}
+        <TabsContent value="notes" className="mt-6 space-y-6" dir="rtl">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">נאטיצן / קאמיוניקעישאן לאג</h3>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => {
+                setEmailContext({
+                  subject: `וועגן ${student.hebrew_name || student.first_name || student.name}`,
+                  body: `אינפארמאציע וועגן ${student.hebrew_name || student.first_name || student.name}\n\n`
+                });
+                setIsEmailModalOpen(true);
+              }}>
+                <Mail size={14} className="ml-1" /> אימעיל
+              </Button>
+              <Button size="sm" onClick={() => {
+                setEditingNote(null);
+                setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
+                setIsNoteModalOpen(true);
+              }}>
+                <Plus size={14} className="ml-1" /> נייע נאטיץ
+              </Button>
+            </div>
+          </div>
+
+          {studentNotes.length === 0 ? (
+            <Card className="bg-slate-50">
+              <CardContent className="p-8 text-center text-slate-500">
+                <MessageSquare size={48} className="mx-auto mb-4 text-slate-300" />
+                <p>קיין נאטיצן נישט פאראן נאך</p>
+                <Button size="sm" className="mt-3" onClick={() => {
+                  setEditingNote(null);
+                  setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
+                  setIsNoteModalOpen(true);
+                }}>ערשטע נאטיץ צולייגן</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {studentNotes.map(note => (
+                <Card key={note.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <Badge variant="outline" className="text-xs">
+                            {NOTE_TYPES.find(t => t.value === note.note_type)?.label || note.note_type}
+                          </Badge>
+                          {note.title && <span className="font-bold">{note.title}</span>}
+                          {note.edit_mode === 'edit' && (
+                            <Badge className="bg-orange-100 text-orange-800 text-xs">עדיטעד</Badge>
+                          )}
+                        </div>
+                        <p className="text-slate-700 mt-1">{note.content}</p>
+                        {note.previous_content && (
+                          <details className="mt-2">
+                            <summary className="text-xs text-orange-600 cursor-pointer">פריערדיגע ווערזיע</summary>
+                            <p className="text-xs text-slate-400 mt-1 p-2 bg-slate-50 rounded">{note.previous_content}</p>
+                          </details>
+                        )}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                          <span>{new Date(note.created_at).toLocaleDateString('he-IL')}</span>
+                          <span>{new Date(note.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {note.created_by_name && <span>דורך: {note.created_by_name}</span>}
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingNote(note);
+                        setNoteForm({
+                          title: note.title || '', content: note.content,
+                          note_type: note.note_type, edit_mode: 'edit'
+                        });
+                        setIsNoteModalOpen(true);
+                      }}>
+                        <Edit size={14} />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Special Education Tab */}
+        {specialEdData && (
+          <TabsContent value="special-ed" className="mt-6 space-y-6" dir="rtl">
+            <div>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <HeartIcon size={20} className="text-pink-600" /> חינוך מיוחד אינפארמאציע
+              </h3>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Badge className="bg-blue-100 text-blue-800">סטאטוס: {specialEdData.status}</Badge>
+                {specialEdData.referral_reason && (
+                  <Badge variant="outline">סיבה: {specialEdData.referral_reason}</Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Info Sources */}
+            {specialEdData.info_sources?.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg">אינפארמאציע קוואלן</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {specialEdData.info_sources.map(src => (
+                    <div key={src.id} className="p-3 bg-slate-50 rounded border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs">{src.source_type}</Badge>
+                        {src.source_name && <span className="font-medium text-sm">{src.source_name}</span>}
+                        <span className="text-xs text-slate-400">{new Date(src.created_at).toLocaleDateString('he-IL')}</span>
+                      </div>
+                      <p className="text-sm">{src.content}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Evaluations */}
+            {specialEdData.evaluations?.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg">עוואלואציעס</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {specialEdData.evaluations.map(ev => (
+                    <div key={ev.id} className="p-3 border rounded">
+                      <div className="flex justify-between items-center mb-2">
+                        <Badge className={ev.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                          {ev.status}
+                        </Badge>
+                        <span className="text-xs text-slate-400">
+                          {ev.evaluation_date && new Date(ev.evaluation_date).toLocaleDateString('he-IL')}
+                        </span>
+                      </div>
+                      {ev.evaluator_name && <p className="text-sm"><span className="font-medium">עוואלואטער:</span> {ev.evaluator_name}</p>}
+                      {ev.results && <p className="text-sm mt-1"><span className="font-medium">רעזולטאטן:</span> {ev.results}</p>}
+                      {ev.recommendations && <p className="text-sm mt-1"><span className="font-medium">המלצות:</span> {ev.recommendations}</p>}
+                      {ev.action_plan && <p className="text-sm mt-1"><span className="font-medium">פלאן:</span> {ev.action_plan}</p>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tutoring */}
+            {specialEdData.tutoring?.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg">שיעורים פרטיים</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {specialEdData.tutoring.map(t => (
+                      <div key={t.id} className="p-3 bg-purple-50 rounded border border-purple-200">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">
+                              {t.tutor?.hebrew_name || `${t.tutor?.first_name} ${t.tutor?.last_name}`}
+                            </p>
+                            <p className="text-sm text-slate-600">{t.subject}</p>
+                          </div>
+                          <div className="text-left text-sm">
+                            <p>{t.day_of_week} {t.start_time}–{t.end_time}</p>
+                          </div>
+                        </div>
+                        {t.notes && <p className="text-xs text-slate-500 mt-1">{t.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {specialEdData.notes && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg">באמערקונגען</CardTitle></CardHeader>
+                <CardContent>
+                  <p>{specialEdData.notes}</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        )}
+
       </Tabs>
 
+      {/* Note Modal */}
+      <Dialog open={isNoteModalOpen} onOpenChange={setIsNoteModalOpen}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingNote ? 'עדיט נאטיץ' : 'נייע נאטיץ'} - {student.hebrew_name || student.first_name || student.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {editingNote && (
+              <div>
+                <Label>מאָדע</Label>
+                <Select value={noteForm.edit_mode} onValueChange={(v) => setNoteForm({ ...noteForm, edit_mode: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="update">UPDATE - לאז פריערדיגע, לייג צו נייע</SelectItem>
+                    <SelectItem value="edit">EDIT - טוישט וואס עס שטייט (האלט רעקארד)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>טיפ</Label>
+                <Select value={noteForm.note_type} onValueChange={(v) => setNoteForm({ ...noteForm, note_type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {NOTE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>טיטל</Label>
+                <Input value={noteForm.title} onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>אינהאלט *</Label>
+              <Textarea value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })} rows={5} placeholder="וואס איז גערעדט געווארן..." />
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => {
+              setEmailContext({
+                subject: `נאטיץ - ${student.hebrew_name || student.first_name || student.name}`,
+                body: `${noteForm.title ? noteForm.title + '\n\n' : ''}${noteForm.content}`
+              });
+              setIsEmailModalOpen(true);
+            }}>
+              <Mail size={14} className="ml-1" /> שיק אימעיל
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsNoteModalOpen(false)}>בטל</Button>
+              <Button onClick={handleSaveNote}>
+                {editingNote && noteForm.edit_mode === 'edit' ? 'EDIT - טוישן' : 'UPDATE - צולייגן'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Email Modal */}
+      <SendEmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        defaultSubject={emailContext.subject}
+        defaultBody={emailContext.body}
+      />
       {/* Student Plan Modal */}
       <StudentPlanModal
         isOpen={isPlanModalOpen}

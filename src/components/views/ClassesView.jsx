@@ -24,8 +24,8 @@ const ClassesView = ({ role, currentUser }) => {
   const [formData, setFormData] = useState({
     name: '',
     grade_id: '',
-    hebrew_teacher_id: '',
-    english_teacher_id: '',
+    hebrew_staff_id: '',
+    english_staff_id: '',
     academic_year: '2024-2025',
     is_active: true
   });
@@ -43,14 +43,14 @@ const ClassesView = ({ role, currentUser }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load classes with related data
+      // Load classes with related data (using staff_members for teachers)
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
         .select(`
           *,
           grade:grades(id, name, grade_number),
-          hebrew_teacher:app_users!hebrew_teacher_id(id, first_name, last_name),
-          english_teacher:app_users!english_teacher_id(id, first_name, last_name),
+          hebrew_staff:staff_members!hebrew_staff_id(id, first_name, last_name, position),
+          english_staff:staff_members!english_staff_id(id, first_name, last_name, position),
           students:students!class_id(id)
         `)
         .order('name');
@@ -86,11 +86,11 @@ const ClassesView = ({ role, currentUser }) => {
       const { data: staffData, error: staffError } = await supabase
         .from('staff_members')
         .select('*')
-        .in('position', ['Hebrew Teacher', 'English Teacher', 'Principal', 'Rebbe', 'Menahel'])
         .eq('is_active', true)
         .order('last_name');
       if (!staffError) {
         setStaffMembers(staffData || []);
+        console.log('Staff loaded:', staffData?.length, 'members');
       }
 
     } catch (error) {
@@ -107,15 +107,15 @@ const ClassesView = ({ role, currentUser }) => {
       setFormData({
         name: cls.name || '',
         grade_id: cls.grade_id || '',
-        hebrew_teacher_id: cls.hebrew_teacher_id || '',
-        english_teacher_id: cls.english_teacher_id || '',
+        hebrew_staff_id: cls.hebrew_staff_id || '',
+        english_staff_id: cls.english_staff_id || '',
         academic_year: cls.academic_year || '2024-2025',
         is_active: cls.is_active !== false
       });
     } else {
       setEditingClass(null);
       setFormData({
-        name: '', grade_id: '', hebrew_teacher_id: '', english_teacher_id: '',
+        name: '', grade_id: '', hebrew_staff_id: '', english_staff_id: '',
         academic_year: '2024-2025', is_active: true
       });
     }
@@ -132,8 +132,8 @@ const ClassesView = ({ role, currentUser }) => {
       const payload = {
         name: formData.name,
         grade_id: formData.grade_id,
-        hebrew_teacher_id: formData.hebrew_teacher_id || null,
-        english_teacher_id: formData.english_teacher_id || null,
+        hebrew_staff_id: formData.hebrew_staff_id || null,
+        english_staff_id: formData.english_staff_id || null,
         academic_year: formData.academic_year,
         is_active: formData.is_active
       };
@@ -243,12 +243,12 @@ const ClassesView = ({ role, currentUser }) => {
     }
   };
 
-  // Filter teachers by role
-  const hebrewTeachers = teachers.filter(t => 
-    ['teacher_hebrew', 'teacher', 'admin', 'principal', 'principal_hebrew'].includes(t.role)
+  // Filter staff by position for teacher assignment
+  const hebrewTeachers = staffMembers.filter(s => 
+    ['Melamed', 'Melamed / Driver', 'Menahal', 'Sgan Menahal', 'Principal', 'Chinuch Mychud'].includes(s.position)
   );
-  const englishTeachers = teachers.filter(t => 
-    ['teacher_english', 'teacher', 'admin', 'principal', 'principal_english'].includes(t.role)
+  const englishTeachers = staffMembers.filter(s => 
+    ['English Teacher', 'Principal', 'Menahal', 'Sgan Menahal', 'Curriculum Implementer'].includes(s.position)
   );
 
   // Group classes by grade
@@ -449,41 +449,49 @@ const ClassesView = ({ role, currentUser }) => {
             </div>
 
             <div className="space-y-2">
-              <Label>Hebrew Teacher</Label>
+              <Label>Hebrew Teacher ({hebrewTeachers.length} available)</Label>
               <Select 
-                value={formData.hebrew_teacher_id} 
-                onValueChange={(v) => setFormData({ ...formData, hebrew_teacher_id: v === 'none' ? '' : v })}
+                value={formData.hebrew_staff_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, hebrew_staff_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Hebrew teacher" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Not assigned</SelectItem>
-                  {hebrewTeachers.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.first_name} {t.last_name}
-                    </SelectItem>
-                  ))}
+                  {hebrewTeachers.length === 0 ? (
+                    <SelectItem value="no-teachers" disabled>No Hebrew teachers in staff</SelectItem>
+                  ) : (
+                    hebrewTeachers.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.first_name} {t.last_name} ({t.position})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>English Teacher</Label>
+              <Label>English Teacher ({englishTeachers.length} available)</Label>
               <Select 
-                value={formData.english_teacher_id} 
-                onValueChange={(v) => setFormData({ ...formData, english_teacher_id: v === 'none' ? '' : v })}
+                value={formData.english_staff_id || 'none'} 
+                onValueChange={(v) => setFormData({ ...formData, english_staff_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select English teacher" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Not assigned</SelectItem>
-                  {englishTeachers.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.first_name} {t.last_name}
-                    </SelectItem>
-                  ))}
+                  {englishTeachers.length === 0 ? (
+                    <SelectItem value="no-teachers" disabled>No English teachers in staff</SelectItem>
+                  ) : (
+                    englishTeachers.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.first_name} {t.last_name} ({t.position})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

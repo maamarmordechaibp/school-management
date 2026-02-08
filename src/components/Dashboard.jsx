@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -29,6 +29,11 @@ import FeesView from '@/components/views/FeesView';
 import StaffView from '@/components/views/StaffView';
 import PaymentsView from '@/components/views/PaymentsView';
 import FinancialReportsView from '@/components/views/FinancialReportsView';
+import SpecialEducationView from '@/components/views/SpecialEducationView';
+import ClassDetailView from '@/components/views/ClassDetailView';
+import LateTrackingView from '@/components/views/LateTrackingView';
+import BusChangesView from '@/components/views/BusChangesView';
+import RemindersView from '@/components/views/RemindersView';
 
 const Dashboard = () => {
   const { t } = useLanguage();
@@ -47,6 +52,7 @@ const Dashboard = () => {
     { id: 'students', label: 'Students', icon: Users, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Student directory' },
     { id: 'grades', label: 'Grades', icon: Layers, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
     { id: 'classes', label: 'Classes', icon: School, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
+    { id: 'class-detail', label: 'כיתה דעטאלן', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'קלאס אינפארמאציע מיט נאטיצן' },
     
     // Issues & Communication
     { id: 'issues', label: 'Issues', icon: AlertTriangle, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Track issues' },
@@ -55,6 +61,12 @@ const Dashboard = () => {
     
     // Staff (admin only)
     { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
+    
+    // Special Ed & Assistant Principal
+    { id: 'special-ed', label: 'חינוך מיוחד', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin'], description: 'ספעשל עדיוקעישאן מענעדזשמענט' },
+    { id: 'late-tracking', label: 'שפעט קומען', icon: Clock, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'טרעק שפעט קומענדע / פרינט צעטלעך' },
+    { id: 'bus-changes', label: 'באס ענדערונגען', icon: Bus, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'באס רוטס און ענדערונגען' },
+    { id: 'reminders', label: 'רימיינדערס', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'רימיינדערס מיט אימעיל' },
     
     // Financial - Books & Fees
     { id: 'books', label: 'Books', icon: BookMarked, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
@@ -91,6 +103,11 @@ const Dashboard = () => {
       case 'reports': return <ReportsView {...viewProps} />;
       case 'activity': return <ActivityLogView {...viewProps} />;
       case 'settings': return <SettingsView {...viewProps} />;
+      case 'special-ed': return <SpecialEducationView {...viewProps} />;
+      case 'class-detail': return <ClassDetailView {...viewProps} />;
+      case 'late-tracking': return <LateTrackingView {...viewProps} />;
+      case 'bus-changes': return <BusChangesView {...viewProps} />;
+      case 'reminders': return <RemindersView {...viewProps} />;
       default: return <OverviewView {...viewProps} />;
     }
   };

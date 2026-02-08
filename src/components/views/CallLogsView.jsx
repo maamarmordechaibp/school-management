@@ -32,7 +32,11 @@ const CallLogsView = ({ role, currentUser }) => {
     notes: '',
     outcome: '',
     follow_up_needed: false,
-    follow_up_date: ''
+    follow_up_date: '',
+    direction: 'outgoing',
+    reminder_date: '',
+    reminder_email: '',
+    duration_minutes: ''
   });
 
   useEffect(() => {
@@ -88,7 +92,11 @@ const CallLogsView = ({ role, currentUser }) => {
         notes: log.notes || '',
         outcome: log.outcome || '',
         follow_up_needed: log.follow_up_needed || false,
-        follow_up_date: log.follow_up_date || ''
+        follow_up_date: log.follow_up_date || '',
+        direction: log.direction || log.call_type || 'outgoing',
+        reminder_date: log.reminder_date ? log.reminder_date.split('T')[0] : '',
+        reminder_email: log.reminder_email || '',
+        duration_minutes: log.duration_minutes || ''
       });
     } else {
       setSelectedLog(null);
@@ -102,7 +110,11 @@ const CallLogsView = ({ role, currentUser }) => {
         notes: '',
         outcome: '',
         follow_up_needed: false,
-        follow_up_date: ''
+        follow_up_date: '',
+        direction: 'outgoing',
+        reminder_date: '',
+        reminder_email: '',
+        duration_minutes: ''
       });
     }
     setIsModalOpen(true);
@@ -161,7 +173,11 @@ const CallLogsView = ({ role, currentUser }) => {
         outcome: formData.outcome,
         follow_up_needed: formData.follow_up_needed,
         follow_up_date: formData.follow_up_date || null,
-        call_date: selectedLog?.call_date || new Date().toISOString()
+        call_date: selectedLog?.call_date || new Date().toISOString(),
+        direction: formData.direction || formData.call_type,
+        reminder_date: formData.reminder_date || null,
+        reminder_email: formData.reminder_email || null,
+        duration_minutes: formData.duration_minutes ? parseInt(formData.duration_minutes) : null
       };
 
       if (selectedLog) {
@@ -336,8 +352,13 @@ const CallLogsView = ({ role, currentUser }) => {
                       {log.student?.first_name} {log.student?.last_name}
                     </h3>
                     <Badge variant={log.call_type === 'outgoing' ? 'default' : 'secondary'}>
-                      {log.call_type === 'outgoing' ? 'Outgoing' : 'Incoming'}
+                      {log.call_type === 'outgoing' || log.direction === 'outgoing' ? '📤 Outgoing' : '📥 Incoming'}
                     </Badge>
+                    {log.duration_minutes && (
+                      <Badge variant="outline" className="text-slate-500">
+                        {log.duration_minutes} min
+                      </Badge>
+                    )}
                     {log.follow_up_needed && (
                       <Badge variant="outline" className="text-amber-600 border-amber-400">
                         Follow-up Needed
@@ -376,6 +397,13 @@ const CallLogsView = ({ role, currentUser }) => {
                   {log.follow_up_date && (
                     <p className="text-sm text-amber-600">
                       Follow-up scheduled: {new Date(log.follow_up_date).toLocaleDateString()}
+                    </p>
+                  )}
+
+                  {log.reminder_date && (
+                    <p className="text-sm text-purple-600">
+                      🔔 Reminder: {new Date(log.reminder_date).toLocaleDateString()}
+                      {log.reminder_email && ` → ${log.reminder_email}`}
                     </p>
                   )}
 
@@ -513,6 +541,50 @@ const CallLogsView = ({ role, currentUser }) => {
                 onChange={(e) => setFormData({ ...formData, outcome: e.target.value })}
                 placeholder="Result or action items from the call"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Direction (ריכטונג)</Label>
+                <Select value={formData.direction} onValueChange={(v) => setFormData({ ...formData, direction: v, call_type: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="outgoing">📤 Outgoing (ארויסגערופן)</SelectItem>
+                    <SelectItem value="incoming">📥 Incoming (אריינגערופן)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Duration (מינוטן)</Label>
+                <Input
+                  type="number"
+                  value={formData.duration_minutes}
+                  onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+                  placeholder="e.g., 15"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Reminder Date (רימיינדער)</Label>
+                <Input
+                  type="date"
+                  value={formData.reminder_date}
+                  onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reminder Email</Label>
+                <Input
+                  type="email"
+                  value={formData.reminder_email}
+                  onChange={(e) => setFormData({ ...formData, reminder_email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
