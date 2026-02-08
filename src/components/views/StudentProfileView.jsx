@@ -58,9 +58,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
 
-  // Student notes & special ed state
+  // Student notes, special ed & late arrivals state
   const [studentNotes, setStudentNotes] = useState([]);
   const [specialEdData, setSpecialEdData] = useState(null);
+  const [lateArrivals, setLateArrivals] = useState([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [noteForm, setNoteForm] = useState({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
@@ -133,6 +134,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .order('created_at', { ascending: false });
         setStudentNotes(notesData || []);
       } catch (e) { console.log('student_notes not available yet'); }
+
+      // Fetch late arrivals history
+      try {
+        const { data: lateData } = await supabase
+          .from('late_arrivals')
+          .select('*')
+          .eq('student_id', studentId)
+          .order('date', { ascending: false });
+        setLateArrivals(lateData || []);
+      } catch (e) { console.log('late_arrivals not available yet'); }
 
       // Fetch special ed data if exists
       try {
@@ -466,6 +477,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <TabsTrigger value="notes" className="data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <MessageSquare size={14} />
             נאטיצן ({studentNotes.length})
+          </TabsTrigger>
+          <TabsTrigger value="late-arrivals" className="data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <Clock size={14} />
+            שפעט אנקומען ({lateArrivals.length})
           </TabsTrigger>
           {specialEdData && (
             <TabsTrigger value="special-ed" className="data-[state=active]:border-b-2 data-[state=active]:border-pink-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
@@ -1406,6 +1421,95 @@ const StudentProfileView = ({ studentId, onBack }) => {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+
+        {/* Late Arrivals Tab */}
+        <TabsContent value="late-arrivals" className="mt-6 space-y-6" dir="rtl">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <Clock size={20} className="text-orange-600" /> היסטאריע פון שפעט אנקומען
+            </h3>
+            {lateArrivals.length > 0 && (
+              <Badge className="bg-orange-100 text-orange-800 text-sm px-3 py-1">
+                {lateArrivals.length} מאל שפעט
+              </Badge>
+            )}
+          </div>
+
+          {/* Monthly Summary */}
+          {lateArrivals.length > 0 && (() => {
+            const monthCounts = {};
+            lateArrivals.forEach(la => {
+              const month = new Date(la.date).toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+              monthCounts[month] = (monthCounts[month] || 0) + 1;
+            });
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(monthCounts).slice(0, 4).map(([month, count]) => (
+                  <Card key={month} className="bg-orange-50 border-orange-200">
+                    <CardContent className="p-3 text-center">
+                      <p className="text-sm text-orange-600">{month}</p>
+                      <p className="text-2xl font-bold text-orange-800">{count}</p>
+                      <p className="text-xs text-orange-500">מאל שפעט</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
+
+          {lateArrivals.length === 0 ? (
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-8 text-center">
+                <CheckCircle size={48} className="mx-auto mb-4 text-green-400" />
+                <p className="text-green-700 font-medium">קיין שפעט אנקומען נישט רעקאָרדירט</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-right font-medium">דאטום</th>
+                      <th className="px-4 py-3 text-right font-medium">צייט אנגעקומען</th>
+                      <th className="px-4 py-3 text-right font-medium">מינוטן שפעט</th>
+                      <th className="px-4 py-3 text-right font-medium">סיבה</th>
+                      <th className="px-4 py-3 text-right font-medium">באמערקונגען</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {lateArrivals.map(la => (
+                      <tr key={la.id} className="hover:bg-orange-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="font-medium">{new Date(la.date).toLocaleDateString('he-IL')}</span>
+                          <span className="block text-xs text-slate-400">
+                            {new Date(la.date).toLocaleDateString('he-IL', { weekday: 'long' })}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {la.arrival_time || '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          {la.minutes_late ? (
+                            <Badge className={la.minutes_late > 15 ? 'bg-red-100 text-red-800' : la.minutes_late > 5 ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800'}>
+                              {la.minutes_late} מינוטן
+                            </Badge>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px]">
+                          {la.reason || '—'}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px] text-slate-500">
+                          {la.notes || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 

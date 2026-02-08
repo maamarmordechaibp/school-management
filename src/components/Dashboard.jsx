@@ -140,12 +140,19 @@ const Dashboard = () => {
           >
             <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                <img src="/logo.svg" alt="Logo" className="h-12 w-12 rounded-full shadow-md" />
+                <div>
+                  <h1 className="text-sm font-bold text-slate-800 leading-tight" dir="rtl">תלמוד תורה תולדות יעקב יוסף</h1>
+                  <p className="text-xs text-slate-500" dir="rtl">סקווירא</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                   {profile?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-slate-800">{profile?.name || 'User'}</h1>
-                  <p className="text-xs text-slate-600 capitalize">{userRole}</p>
+                  <p className="text-sm font-semibold text-slate-700">{profile?.name || 'User'}</p>
+                  <p className="text-xs text-slate-500 capitalize">{userRole}</p>
                 </div>
               </div>
             </div>

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c5282;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d4a843;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c9952a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lightGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8c96a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d4a843;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="200" cy="200" r="190" fill="url(#bgGrad)" />
+  <circle cx="200" cy="200" r="180" fill="none" stroke="url(#goldGrad)" stroke-width="3" />
+  <circle cx="200" cy="200" r="174" fill="none" stroke="url(#goldGrad)" stroke-width="1" />
+
+  <!-- Open Book at center -->
+  <g transform="translate(200, 175)">
+    <!-- Left page -->
+    <path d="M-5,0 C-5,-8 -50,-45 -70,-50 L-70,20 C-50,15 -5,8 -5,0 Z" fill="#f7f0e0" stroke="#c9952a" stroke-width="1.5"/>
+    <!-- Right page -->
+    <path d="M5,0 C5,-8 50,-45 70,-50 L70,20 C50,15 5,8 5,0 Z" fill="#f7f0e0" stroke="#c9952a" stroke-width="1.5"/>
+    <!-- Spine -->
+    <line x1="0" y1="-52" x2="0" y2="22" stroke="#c9952a" stroke-width="2"/>
+    <!-- Text lines on left page -->
+    <line x1="-55" y1="-30" x2="-15" y2="-22" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="-55" y1="-20" x2="-15" y2="-12" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="-55" y1="-10" x2="-15" y2="-2" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="-55" y1="0" x2="-15" y2="8" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <!-- Text lines on right page -->
+    <line x1="15" y1="-22" x2="55" y2="-30" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="15" y1="-12" x2="55" y2="-20" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="15" y1="-2" x2="55" y2="-10" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+    <line x1="15" y1="8" x2="55" y2="0" stroke="#8b7355" stroke-width="1" opacity="0.5"/>
+  </g>
+
+  <!-- Arch / Gate top decoration -->
+  <path d="M120,130 Q200,50 280,130" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+  <path d="M130,135 Q200,60 270,135" fill="none" stroke="url(#goldGrad)" stroke-width="1.5"/>
+
+  <!-- Two Pillars -->
+  <rect x="115" y="130" width="12" height="90" rx="2" fill="url(#goldGrad)" opacity="0.8"/>
+  <rect x="273" y="130" width="12" height="90" rx="2" fill="url(#goldGrad)" opacity="0.8"/>
+  <!-- Pillar caps -->
+  <rect x="111" y="126" width="20" height="8" rx="2" fill="url(#lightGold)"/>
+  <rect x="269" y="126" width="20" height="8" rx="2" fill="url(#lightGold)"/>
+  <rect x="111" y="218" width="20" height="6" rx="2" fill="url(#lightGold)"/>
+  <rect x="269" y="218" width="20" height="6" rx="2" fill="url(#lightGold)"/>
+
+  <!-- Star of David above book -->
+  <g transform="translate(200, 105)" fill="none" stroke="url(#lightGold)" stroke-width="1.8">
+    <polygon points="0,-16 14,8 -14,8" />
+    <polygon points="0,16 14,-8 -14,-8" />
+  </g>
+
+  <!-- Hebrew Text: Main Title - תלמוד תורה -->
+  <text x="200" y="260" text-anchor="middle" font-family="'David', 'Noto Sans Hebrew', serif" font-size="30" font-weight="bold" fill="url(#lightGold)" direction="rtl">
+    תלמוד תורה
+  </text>
+
+  <!-- Hebrew Text: Subtitle - תולדות יעקב יוסף -->
+  <text x="200" y="293" text-anchor="middle" font-family="'David', 'Noto Sans Hebrew', serif" font-size="24" font-weight="bold" fill="#e8c96a" direction="rtl">
+    תולדות יעקב יוסף
+  </text>
+
+  <!-- Hebrew Text: City - סקווירא -->
+  <text x="200" y="322" text-anchor="middle" font-family="'David', 'Noto Sans Hebrew', serif" font-size="20" fill="#b8a06a" direction="rtl">
+    סקווירא
+  </text>
+
+  <!-- Decorative line under text -->
+  <line x1="140" y1="335" x2="260" y2="335" stroke="url(#goldGrad)" stroke-width="1.5"/>
+  <circle cx="140" cy="335" r="2.5" fill="#d4a843"/>
+  <circle cx="260" cy="335" r="2.5" fill="#d4a843"/>
+  <circle cx="200" cy="335" r="2" fill="#d4a843"/>
+
+  <!-- Outer decorative dots on border -->
+  <circle cx="200" cy="18" r="3" fill="#d4a843"/>
+  <circle cx="200" cy="382" r="3" fill="#d4a843"/>
+  <circle cx="18" cy="200" r="3" fill="#d4a843"/>
+  <circle cx="382" cy="200" r="3" fill="#d4a843"/>
+</svg>

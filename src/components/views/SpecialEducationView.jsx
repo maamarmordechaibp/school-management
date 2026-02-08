@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
@@ -874,16 +875,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
           <div className="space-y-4 py-2">
             <div>
               <Label>תלמיד *</Label>
-              <Select value={studentForm.student_id} onValueChange={(v) => setStudentForm({ ...studentForm, student_id: v })} disabled={!!selectedSpecEd}>
-                <SelectTrigger><SelectValue placeholder="וועל אויס תלמיד..." /></SelectTrigger>
-                <SelectContent>
-                  {allStudents.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.hebrew_name || `${s.first_name} ${s.last_name}`} ({s.class?.name || 'N/A'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={allStudents}
+                value={studentForm.student_id}
+                onChange={(id) => setStudentForm({ ...studentForm, student_id: id })}
+                placeholder="זוך תלמיד..."
+                disabled={!!selectedSpecEd}
+              />
             </div>
             <div>
               <Label>סטאטוס</Label>

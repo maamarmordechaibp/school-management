@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
@@ -85,7 +86,7 @@ const LateTrackingView = ({ role, currentUser }) => {
       return;
     }
     try {
-      const { error } = await supabase.from('late_arrivals').insert([{
+      const { data: inserted, error } = await supabase.from('late_arrivals').insert([{
         student_id: formData.student_id,
         date: selectedDate,
         arrival_time: formData.arrival_time || null,
@@ -93,12 +94,16 @@ const LateTrackingView = ({ role, currentUser }) => {
         reason: formData.reason || null,
         notes: formData.notes || null,
         recorded_by: currentUser?.id
-      }]);
+      }]).select('*, student:students(*, class:classes(*))');
       if (error) throw error;
       toast({ title: 'רעקאָרדירט', description: 'שפעט אנקומען איז רעקאָרדירט' });
       setIsModalOpen(false);
       setFormData({ student_id: '', arrival_time: '', minutes_late: '', reason: '', notes: '' });
       loadData();
+      // Auto-print the late slip
+      if (inserted && inserted[0]) {
+        printSlip(inserted[0]);
+      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -392,16 +397,12 @@ const LateTrackingView = ({ role, currentUser }) => {
           <div className="space-y-4 py-2">
             <div>
               <Label>תלמיד *</Label>
-              <Select value={formData.student_id} onValueChange={(v) => setFormData({ ...formData, student_id: v })}>
-                <SelectTrigger><SelectValue placeholder="וועל אויס תלמיד..." /></SelectTrigger>
-                <SelectContent>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.hebrew_name || `${s.first_name} ${s.last_name}`} ({s.class?.name || 'N/A'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={students}
+                value={formData.student_id}
+                onChange={(id) => setFormData({ ...formData, student_id: id })}
+                placeholder="זוך תלמיד..."
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

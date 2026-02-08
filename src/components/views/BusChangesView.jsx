@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
@@ -435,16 +436,12 @@ const BusChangesView = ({ role, currentUser }) => {
           <div className="space-y-4 py-2">
             <div>
               <Label>תלמיד *</Label>
-              <Select value={changeForm.student_id} onValueChange={(v) => setChangeForm({ ...changeForm, student_id: v })}>
-                <SelectTrigger><SelectValue placeholder="וועל אויס תלמיד..." /></SelectTrigger>
-                <SelectContent>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.hebrew_name || `${s.first_name} ${s.last_name}`} ({s.class?.name || 'N/A'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={students}
+                value={changeForm.student_id}
+                onChange={(id) => setChangeForm({ ...changeForm, student_id: id })}
+                placeholder="זוך תלמיד..."
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
