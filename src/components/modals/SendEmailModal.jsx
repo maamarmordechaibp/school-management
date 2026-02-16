@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '@/lib/customSupabaseClient';
 import { sendEmail } from '@/lib/emailService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -62,48 +61,20 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
 
     setSending(true);
     try {
-      // Send email via Resend API
-      const result = await sendEmail({
+      // Send email via backend API (handles sending + logging)
+      await sendEmail({
         to: validRecipients,
         subject: formData.subject,
-        body: formData.body
+        body: formData.body,
+        relatedType: relatedType || null,
+        relatedId: relatedId || null,
+        sentBy: currentUser?.id
       });
-
-      // Log the email in the system
-      try {
-        await supabase.from('email_log').insert([{
-          recipients: validRecipients,
-          subject: formData.subject,
-          body: formData.body,
-          related_type: relatedType || null,
-          related_id: relatedId || null,
-          sent_by: currentUser?.id,
-          status: 'sent'
-        }]);
-      } catch (logErr) {
-        console.warn('Failed to log email:', logErr);
-      }
 
       toast({ title: 'Email Sent', description: `Email sent successfully to ${validRecipients.length} recipient(s)` });
       onClose();
     } catch (error) {
       console.error('Error sending email:', error);
-
-      // Log failure
-      try {
-        await supabase.from('email_log').insert([{
-          recipients: validRecipients,
-          subject: formData.subject,
-          body: formData.body,
-          related_type: relatedType || null,
-          related_id: relatedId || null,
-          sent_by: currentUser?.id,
-          status: 'failed'
-        }]);
-      } catch (logErr) {
-        console.warn('Failed to log email failure:', logErr);
-      }
-
       toast({ variant: 'destructive', title: 'Email Failed', description: error.message || 'Failed to send email. Please try again.' });
     } finally {
       setSending(false);

@@ -125,23 +125,17 @@ const RemindersView = ({ role, currentUser }) => {
         toast({ title: 'Added', description: 'Reminder has been added' });
       }
 
-      // If send_email is on, send via Resend and log the email
+      // If send_email is on, send via backend API (handles sending + logging)
       if (form.send_email && form.email_recipients) {
         try {
           const recipients = form.email_recipients.split(',').map(e => e.trim());
           await sendEmail({
             to: recipients,
             subject: `Reminder: ${form.title}`,
-            body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`
-          });
-          await supabase.from('email_log').insert([{
-            to_addresses: recipients,
-            subject: `Reminder: ${form.title}`,
             body: `${form.description || form.title}\n\nDate: ${form.reminder_date} ${form.reminder_time}`,
-            related_type: 'reminder',
-            sent_by: currentUser?.id,
-            sent_by_name: currentUser?.name || currentUser?.first_name,
-          }]);
+            relatedType: 'reminder',
+            sentBy: currentUser?.id
+          });
           toast({ title: 'Email Sent', description: `Reminder email sent to ${recipients.length} recipient(s)` });
         } catch (emailErr) {
           console.error('Failed to send reminder email:', emailErr);
