@@ -74,8 +74,8 @@ const FinancialReportsView = ({ role, currentUser }) => {
   });
 
   // Calculate summary stats
-  const totalExpected = filteredStudentFees.reduce((sum, sf) => sum + sf.amount, 0);
-  const totalCollected = filteredStudentFees.reduce((sum, sf) => sum + sf.amount_paid, 0);
+  const totalExpected = filteredStudentFees.reduce((sum, sf) => sum + (sf.amount || 0), 0);
+  const totalCollected = filteredStudentFees.reduce((sum, sf) => sum + (sf.amount_paid || 0), 0);
   const totalOutstanding = totalExpected - totalCollected;
   const paidCount = filteredStudentFees.filter(sf => sf.status === 'paid').length;
   const pendingCount = filteredStudentFees.filter(sf => sf.status === 'pending').length;
@@ -111,9 +111,9 @@ const FinancialReportsView = ({ role, currentUser }) => {
       sf.student?.class?.name || '',
       sf.student?.class?.grade?.name || '',
       sf.fee?.name || '',
-      sf.amount.toFixed(2),
-      sf.amount_paid.toFixed(2),
-      (sf.amount - sf.amount_paid).toFixed(2),
+      (sf.amount || 0).toFixed(2),
+      (sf.amount_paid || 0).toFixed(2),
+      ((sf.amount || 0) - (sf.amount_paid || 0)).toFixed(2),
       sf.status
     ]);
 

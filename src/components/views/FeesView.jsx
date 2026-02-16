@@ -319,8 +319,8 @@ const FeesView = ({ role, currentUser }) => {
   }
 
   // Calculate totals
-  const totalExpected = fees.reduce((sum, f) => sum + f.total_expected, 0);
-  const totalCollected = fees.reduce((sum, f) => sum + f.total_collected, 0);
+  const totalExpected = fees.reduce((sum, f) => sum + (f.total_expected || 0), 0);
+  const totalCollected = fees.reduce((sum, f) => sum + (f.total_collected || 0), 0);
   const activeFees = fees.filter(f => f.status === 'active');
 
   return (
@@ -447,7 +447,7 @@ const FeesView = ({ role, currentUser }) => {
                           {fee.scope === 'class_specific' && fee.class?.name}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">${fee.amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium">${(fee.amount || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <div className="text-sm">
                           <span className="text-green-600 font-medium">{fee.paid_count}</span>

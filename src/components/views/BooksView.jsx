@@ -442,7 +442,7 @@ const BooksView = ({ role, currentUser }) => {
               <DollarSign className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">${books.reduce((sum, b) => sum + (b.price * b.quantity_in_stock), 0).toFixed(0)}</p>
+              <p className="text-2xl font-bold">${books.reduce((sum, b) => sum + ((b.price || 0) * (b.quantity_in_stock || 0)), 0).toFixed(0)}</p>
               <p className="text-sm text-slate-500">Inventory Value</p>
             </div>
           </CardContent>
@@ -516,7 +516,7 @@ const BooksView = ({ role, currentUser }) => {
                         <Badge variant="outline">{book.category}</Badge>
                       </TableCell>
                       <TableCell>{book.subject || '-'}</TableCell>
-                      <TableCell className="text-right font-medium">${book.price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium">${(book.price || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={book.quantity_in_stock <= book.reorder_threshold ? 'destructive' : 'secondary'}>
                           {book.quantity_in_stock}
@@ -581,7 +581,7 @@ const BooksView = ({ role, currentUser }) => {
                           <div>
                             <h3 className="font-semibold text-lg">{cls.name}</h3>
                             <p className="text-sm text-slate-500">
-                              {cls.grade?.name} • {classBooks.length} books • Total: ${totalCost.toFixed(2)}
+                              {cls.grade?.name} • {classBooks.length} books • Total: ${(totalCost || 0).toFixed(2)}
                             </p>
                           </div>
                         </div>
@@ -641,7 +641,7 @@ const BooksView = ({ role, currentUser }) => {
                         <div>
                           <h3 className="font-semibold text-lg">{grade.name}</h3>
                           <p className="text-sm text-slate-500">
-                            {gradeBooks.length} books • Total: ${totalCost.toFixed(2)}
+                            {gradeBooks.length} books • Total: ${(totalCost || 0).toFixed(2)}
                           </p>
                         </div>
                         <Button variant="outline" onClick={() => openRequirementsModal(grade)}>
@@ -699,7 +699,7 @@ const BooksView = ({ role, currentUser }) => {
                           <Badge variant="destructive">{book.quantity_in_stock}</Badge>
                         </TableCell>
                         <TableCell className="text-center">{book.reorder_threshold}</TableCell>
-                        <TableCell className="text-right">${book.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${(book.price || 0).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -843,7 +843,7 @@ const BooksView = ({ role, currentUser }) => {
                       <p className="text-sm text-slate-500">{book.category} • {book.subject}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">${book.price.toFixed(2)}</p>
+                      <p className="font-semibold">${(book.price || 0).toFixed(2)}</p>
                       {selectedBooks.includes(book.id) && (
                         <Badge className="bg-blue-600">Selected</Badge>
                       )}
@@ -900,7 +900,7 @@ const BooksView = ({ role, currentUser }) => {
                       <p className="text-sm text-slate-500">{book.category} • {book.subject}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">${book.price.toFixed(2)}</p>
+                      <p className="font-semibold">${(book.price || 0).toFixed(2)}</p>
                       {selectedClassBooks.includes(book.id) && (
                         <Badge className="bg-blue-600">Selected</Badge>
                       )}
