@@ -93,6 +93,7 @@ const Dashboard = () => {
     
     // Staff (admin only)
     { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
+    { id: 'users', label: 'User Management', icon: Shield, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
     
     // Special Ed & Assistant Principal
     { id: 'special-ed', label: 'Special Education', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },

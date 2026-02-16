@@ -8,14 +8,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+
+const ROLE_OPTIONS = [
+  { value: 'principal', label: 'Principal (General)', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { value: 'principal_hebrew', label: 'Principal Hebrew', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { value: 'principal_english', label: 'Principal English', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { value: 'admin', label: 'Admin', color: 'bg-red-100 text-red-800 border-red-200' },
+  { value: 'teacher', label: 'Teacher (General)', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: 'teacher_hebrew', label: 'Teacher Hebrew', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: 'teacher_english', label: 'Teacher English', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: 'tutor', label: 'Tutor', color: 'bg-green-100 text-green-800 border-green-200' },
+  { value: 'special_ed', label: 'Special Education', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+];
 
 const UserManagementView = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [newUser, setNewUser] = useState({ 
     email: '', 
     password: '', 
@@ -24,10 +39,11 @@ const UserManagementView = () => {
     assigned_class: '' 
   });
   const [creating, setCreating] = useState(false);
-  const [sendingReset, setSendingReset] = useState(null); // stores user ID of pending reset
+  const [updatingRole, setUpdatingRole] = useState(false);
+  const [sendingReset, setSendingReset] = useState(null);
   
   const { toast } = useToast();
-  const { user: currentUser } = useAuth(); // Current logged in user
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     fetchUsers();
@@ -60,25 +76,23 @@ const UserManagementView = () => {
     setCreating(true);
 
     try {
-      // Use Edge Function if available for creating user without login side-effects
-      // or fallback to client side signUp (which might log you out or switch session)
-      
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
-            email: newUser.email,
-            password: newUser.password,
-            name: newUser.name,
-            role: newUser.role
-        }
+      const response = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newUser.email,
+          password: newUser.password,
+          name: newUser.name,
+          role: newUser.role,
+          assigned_class: newUser.assigned_class || null
+        })
       });
 
-      if (error) {
-         // Fallback if function fails or not deployed
-         console.warn("Edge function failed, trying fallback...", error);
-         throw new Error("User creation via admin function failed. Please ensure the backend is configured.");
-      }
+      const result = await response.json();
 
-      if (data && data.error) throw new Error(data.error);
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
+      }
 
       toast({
         title: "User Created",
@@ -98,6 +112,40 @@ const UserManagementView = () => {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleUpdateRole = async () => {
+    if (!editingUser) return;
+    setUpdatingRole(true);
+
+    try {
+      const response = await fetch('/api/update-user-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingUser.id,
+          role: editingUser.role,
+          assigned_class: editingUser.assigned_class || null
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update role');
+
+      toast({ title: "Role Updated", description: `${editingUser.name || editingUser.email}'s role updated to ${editingUser.role}` });
+      setIsEditRoleOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Update Failed", description: error.message });
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
+  const openEditRole = (user) => {
+    setEditingUser({ ...user });
+    setIsEditRoleOpen(true);
   };
 
   const deleteUser = async (userId) => {
@@ -137,21 +185,25 @@ const UserManagementView = () => {
   };
 
   const getRoleBadge = (role) => {
-    const styles = {
-      admin: "bg-red-100 text-red-800 hover:bg-red-200 border-red-200",
-      principal: "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200",
-      teacher: "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200",
-      tutor: "bg-green-100 text-green-800 hover:bg-green-200 border-green-200"
-    };
-    return <Badge className={styles[role] || "bg-gray-100 text-gray-800"}>{role ? role.toUpperCase() : 'UNKNOWN'}</Badge>;
+    const option = ROLE_OPTIONS.find(r => r.value === role);
+    if (!option) return <Badge className="bg-gray-100 text-gray-800">{role ? role.toUpperCase() : 'UNKNOWN'}</Badge>;
+    return <Badge className={option.color}>{option.label}</Badge>;
   };
+
+  const filteredUsers = users.filter(u => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (u.name || '').toLowerCase().includes(q) ||
+           (u.email || '').toLowerCase().includes(q) ||
+           (u.role || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-slate-800">User Management</h2>
-          <p className="text-slate-600 mt-1">Manage principals, teachers, and tutors</p>
+          <p className="text-slate-600 mt-1">Manage principals, teachers, tutors, and system access</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
           <UserPlus className="mr-2 h-4 w-4" /> Add New User
@@ -165,18 +217,33 @@ const UserManagementView = () => {
         </Card>
         <Card>
            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500">Principals & Admins</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold">{users.filter(u => ['admin', 'principal'].includes(u.role)).length}</div></CardContent>
+           <CardContent><div className="text-2xl font-bold">{users.filter(u => ['admin', 'principal', 'principal_hebrew', 'principal_english'].includes(u.role)).length}</div></CardContent>
         </Card>
         <Card>
            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-slate-500">Teachers & Tutors</CardTitle></CardHeader>
-           <CardContent><div className="text-2xl font-bold">{users.filter(u => ['teacher', 'tutor'].includes(u.role)).length}</div></CardContent>
+           <CardContent><div className="text-2xl font-bold">{users.filter(u => ['teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'special_ed'].includes(u.role)).length}</div></CardContent>
         </Card>
       </div>
+
+      {/* Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by name, email, or role..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>All System Users</CardTitle>
-          <CardDescription>View and manage all registered accounts.</CardDescription>
+          <CardDescription>View and manage all registered accounts. Click Edit to change roles.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -192,7 +259,7 @@ const UserManagementView = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell>
                       <div className="flex flex-col">
@@ -213,6 +280,14 @@ const UserManagementView = () => {
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
+                                onClick={() => openEditRole(u)}
+                                title="Edit Role"
+                            >
+                                <Edit className="h-4 w-4 text-blue-500" />
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
                                 onClick={() => resetPassword(u)}
                                 disabled={sendingReset === u.id}
                                 title="Send Password Reset Email"
@@ -228,7 +303,7 @@ const UserManagementView = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-slate-500">No users found.</TableCell>
                   </TableRow>
@@ -239,12 +314,13 @@ const UserManagementView = () => {
         </CardContent>
       </Card>
 
+      {/* Create User Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
             <DialogDescription>
-              Add a new user to the system.
+              Add a new user to the system. They will be able to log in with the email and password you set.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateUser}>
@@ -268,14 +344,13 @@ const UserManagementView = () => {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="principal">Principal</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="tutor">Tutor</SelectItem>
+                    {ROLE_OPTIONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              {['teacher', 'tutor'].includes(newUser.role) && (
+              {['teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'special_ed'].includes(newUser.role) && (
                 <div className="grid gap-2">
                    <Label htmlFor="class">Assigned Class (Optional)</Label>
                    <Input id="class" value={newUser.assigned_class} onChange={e => setNewUser({...newUser, assigned_class: e.target.value})} placeholder="e.g. Grade 5" />
@@ -289,6 +364,56 @@ const UserManagementView = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Dialog */}
+      <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit User Role</DialogTitle>
+            <DialogDescription>
+              Change role and class assignment for {editingUser?.name || 'this user'}.
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Current User</Label>
+                <div className="text-sm text-slate-600">{editingUser.name} — {editingUser.email}</div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="editRole">Role</Label>
+                <Select value={editingUser.role || ''} onValueChange={val => setEditingUser({...editingUser, role: val})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {['teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'special_ed'].includes(editingUser.role) && (
+                <div className="grid gap-2">
+                  <Label htmlFor="editClass">Assigned Class (Optional)</Label>
+                  <Input 
+                    id="editClass" 
+                    value={editingUser.assigned_class || ''} 
+                    onChange={e => setEditingUser({...editingUser, assigned_class: e.target.value})} 
+                    placeholder="e.g. Grade 5" 
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateRole} disabled={updatingRole}>
+              {updatingRole ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, Trash2, Loader2, Edit, Phone, Home, MapPin, Search, Download, Users, GraduationCap, Bus, Briefcase, BookOpen, UserCog } from 'lucide-react';
+import { UserPlus, Trash2, Loader2, Edit, Phone, Home, MapPin, Search, Download, Users, GraduationCap, Bus, Briefcase, BookOpen, UserCog, KeyRound } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const POSITION_OPTIONS = [
@@ -64,7 +64,23 @@ const StaffView = ({ role, currentUser }) => {
   });
   
   const [saving, setSaving] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginStaff, setLoginStaff] = useState(null);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '', role: 'teacher' });
+  const [creatingLogin, setCreatingLogin] = useState(false);
   const { toast } = useToast();
+
+  const LOGIN_ROLE_OPTIONS = [
+    { value: 'principal', label: 'Principal' },
+    { value: 'principal_hebrew', label: 'Principal (Hebrew)' },
+    { value: 'principal_english', label: 'Principal (English)' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'teacher', label: 'Teacher' },
+    { value: 'teacher_hebrew', label: 'Teacher (Hebrew)' },
+    { value: 'teacher_english', label: 'Teacher (English)' },
+    { value: 'tutor', label: 'Tutor' },
+    { value: 'special_ed', label: 'Special Education' },
+  ];
 
   useEffect(() => {
     fetchStaff();
@@ -161,6 +177,57 @@ const StaffView = ({ role, currentUser }) => {
         title: "Error",
         description: "Could not remove staff member."
       });
+    }
+  };
+
+  const openCreateLogin = (staffMember) => {
+    setLoginStaff(staffMember);
+    // Guess a reasonable role from staff position
+    let guessedRole = 'teacher';
+    const pos = (staffMember.position || '').toLowerCase();
+    if (pos.includes('menahal') || pos.includes('principal') || pos.includes('sgan')) guessedRole = 'principal';
+    else if (pos.includes('english')) guessedRole = 'teacher_english';
+    else if (pos.includes('chinuch') || pos.includes('special')) guessedRole = 'special_ed';
+    else if (pos.includes('sec') || pos.includes('manager') || pos.includes('vaad')) guessedRole = 'admin';
+    setLoginForm({ email: '', password: '', role: guessedRole });
+    setIsLoginModalOpen(true);
+  };
+
+  const handleCreateLogin = async (e) => {
+    e.preventDefault();
+    setCreatingLogin(true);
+    try {
+      const nameParts = (loginStaff.full_name || '').split(',').map(s => s.trim());
+      const lastName = nameParts[0] || '';
+      const firstName = nameParts[1] || loginStaff.first_name || '';
+      const res = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+          name: loginStaff.full_name || `${firstName} ${lastName}`,
+          first_name: firstName || loginStaff.first_name || '',
+          last_name: lastName || loginStaff.last_name || '',
+          role: loginForm.role,
+          assigned_class: loginStaff.class_assignment || '',
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to create login');
+      toast({
+        title: 'Login Account Created',
+        description: `${loginStaff.full_name} can now log in with ${loginForm.email}.`,
+      });
+      setIsLoginModalOpen(false);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error Creating Login',
+        description: error.message,
+      });
+    } finally {
+      setCreatingLogin(false);
     }
   };
 
@@ -441,6 +508,9 @@ const StaffView = ({ role, currentUser }) => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openCreateLogin(staffMember)} title="Create Login Account">
+                          <KeyRound className="h-4 w-4 text-green-600" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(staffMember)}>
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -611,6 +681,68 @@ const StaffView = ({ role, currentUser }) => {
               <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditMode ? 'Save Changes' : 'Add Staff Member'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Login Account Dialog */}
+      <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Login Account</DialogTitle>
+            <DialogDescription>
+              Create a system login for {loginStaff?.full_name || 'this staff member'} so they can access the app.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateLogin}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Staff Member</Label>
+                <div className="text-sm text-slate-600 font-medium">{loginStaff?.title} {loginStaff?.full_name}</div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="loginEmail">Email Address</Label>
+                <Input
+                  id="loginEmail"
+                  type="email"
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  placeholder="email@school.edu"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="loginPassword">Password</Label>
+                <Input
+                  id="loginPassword"
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  placeholder="Set a temporary password"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="loginRole">System Role</Label>
+                <Select value={loginForm.role} onValueChange={(val) => setLoginForm({ ...loginForm, role: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOGIN_ROLE_OPTIONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsLoginModalOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={creatingLogin} className="bg-green-600 hover:bg-green-700">
+                {creatingLogin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                Create Login
               </Button>
             </DialogFooter>
           </form>
