@@ -232,7 +232,7 @@ export default function resendApiPlugin() {
           }
 
           const recipients = Array.isArray(to) ? to : [to];
-          const fromAddress = from || 'School Management <onboarding@resend.dev>';
+          const fromAddress = from || 'tyy <send@tyymonsey.com>';
           const emailHtml = html || (text ? text.replace(/\n/g, '<br>') : '');
           const emailText = text || '';
 

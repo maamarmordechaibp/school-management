@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION send_email(
   p_subject TEXT,
   p_html TEXT,
   p_text TEXT DEFAULT NULL,
-  p_from TEXT DEFAULT 'School Management <onboarding@resend.dev>',
+  p_from TEXT DEFAULT 'tyy <send@tyymonsey.com>',
   p_related_type TEXT DEFAULT NULL,
   p_related_id UUID DEFAULT NULL,
   p_sent_by UUID DEFAULT NULL
