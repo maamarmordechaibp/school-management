@@ -1,12 +1,12 @@
 -- =====================================================
--- 017: Server-side email sending via pg_net
--- Uses Supabase's built-in pg_net extension to call
--- Resend API directly from the database.
+-- 017: Server-side email sending via http extension
+-- Uses Supabase's built-in http extension to call
+-- Resend API directly from the database (synchronous).
 -- No separate backend/function server needed.
 -- =====================================================
 
--- 1. Enable pg_net extension (built into Supabase)
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+-- 1. Enable http extension (built into Supabase)
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 
 -- 2. Create the send_email RPC function
 CREATE OR REPLACE FUNCTION send_email(
@@ -23,33 +23,64 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_request_id BIGINT;
-  v_body JSONB;
+  v_response extensions.http_response;
+  v_body TEXT;
+  v_result JSONB;
+  v_status INT;
 BEGIN
-  -- Build the request body for Resend API
-  v_body := jsonb_build_object(
+  -- Build the JSON request body
+  v_body := json_build_object(
     'from', p_from,
     'to', p_to,
     'subject', p_subject,
     'html', p_html,
     'text', COALESCE(p_text, '')
-  );
+  )::TEXT;
 
-  -- Send email via Resend API using pg_net (async HTTP POST)
-  SELECT net.http_post(
-    url := 'https://api.resend.com/emails',
-    headers := jsonb_build_object(
-      'Authorization', 'Bearer re_Ugkb4gWj_CEz1KbcZXE7UUYx1oAF2zd7A',
-      'Content-Type', 'application/json'
-    ),
-    body := v_body
-  ) INTO v_request_id;
+  -- Send email via Resend API using http extension (synchronous)
+  SELECT * INTO v_response FROM http((
+    'POST',
+    'https://api.resend.com/emails',
+    ARRAY[
+      http_header('Authorization', 'Bearer re_Ugkb4gWj_CEz1KbcZXE7UUYx1oAF2zd7A'),
+      http_header('Content-Type', 'application/json')
+    ],
+    'application/json',
+    v_body
+  )::http_request);
+
+  v_status := v_response.status;
+
+  -- Try to parse the response
+  BEGIN
+    v_result := v_response.content::JSONB;
+  EXCEPTION WHEN OTHERS THEN
+    v_result := jsonb_build_object('raw_response', left(v_response.content, 500));
+  END;
 
   -- Log to email_log table
   INSERT INTO email_log (recipients, subject, body, related_type, related_id, sent_by, status)
-  VALUES (p_to, p_subject, COALESCE(p_text, p_html), p_related_type, p_related_id, p_sent_by, 'sent');
+  VALUES (
+    p_to, p_subject, COALESCE(p_text, p_html),
+    p_related_type, p_related_id, p_sent_by,
+    CASE WHEN v_status >= 200 AND v_status < 300 THEN 'sent' ELSE 'failed' END
+  );
 
-  RETURN jsonb_build_object('success', true, 'request_id', v_request_id);
+  -- Return result with actual API response
+  IF v_status >= 200 AND v_status < 300 THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'id', v_result->>'id',
+      'status', v_status
+    );
+  ELSE
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', COALESCE(v_result->>'message', v_result->>'error', 'Resend API error'),
+      'status', v_status,
+      'details', v_result
+    );
+  END IF;
 
 EXCEPTION WHEN OTHERS THEN
   -- Log the failed attempt
@@ -57,7 +88,6 @@ EXCEPTION WHEN OTHERS THEN
     INSERT INTO email_log (recipients, subject, body, related_type, related_id, sent_by, status)
     VALUES (p_to, p_subject, COALESCE(p_text, p_html), p_related_type, p_related_id, p_sent_by, 'failed');
   EXCEPTION WHEN OTHERS THEN
-    -- Ignore logging errors
     NULL;
   END;
 
