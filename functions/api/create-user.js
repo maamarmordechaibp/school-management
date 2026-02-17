@@ -54,34 +54,56 @@ export async function onRequestPost(context) {
 
     const userId = authResult.id;
 
-    // 2. Insert into app_users table
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          id: userId,
-          email,
-          name: name || `${first_name || ''} ${last_name || ''}`.trim() || email,
-          first_name: first_name || name?.split(' ')[0] || '',
-          last_name: last_name || name?.split(' ').slice(1).join(' ') || '',
-          role: role || 'teacher',
-          assigned_class: assigned_class || null
-        })
-      });
-    } catch (profileErr) {
-      console.error('Failed to create app_users profile:', profileErr);
-      // Auth user was created, profile insert failed — return warning
-      return new Response(JSON.stringify({ 
-        success: true, 
-        userId,
-        warning: 'Auth user created but profile insert failed. User may need manual profile setup.' 
-      }), { status: 201, headers });
+    // 2. Insert into app_users table (only use columns guaranteed to exist)
+    const profilePayload = {
+      id: userId,
+      email,
+      name: name || `${first_name || ''} ${last_name || ''}`.trim() || email,
+      role: role || 'teacher',
+    };
+    // Only add assigned_class if provided (column may not exist in all schemas)
+    if (assigned_class) profilePayload.assigned_class = assigned_class;
+
+    const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(profilePayload)
+    });
+
+    if (!profileResponse.ok) {
+      const profileErr = await profileResponse.text();
+      console.error('app_users insert failed:', profileErr);
+      
+      // If assigned_class column doesn't exist, retry without it
+      if (profileErr.includes('assigned_class')) {
+        delete profilePayload.assigned_class;
+        const retryResponse = await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(profilePayload)
+        });
+        if (!retryResponse.ok) {
+          return new Response(JSON.stringify({ 
+            success: true, userId,
+            warning: 'Auth user created but profile insert failed: ' + (await retryResponse.text())
+          }), { status: 201, headers });
+        }
+      } else {
+        return new Response(JSON.stringify({ 
+          success: true, userId,
+          warning: 'Auth user created but profile insert failed: ' + profileErr 
+        }), { status: 201, headers });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, userId }), { status: 201, headers });

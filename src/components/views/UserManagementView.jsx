@@ -58,7 +58,35 @@ const UserManagementView = () => {
         .order('email', { ascending: true });
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      let userList = data || [];
+      
+      // If the current logged-in user isn't in app_users, auto-register them
+      if (currentUser && userList.length === 0 || (currentUser && !userList.find(u => u.id === currentUser.id))) {
+        try {
+          const { error: insertErr } = await supabase
+            .from('app_users')
+            .upsert({
+              id: currentUser.id,
+              email: currentUser.email,
+              name: currentUser.user_metadata?.name || currentUser.email,
+              role: 'principal'
+            }, { onConflict: 'id' });
+          
+          if (!insertErr) {
+            // Re-fetch to include the new row
+            const { data: refreshed } = await supabase
+              .from('app_users')
+              .select('*')
+              .order('email', { ascending: true });
+            userList = refreshed || userList;
+          }
+        } catch (e) {
+          console.error('Auto-register current user failed:', e);
+        }
+      }
+      
+      setUsers(userList);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -94,10 +122,18 @@ const UserManagementView = () => {
         throw new Error(result.error || 'Failed to create user');
       }
 
-      toast({
-        title: "User Created",
-        description: `Account for ${newUser.email} has been created successfully.`
-      });
+      if (result.warning) {
+        toast({
+          variant: "destructive",
+          title: "Partial Success",
+          description: result.warning
+        });
+      } else {
+        toast({
+          title: "User Created",
+          description: `Account for ${newUser.email} has been created with role: ${ROLE_OPTIONS.find(r => r.value === newUser.role)?.label || newUser.role}.`
+        });
+      }
       
       setIsModalOpen(false);
       setNewUser({ email: '', password: '', name: '', role: 'teacher', assigned_class: '' });

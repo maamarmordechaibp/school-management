@@ -215,10 +215,19 @@ const StaffView = ({ role, currentUser }) => {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Failed to create login');
-      toast({
-        title: 'Login Account Created',
-        description: `${loginStaff.full_name} can now log in with ${loginForm.email}.`,
-      });
+      
+      if (result.warning) {
+        toast({
+          variant: 'destructive',
+          title: 'Partial Success',
+          description: `Auth account created but profile may need manual setup: ${result.warning}`,
+        });
+      } else {
+        toast({
+          title: 'Login Account Created',
+          description: `${loginStaff.full_name} can now log in with ${loginForm.email} as ${loginForm.role}.`,
+        });
+      }
       setIsLoginModalOpen(false);
     } catch (error) {
       toast({
