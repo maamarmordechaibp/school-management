@@ -105,9 +105,12 @@ const RemindersView = ({ role, currentUser }) => {
         title: form.title,
         description: form.description || null,
         reminder_type: form.reminder_type,
-        reminder_date: `${form.reminder_date}T${form.reminder_time || '09:00'}:00`,
+        reminder_date: form.reminder_date,
+        reminder_time: form.reminder_time || '09:00',
         send_email: form.send_email,
-        email_recipients: form.send_email ? form.email_recipients : null,
+        email_recipients: form.send_email && form.email_recipients
+          ? form.email_recipients.split(',').map(e => e.trim()).filter(Boolean)
+          : null,
         priority: form.priority,
         related_student_id: form.related_student_id || null,
         related_student_name: form.related_student_name || null,
@@ -188,15 +191,14 @@ const RemindersView = ({ role, currentUser }) => {
 
   const openEditModal = (r) => {
     setEditingReminder(r);
-    const dt = r.reminder_date ? new Date(r.reminder_date) : null;
     setForm({
       title: r.title,
       description: r.description || '',
       reminder_type: r.reminder_type || 'general',
-      reminder_date: dt ? dt.toISOString().split('T')[0] : '',
-      reminder_time: dt ? dt.toTimeString().slice(0, 5) : '09:00',
+      reminder_date: r.reminder_date || '',
+      reminder_time: r.reminder_time ? r.reminder_time.slice(0, 5) : '09:00',
       send_email: r.send_email || false,
-      email_recipients: r.email_recipients || '',
+      email_recipients: Array.isArray(r.email_recipients) ? r.email_recipients.join(', ') : (r.email_recipients || ''),
       priority: r.priority || 'normal',
       related_student_id: r.related_student_id,
       related_student_name: r.related_student_name || '',
@@ -339,12 +341,14 @@ const RemindersView = ({ role, currentUser }) => {
                       <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {r.reminder_date && new Date(r.reminder_date).toLocaleDateString('he-IL')}
+                          {r.reminder_date && new Date(r.reminder_date + 'T00:00:00').toLocaleDateString('he-IL')}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {r.reminder_date && new Date(r.reminder_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        {r.reminder_time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {r.reminder_time.slice(0, 5)}
+                          </span>
+                        )}
                         {r.related_student_name && (
                           <span>Student: {r.related_student_name}</span>
                         )}
