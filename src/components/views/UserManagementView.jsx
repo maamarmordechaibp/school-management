@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search, Settings2 } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search, Settings2, GripVertical, Plus, X, Lock, Unlock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -26,27 +26,115 @@ const ROLE_OPTIONS = [
 
 // All possible menu/feature permissions that can be toggled per user
 const ALL_PERMISSIONS = [
-  { id: 'students', label: 'Students' },
-  { id: 'todos', label: 'To-Do List' },
-  { id: 'grades', label: 'Grades' },
-  { id: 'classes', label: 'Classes' },
-  { id: 'class-detail', label: 'Class Detail' },
-  { id: 'issues', label: 'Issues' },
-  { id: 'calls', label: 'Phone Calls' },
-  { id: 'meetings', label: 'Meetings' },
-  { id: 'staff', label: 'Staff Directory' },
-  { id: 'users', label: 'User Management' },
-  { id: 'special-ed', label: 'Special Education' },
-  { id: 'late-tracking', label: 'Late Tracking' },
-  { id: 'bus-changes', label: 'Bus Changes' },
-  { id: 'reminders', label: 'Reminders' },
-  { id: 'books', label: 'Books' },
-  { id: 'fees', label: 'Fees & Trips' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'financial-reports', label: 'Financial Reports' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'students', label: 'Students', icon: '👥', category: 'Core' },
+  { id: 'todos', label: 'To-Do List', icon: '✅', category: 'Core' },
+  { id: 'grades', label: 'Grades', icon: '📊', category: 'Academic' },
+  { id: 'classes', label: 'Classes', icon: '🏫', category: 'Academic' },
+  { id: 'class-detail', label: 'Class Detail', icon: '📖', category: 'Academic' },
+  { id: 'issues', label: 'Issues', icon: '⚠️', category: 'Communication' },
+  { id: 'calls', label: 'Phone Calls', icon: '📞', category: 'Communication' },
+  { id: 'meetings', label: 'Meetings', icon: '📅', category: 'Communication' },
+  { id: 'staff', label: 'Staff Directory', icon: '📋', category: 'Admin' },
+  { id: 'users', label: 'User Management', icon: '🛡️', category: 'Admin' },
+  { id: 'special-ed', label: 'Special Education', icon: '💜', category: 'Special' },
+  { id: 'late-tracking', label: 'Late Tracking', icon: '⏰', category: 'Operations' },
+  { id: 'bus-changes', label: 'Bus Changes', icon: '🚌', category: 'Operations' },
+  { id: 'reminders', label: 'Reminders', icon: '🔔', category: 'Communication' },
+  { id: 'books', label: 'Books', icon: '📚', category: 'Financial' },
+  { id: 'fees', label: 'Fees & Trips', icon: '💰', category: 'Financial' },
+  { id: 'payments', label: 'Payments', icon: '🧾', category: 'Financial' },
+  { id: 'financial-reports', label: 'Financial Reports', icon: '📈', category: 'Financial' },
+  { id: 'reports', label: 'Reports', icon: '📊', category: 'Admin' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', category: 'Admin' },
 ];
+
+const CATEGORY_COLORS = {
+  Core: 'bg-blue-50 border-blue-200 text-blue-700',
+  Academic: 'bg-purple-50 border-purple-200 text-purple-700',
+  Communication: 'bg-green-50 border-green-200 text-green-700',
+  Admin: 'bg-red-50 border-red-200 text-red-700',
+  Special: 'bg-orange-50 border-orange-200 text-orange-700',
+  Operations: 'bg-teal-50 border-teal-200 text-teal-700',
+  Financial: 'bg-amber-50 border-amber-200 text-amber-700',
+};
+
+// ─── Drag-and-Drop Permission Item ──────────────────────────────────────
+const DraggablePermission = ({ perm, onDragStart, onDragEnd, isAssigned, onRemove, onAdd }) => {
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', perm.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(perm.id);
+      }}
+      onDragEnd={onDragEnd}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-all duration-150 select-none group ${
+        isAssigned
+          ? 'bg-green-50 border-green-300 hover:border-green-400 shadow-sm'
+          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
+      }`}
+    >
+      <GripVertical className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 group-hover:text-slate-600" />
+      <span className="text-base flex-shrink-0">{perm.icon}</span>
+      <span className="text-sm font-medium text-slate-700 flex-1 truncate">{perm.label}</span>
+      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${CATEGORY_COLORS[perm.category] || ''}`}>
+        {perm.category}
+      </Badge>
+      {isAssigned ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove?.(perm.id); }}
+          className="opacity-0 group-hover:opacity-100 ml-1 p-0.5 rounded hover:bg-red-100 transition-opacity"
+          title="Remove permission"
+        >
+          <X className="h-3.5 w-3.5 text-red-500" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onAdd?.(perm.id); }}
+          className="opacity-0 group-hover:opacity-100 ml-1 p-0.5 rounded hover:bg-green-100 transition-opacity"
+          title="Add permission"
+        >
+          <Plus className="h-3.5 w-3.5 text-green-600" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ─── Drop Zone Container ─────────────────────────────────────────────────
+const DropZone = ({ children, onDrop, isOver, title, icon: Icon, count, emptyMessage, className = '' }) => {
+  const [dragOver, setDragOver] = useState(false);
+  
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData('text/plain'); onDrop?.(id); }}
+      className={`flex flex-col rounded-xl border-2 transition-all duration-200 ${
+        dragOver ? 'border-blue-400 bg-blue-50/50 shadow-lg scale-[1.01]' : 'border-slate-200 bg-slate-50/50'
+      } ${className}`}
+    >
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white rounded-t-xl">
+        {Icon && <Icon className="h-4 w-4 text-slate-500" />}
+        <span className="text-sm font-semibold text-slate-700">{title}</span>
+        <Badge className="ml-auto text-xs bg-slate-100 text-slate-600 border-slate-200">{count}</Badge>
+      </div>
+      <div className="flex-1 p-3 space-y-1.5 overflow-y-auto min-h-[120px] max-h-[320px]">
+        {children}
+        {count === 0 && (
+          <div className={`flex items-center justify-center h-24 text-sm text-slate-400 border-2 border-dashed rounded-lg ${
+            dragOver ? 'border-blue-300 text-blue-400' : 'border-slate-200'
+          }`}>
+            {dragOver ? 'Drop here!' : emptyMessage}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const UserManagementView = () => {
   const [users, setUsers] = useState([]);
@@ -192,34 +280,48 @@ const UserManagementView = () => {
     setIsEditRoleOpen(true);
   };
 
-  const togglePermission = (permId) => {
+  // ─── Drag-and-drop permission handlers ─────────────────────────────
+  const grantPermission = (permId) => {
     if (!editingUser) return;
-    const current = editingUser.custom_permissions || {};
-    const newPerms = { ...current };
-    if (newPerms[permId] === true) {
-      // Was granted → remove override (back to role default)
-      delete newPerms[permId];
-    } else if (newPerms[permId] === false) {
-      // Was revoked → grant
-      newPerms[permId] = true;
-    } else {
-      // No override → grant it
-      newPerms[permId] = true;
-    }
+    const newPerms = { ...editingUser.custom_permissions };
+    newPerms[permId] = true;
     setEditingUser({ ...editingUser, custom_permissions: newPerms });
   };
 
-  const revokePermission = (permId) => {
+  const removePermission = (permId) => {
     if (!editingUser) return;
-    const current = editingUser.custom_permissions || {};
-    const newPerms = { ...current };
-    if (newPerms[permId] === false) {
-      // Was revoked → remove override
-      delete newPerms[permId];
-    } else {
-      newPerms[permId] = false;
-    }
+    const newPerms = { ...editingUser.custom_permissions };
+    delete newPerms[permId]; // Back to role default (unassigned)
     setEditingUser({ ...editingUser, custom_permissions: newPerms });
+  };
+
+  const handleDropToAssigned = (permId) => {
+    grantPermission(permId);
+  };
+
+  const handleDropToAvailable = (permId) => {
+    removePermission(permId);
+  };
+
+  const grantAll = () => {
+    if (!editingUser) return;
+    const newPerms = {};
+    ALL_PERMISSIONS.forEach(p => { newPerms[p.id] = true; });
+    setEditingUser({ ...editingUser, custom_permissions: newPerms });
+  };
+
+  const removeAll = () => {
+    if (!editingUser) return;
+    setEditingUser({ ...editingUser, custom_permissions: {} });
+  };
+
+  // Compute which permissions are assigned vs available
+  const getPermissionLists = () => {
+    if (!editingUser) return { assigned: [], available: [] };
+    const perms = editingUser.custom_permissions || {};
+    const assigned = ALL_PERMISSIONS.filter(p => perms[p.id] === true);
+    const available = ALL_PERMISSIONS.filter(p => perms[p.id] !== true);
+    return { assigned, available };
   };
 
   const deleteUser = async (userId) => {
@@ -448,18 +550,23 @@ const UserManagementView = () => {
 
       {/* Edit Role & Permissions Dialog */}
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[780px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit User Role & Permissions</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              Edit User Role & Permissions
+            </DialogTitle>
             <DialogDescription>
-              Change role and customize which features {editingUser?.name || 'this user'} can access.
+              Change role and drag permissions to assign or remove access for {editingUser?.name || 'this user'}.
             </DialogDescription>
           </DialogHeader>
-          {editingUser && (
+          {editingUser && (() => {
+            const { assigned, available } = getPermissionLists();
+            return (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>Current User</Label>
-                <div className="text-sm text-slate-600">{editingUser.name} — {editingUser.email}</div>
+                <div className="text-sm text-slate-600 font-medium">{editingUser.name} — <span className="text-slate-400">{editingUser.email}</span></div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="editRole">Role</Label>
@@ -486,66 +593,67 @@ const UserManagementView = () => {
                 </div>
               )}
               
-              {/* Custom Permissions */}
+              {/* Drag & Drop Permissions */}
               <div className="border-t pt-4 mt-2">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" /> Custom Feature Access
-                </Label>
-                <p className="text-xs text-slate-500 mt-1 mb-3">
-                  Override role defaults. Green = granted, Red = revoked, Gray = uses role default.
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <Settings2 className="h-4 w-4" /> Feature Permissions
+                  </Label>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={grantAll} className="text-xs h-7">
+                      <Plus className="h-3 w-3 mr-1" /> Grant All
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={removeAll} className="text-xs h-7">
+                      <X className="h-3 w-3 mr-1" /> Clear All
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 mb-4">
+                  Drag permissions between the two panels, or click the +/× buttons. Assigned permissions override role defaults.
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {ALL_PERMISSIONS.map(perm => {
-                    const customVal = editingUser.custom_permissions?.[perm.id];
-                    const isGranted = customVal === true;
-                    const isRevoked = customVal === false;
-                    return (
-                      <div key={perm.id} className={`flex items-center gap-2 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
-                        isGranted ? 'bg-green-50 border-green-300' : 
-                        isRevoked ? 'bg-red-50 border-red-300' : 
-                        'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                      }`}>
-                        <button
-                          type="button"
-                          onClick={() => togglePermission(perm.id)}
-                          className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
-                            isGranted ? 'bg-green-500 border-green-600 text-white' :
-                            isRevoked ? 'bg-white border-slate-300' :
-                            'bg-white border-slate-300'
-                          }`}
-                        >
-                          {isGranted && <CheckCircle className="h-3.5 w-3.5" />}
-                        </button>
-                        <span className={`flex-1 ${isRevoked ? 'line-through text-red-400' : 'text-slate-700'}`}>{perm.label}</span>
-                        {(isGranted || isRevoked) && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); isRevoked ? revokePermission(perm.id) : revokePermission(perm.id); }}
-                            className={`text-xs px-1.5 py-0.5 rounded ${
-                              isRevoked ? 'bg-red-200 text-red-700 hover:bg-red-300' : 'bg-slate-200 text-slate-600 hover:bg-red-200 hover:text-red-700'
-                            }`}
-                            title={isRevoked ? 'Remove restriction' : 'Revoke access'}
-                          >
-                            {isRevoked ? '✕' : '−'}
-                          </button>
-                        )}
-                        {!isGranted && !isRevoked && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); revokePermission(perm.id); }}
-                            className="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 hover:bg-red-200 hover:text-red-700"
-                            title="Revoke access"
-                          >
-                            −
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Available (unassigned) permissions */}
+                  <DropZone
+                    title="Available Permissions"
+                    icon={Unlock}
+                    count={available.length}
+                    emptyMessage="All permissions assigned"
+                    onDrop={handleDropToAvailable}
+                  >
+                    {available.map(perm => (
+                      <DraggablePermission
+                        key={perm.id}
+                        perm={perm}
+                        isAssigned={false}
+                        onAdd={grantPermission}
+                      />
+                    ))}
+                  </DropZone>
+
+                  {/* Assigned permissions */}
+                  <DropZone
+                    title="Assigned Permissions"
+                    icon={Lock}
+                    count={assigned.length}
+                    emptyMessage="Drag permissions here to assign"
+                    onDrop={handleDropToAssigned}
+                    className="border-green-200"
+                  >
+                    {assigned.map(perm => (
+                      <DraggablePermission
+                        key={perm.id}
+                        perm={perm}
+                        isAssigned={true}
+                        onRemove={removePermission}
+                      />
+                    ))}
+                  </DropZone>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
             <Button onClick={handleUpdateRole} disabled={updatingRole}>

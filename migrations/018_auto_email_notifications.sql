@@ -67,17 +67,15 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Build HTML email
-  v_html := '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">'
+  -- Build HTML email (inner content only — send_email wraps it in full document structure)
+  v_html := '<div style="font-family: Arial, sans-serif; max-width: 100%;">'
     || '<div style="background: #1e40af; color: white; padding: 20px; border-radius: 8px 8px 0 0;">'
     || '<h2 style="margin: 0;">Student Update Notification</h2>'
     || '</div>'
-    || '<div style="padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">'
+    || '<div style="padding: 20px;">'
     || '<p><strong>Student:</strong> ' || v_student_name || '</p>'
     || '<p><strong>Update:</strong> ' || p_event_type || '</p>'
     || '<p>' || p_details || '</p>'
-    || '<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;">'
-    || '<p style="color: #64748b; font-size: 12px;">This is an automated notification from the School Management System.</p>'
     || '</div></div>';
 
   -- Call send_email (which uses pg_net → Resend API)

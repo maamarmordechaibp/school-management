@@ -6,7 +6,7 @@
 
 import { supabase } from '@/lib/customSupabaseClient';
 
-export async function sendEmail({ to, subject, body, from, relatedType, relatedId, sentBy }) {
+export async function sendEmail({ to, subject, body, from, replyTo, relatedType, relatedId, sentBy }) {
   // Ensure 'to' is always an array
   const recipients = Array.isArray(to) ? to : [to];
   const htmlBody = body.replace(/\n/g, '<br>');
@@ -17,7 +17,8 @@ export async function sendEmail({ to, subject, body, from, relatedType, relatedI
     p_subject: subject,
     p_html: htmlBody,
     p_text: body,
-    p_from: from || 'tyy <send@tyymonsey.com>',
+    p_from: from || 'TYY Monsey <send@tyymonsey.com>',
+    p_reply_to: replyTo || 'info@tyymonsey.com',
     p_related_type: relatedType || null,
     p_related_id: relatedId || null,
     p_sent_by: sentBy || null

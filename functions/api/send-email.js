@@ -9,26 +9,64 @@
  *   SUPABASE_SERVICE_KEY  (service role key for DB writes)
  */
 
+const UNSUBSCRIBE_URL = 'https://tyymonsey.com/unsubscribe';
+
+/**
+ * Wrap raw HTML content in a proper email document structure
+ * with anti-spam best practices (proper DOCTYPE, footer, unsubscribe link, physical address).
+ */
+function wrapHtmlEmail(subject, innerHtml) {
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f7f7f7;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f7f7f7;">
+    <tr><td align="center" style="padding:20px 0;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr><td style="padding:20px 30px;">
+          ${innerHtml}
+        </td></tr>
+        <tr><td style="padding:15px 30px;background-color:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center;">
+          <p style="margin:0 0 8px 0;">TYY Monsey &middot; Monsey, NY</p>
+          <p style="margin:0;"><a href="${UNSUBSCRIBE_URL}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 export async function onRequestPost(context) {
-  const RESEND_API_KEY = context.env.RESEND_API_KEY || 're_Ugkb4gWj_CEz1KbcZXE7UUYx1oAF2zd7A';
+  const RESEND_API_KEY = context.env.RESEND_API_KEY;
   const SUPABASE_URL = context.env.SUPABASE_URL || 'https://rfvgjyfrjawqpdpwicev.supabase.co';
-  const SUPABASE_SERVICE_KEY = context.env.SUPABASE_SERVICE_KEY || context.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdmdqeWZyamF3cXBkcHdpY2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMTM5OTUsImV4cCI6MjA4MDg4OTk5NX0.ORKsqnNyfOtU9T9u6YWmo4j1pldMAC_ZakMCRMCiVmo';
+  const SUPABASE_SERVICE_KEY = context.env.SUPABASE_SERVICE_KEY || context.env.SUPABASE_ANON_KEY;
+
+  if (!RESEND_API_KEY) {
+    return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const headers = { 'Content-Type': 'application/json' };
 
   try {
-    const { to, subject, html, text, from, relatedType, relatedId, sentBy } = await context.request.json();
+    const { to, subject, html, text, from, replyTo, relatedType, relatedId, sentBy } = await context.request.json();
 
     if (!to || !subject) {
       return new Response(JSON.stringify({ error: 'Missing required fields: to, subject' }), { status: 400, headers });
     }
 
     const recipients = Array.isArray(to) ? to : [to];
-    const fromAddress = from || 'tyy <send@tyymonsey.com>';
-    const emailHtml = html || (text ? text.replace(/\n/g, '<br>') : '');
+    const fromAddress = from || 'TYY Monsey <send@tyymonsey.com>';
+    const replyToAddress = replyTo || 'info@tyymonsey.com';
+    const rawHtml = html || (text ? text.replace(/\n/g, '<br>') : '');
+    const emailHtml = wrapHtmlEmail(subject, rawHtml);
     const emailText = text || '';
 
-    // 1. Send email via Resend
+    // 1. Send email via Resend with deliverability headers
     let emailStatus = 'sent';
     let resendId = null;
     let sendError = null;
@@ -43,9 +81,14 @@ export async function onRequestPost(context) {
         body: JSON.stringify({
           from: fromAddress,
           to: recipients,
+          reply_to: replyToAddress,
           subject,
           html: emailHtml,
-          text: emailText
+          text: emailText,
+          headers: {
+            'List-Unsubscribe': `<${UNSUBSCRIBE_URL}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+          }
         })
       });
 
