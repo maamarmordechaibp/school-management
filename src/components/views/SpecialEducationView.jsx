@@ -169,11 +169,25 @@ const SpecialEducationView = ({ role, currentUser }) => {
       setSpecEdStudents(specEdData || []);
 
       // Load all students for dropdown
-      const { data: studentsData } = await supabase
+      let studentsData = null;
+      const { data: sData, error: sError } = await supabase
         .from('students')
         .select('id, first_name, last_name, hebrew_name, class_id, class:classes!class_id(name)')
         .eq('status', 'active')
         .order('last_name');
+      
+      if (sError) {
+        console.error('Error loading students with class join, trying without:', sError);
+        // Fallback: load without class join
+        const { data: fallbackData } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, hebrew_name, class_id')
+          .eq('status', 'active')
+          .order('last_name');
+        studentsData = fallbackData;
+      } else {
+        studentsData = sData;
+      }
       setAllStudents(studentsData || []);
 
       // Load special ed staff

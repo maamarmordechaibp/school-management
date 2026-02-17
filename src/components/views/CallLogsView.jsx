@@ -69,7 +69,7 @@ const CallLogsView = ({ role, currentUser }) => {
         .select(`
           *,
           student:students(id, first_name, last_name),
-          caller:app_users!caller_id(id, first_name, last_name)
+          caller:app_users!logged_by(id, first_name, last_name)
         `)
         .order('call_date', { ascending: false });
 
@@ -171,7 +171,7 @@ const CallLogsView = ({ role, currentUser }) => {
     try {
       const payload = {
         student_id: formData.student_id,
-        caller_id: currentUser?.id,
+        logged_by: currentUser?.id,
         contact_type: formData.contact_type,
         contact_person: formData.contact_person,
         phone_number: formData.phone_number,
