@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Upload, Filter, Grid, List, X, GraduationCap, AlertCircle, Phone, User } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Upload, Filter, Grid, List, X, GraduationCap, AlertCircle, Phone, User, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -417,6 +417,9 @@ const StudentsView = ({ role, currentUser }) => {
                       <Badge variant="secondary" className="text-xs">{student.class?.name || 'No Class'}</Badge>
                       {student.open_issues_count > 0 && (
                         <Badge variant="destructive" className="text-xs">{student.open_issues_count} Issues</Badge>
+                      )}
+                      {student.notify_on_updates && (
+                        <Badge className="bg-blue-100 text-blue-700 text-xs"><Bell className="h-3 w-3 mr-0.5" />Auto-Email</Badge>
                       )}
                     </div>
                   </div>

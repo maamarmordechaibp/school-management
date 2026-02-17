@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
   const { toast } = useToast();
@@ -29,7 +30,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
     emergency_contact: '',
     emergency_phone: '',
     notes: '',
-    is_active: true
+    is_active: true,
+    notify_on_updates: false,
+    notification_emails: '',
   });
 
   const [selectedTutors, setSelectedTutors] = useState([]);
@@ -56,7 +59,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
           emergency_contact: student.emergency_contact || '',
           emergency_phone: student.emergency_phone || '',
           notes: student.notes || '',
-          is_active: student.is_active !== false
+          is_active: student.is_active !== false,
+          notify_on_updates: student.notify_on_updates || false,
+          notification_emails: Array.isArray(student.notification_emails) ? student.notification_emails.join(', ') : (student.notification_emails || ''),
         });
         fetchStudentTutors(student.id);
       } else {
@@ -92,7 +97,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
       emergency_contact: '',
       emergency_phone: '',
       notes: '',
-      is_active: true
+      is_active: true,
+      notify_on_updates: false,
+      notification_emails: '',
     });
   };
 
@@ -155,7 +162,11 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
         emergency_contact: formData.emergency_contact || null,
         emergency_phone: formData.emergency_phone || null,
         notes: formData.notes || null,
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        notify_on_updates: formData.notify_on_updates,
+        notification_emails: formData.notification_emails
+          ? formData.notification_emails.split(',').map(e => e.trim()).filter(Boolean)
+          : null,
       };
 
       if (student) {
@@ -379,6 +390,43 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
               </div>
             </div>
           )}
+
+          {/* Email Notifications */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-slate-700 border-b pb-2 flex items-center gap-2">
+              <Bell className="h-4 w-4" /> Email Notifications
+              {formData.notify_on_updates && <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>}
+            </h3>
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <input
+                type="checkbox"
+                id="notify_on_updates"
+                checked={formData.notify_on_updates}
+                onChange={(e) => setFormData({ ...formData, notify_on_updates: e.target.checked })}
+                className="rounded border-slate-300 h-4 w-4"
+              />
+              <Label htmlFor="notify_on_updates" className="cursor-pointer text-sm">
+                <span className="font-medium">Auto-send email on every update</span>
+                <span className="block text-xs text-slate-500">Automatically sends an email when issues, calls, meetings, tasks, or special ed records are created or changed for this student</span>
+              </Label>
+            </div>
+            {formData.notify_on_updates && (
+              <div>
+                <Label>Notification email addresses <span className="text-xs text-slate-500">(comma-separated, leave blank to use parent emails)</span></Label>
+                <Input
+                  type="text"
+                  value={formData.notification_emails}
+                  onChange={(e) => setFormData({ ...formData, notification_emails: e.target.value })}
+                  placeholder={[formData.father_email, formData.mother_email].filter(Boolean).join(', ') || 'Enter email addresses...'}
+                />
+                {!formData.notification_emails && (formData.father_email || formData.mother_email) && (
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <Mail className="h-3 w-3" /> Will use: {[formData.father_email, formData.mother_email].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Notes */}
           <div className="space-y-4">
