@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Mail } from 'lucide-react';
+import SendEmailModal from '@/components/modals/SendEmailModal';
 
 const CallLogsView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -21,6 +23,12 @@ const CallLogsView = ({ role, currentUser }) => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+
+  // Email notification
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [isEmailOpen, setIsEmailOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   
   const [formData, setFormData] = useState({
     student_id: '',
@@ -188,6 +196,25 @@ const CallLogsView = ({ role, currentUser }) => {
         const { error } = await supabase.from('call_logs').insert([payload]);
         if (error) throw error;
         toast({ title: 'Success', description: 'Call log created' });
+
+        // Prompt email notification
+        const student = students.find(s => s.id === payload.student_id);
+        const studentName = student ? `${student.first_name} ${student.last_name}` : '';
+        setEmailSubject(`Call Log: ${studentName || 'Student Contact'}`);
+        setEmailBody(
+          `A phone call has been logged:\n\n` +
+          `Student: ${studentName}\n` +
+          `Contact: ${payload.contact_person} (${payload.contact_type})\n` +
+          `Direction: ${payload.direction || payload.call_type}\n` +
+          (payload.purpose ? `Purpose: ${payload.purpose}\n` : '') +
+          (payload.notes ? `Notes: ${payload.notes}\n` : '') +
+          (payload.outcome ? `Outcome: ${payload.outcome}\n` : '') +
+          `\nLogged by: ${currentUser?.name || currentUser?.email || 'System'}`
+        );
+        setIsModalOpen(false);
+        loadCallLogs();
+        setShowEmailPrompt(true);
+        return;
       }
 
       setIsModalOpen(false);
@@ -616,6 +643,32 @@ const CallLogsView = ({ role, currentUser }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Email Notification Prompt */}
+      <Dialog open={showEmailPrompt} onOpenChange={setShowEmailPrompt}>
+        <DialogContent className="sm:max-w-[350px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-blue-500" /> Send Notification?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600">Would you like to send an email notification about this call?</p>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowEmailPrompt(false)}>No, Skip</Button>
+            <Button onClick={() => { setShowEmailPrompt(false); setIsEmailOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
+              <Mail className="mr-2 h-4 w-4" /> Yes, Send Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <SendEmailModal
+        isOpen={isEmailOpen}
+        onClose={() => setIsEmailOpen(false)}
+        defaultSubject={emailSubject}
+        defaultBody={emailBody}
+        currentUser={currentUser}
+        relatedType="call_log"
+      />
     </div>
   );
 };

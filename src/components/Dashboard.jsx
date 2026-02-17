@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -36,6 +36,7 @@ import ClassDetailView from '@/components/views/ClassDetailView';
 import LateTrackingView from '@/components/views/LateTrackingView';
 import BusChangesView from '@/components/views/BusChangesView';
 import RemindersView from '@/components/views/RemindersView';
+import TodoListView from '@/components/views/TodoListView';
 
 const Dashboard = () => {
   const { t } = useLanguage();
@@ -79,17 +80,18 @@ const Dashboard = () => {
   const menuItems = [
     // Main Sections
     { id: 'overview', label: 'Dashboard', icon: Layout, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
+    { id: 'todos', label: 'To-Do List', icon: CheckSquare, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
     
     // Students & Classes
-    { id: 'students', label: 'Students', icon: Users, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Student directory' },
+    { id: 'students', label: 'Students', icon: Users, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
     { id: 'grades', label: 'Grades', icon: Layers, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
     { id: 'classes', label: 'Classes', icon: School, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
     { id: 'class-detail', label: 'Class Detail', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
     
     // Issues & Communication
-    { id: 'issues', label: 'Issues', icon: AlertTriangle, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Track issues' },
-    { id: 'calls', label: 'Phone Calls', icon: Phone, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Call logs' },
-    { id: 'meetings', label: 'Meetings', icon: Calendar, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin'], description: 'Schedule meetings' },
+    { id: 'issues', label: 'Issues', icon: AlertTriangle, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
+    { id: 'calls', label: 'Phone Calls', icon: Phone, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
+    { id: 'meetings', label: 'Meetings', icon: Calendar, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
     
     // Staff (admin only)
     { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
@@ -99,7 +101,7 @@ const Dashboard = () => {
     { id: 'special-ed', label: 'Special Education', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
     { id: 'late-tracking', label: 'Late Tracking', icon: Clock, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
     { id: 'bus-changes', label: 'Bus Changes', icon: Bus, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
-    { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Reminders with email' },
+    { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
     
     // Financial - Books & Fees
     { id: 'books', label: 'Books', icon: BookMarked, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
@@ -141,6 +143,7 @@ const Dashboard = () => {
       case 'late-tracking': return <LateTrackingView {...viewProps} />;
       case 'bus-changes': return <BusChangesView {...viewProps} />;
       case 'reminders': return <RemindersView {...viewProps} />;
+      case 'todos': return <TodoListView {...viewProps} />;
       default: return <OverviewView {...viewProps} />;
     }
   };
@@ -159,7 +162,19 @@ const Dashboard = () => {
 
   const allowedMenuItems = menuItems.filter(item => {
     // Check role-based access
-    if (!item.roles.includes(userRole)) return false;
+    const hasRoleAccess = item.roles.includes(userRole);
+    // Check custom per-user permissions (stored in profile.custom_permissions)
+    const customPerms = profile?.custom_permissions;
+    let hasCustomAccess = false;
+    if (customPerms && customPerms[item.id] === true) {
+      // Custom permission explicitly grants access even if role doesn't include it
+      hasCustomAccess = true;
+    }
+    if (customPerms && customPerms[item.id] === false) {
+      // Custom permission explicitly revokes access
+      return false;
+    }
+    if (!hasRoleAccess && !hasCustomAccess) return false;
     // Check admin-configured visibility
     if (menuVisibility && menuVisibility[userRole]) {
       const roleSettings = menuVisibility[userRole];

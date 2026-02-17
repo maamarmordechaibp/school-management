@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search, Settings2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -22,6 +22,30 @@ const ROLE_OPTIONS = [
   { value: 'teacher_english', label: 'Teacher English', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   { value: 'tutor', label: 'Tutor', color: 'bg-green-100 text-green-800 border-green-200' },
   { value: 'special_ed', label: 'Special Education', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+];
+
+// All possible menu/feature permissions that can be toggled per user
+const ALL_PERMISSIONS = [
+  { id: 'students', label: 'Students' },
+  { id: 'todos', label: 'To-Do List' },
+  { id: 'grades', label: 'Grades' },
+  { id: 'classes', label: 'Classes' },
+  { id: 'class-detail', label: 'Class Detail' },
+  { id: 'issues', label: 'Issues' },
+  { id: 'calls', label: 'Phone Calls' },
+  { id: 'meetings', label: 'Meetings' },
+  { id: 'staff', label: 'Staff Directory' },
+  { id: 'users', label: 'User Management' },
+  { id: 'special-ed', label: 'Special Education' },
+  { id: 'late-tracking', label: 'Late Tracking' },
+  { id: 'bus-changes', label: 'Bus Changes' },
+  { id: 'reminders', label: 'Reminders' },
+  { id: 'books', label: 'Books' },
+  { id: 'fees', label: 'Fees & Trips' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'financial-reports', label: 'Financial Reports' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'settings', label: 'Settings' },
 ];
 
 const UserManagementView = () => {
@@ -127,6 +151,7 @@ const UserManagementView = () => {
     setUpdatingRole(true);
 
     try {
+      // Save role via backend API
       const response = await fetch('/api/update-user-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,7 +165,15 @@ const UserManagementView = () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to update role');
 
-      toast({ title: "Role Updated", description: `${editingUser.name || editingUser.email}'s role updated to ${editingUser.role}` });
+      // Save custom_permissions directly to Supabase
+      const { error: permErr } = await supabase
+        .from('app_users')
+        .update({ custom_permissions: editingUser.custom_permissions || null })
+        .eq('id', editingUser.id);
+      
+      if (permErr) console.error('Could not save custom_permissions:', permErr);
+
+      toast({ title: "User Updated", description: `${editingUser.name || editingUser.email}'s role and permissions updated.` });
       setIsEditRoleOpen(false);
       setEditingUser(null);
       fetchUsers();
@@ -152,8 +185,41 @@ const UserManagementView = () => {
   };
 
   const openEditRole = (user) => {
-    setEditingUser({ ...user });
+    setEditingUser({ 
+      ...user, 
+      custom_permissions: user.custom_permissions || {} 
+    });
     setIsEditRoleOpen(true);
+  };
+
+  const togglePermission = (permId) => {
+    if (!editingUser) return;
+    const current = editingUser.custom_permissions || {};
+    const newPerms = { ...current };
+    if (newPerms[permId] === true) {
+      // Was granted → remove override (back to role default)
+      delete newPerms[permId];
+    } else if (newPerms[permId] === false) {
+      // Was revoked → grant
+      newPerms[permId] = true;
+    } else {
+      // No override → grant it
+      newPerms[permId] = true;
+    }
+    setEditingUser({ ...editingUser, custom_permissions: newPerms });
+  };
+
+  const revokePermission = (permId) => {
+    if (!editingUser) return;
+    const current = editingUser.custom_permissions || {};
+    const newPerms = { ...current };
+    if (newPerms[permId] === false) {
+      // Was revoked → remove override
+      delete newPerms[permId];
+    } else {
+      newPerms[permId] = false;
+    }
+    setEditingUser({ ...editingUser, custom_permissions: newPerms });
   };
 
   const deleteUser = async (userId) => {
@@ -282,6 +348,11 @@ const UserManagementView = () => {
                       ) : (
                         <span className="text-slate-400 text-xs">-</span>
                       )}
+                      {u.custom_permissions && Object.keys(u.custom_permissions).length > 0 && (
+                        <Badge className="ml-1 bg-indigo-100 text-indigo-700 text-xs">
+                          <Settings2 className="h-3 w-3 mr-0.5" />{Object.keys(u.custom_permissions).length} custom
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                        <div className="flex justify-end gap-1">
@@ -375,13 +446,13 @@ const UserManagementView = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Role Dialog */}
+      {/* Edit Role & Permissions Dialog */}
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit User Role</DialogTitle>
+            <DialogTitle>Edit User Role & Permissions</DialogTitle>
             <DialogDescription>
-              Change role and class assignment for {editingUser?.name || 'this user'}.
+              Change role and customize which features {editingUser?.name || 'this user'} can access.
             </DialogDescription>
           </DialogHeader>
           {editingUser && (
@@ -414,6 +485,65 @@ const UserManagementView = () => {
                   />
                 </div>
               )}
+              
+              {/* Custom Permissions */}
+              <div className="border-t pt-4 mt-2">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" /> Custom Feature Access
+                </Label>
+                <p className="text-xs text-slate-500 mt-1 mb-3">
+                  Override role defaults. Green = granted, Red = revoked, Gray = uses role default.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ALL_PERMISSIONS.map(perm => {
+                    const customVal = editingUser.custom_permissions?.[perm.id];
+                    const isGranted = customVal === true;
+                    const isRevoked = customVal === false;
+                    return (
+                      <div key={perm.id} className={`flex items-center gap-2 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
+                        isGranted ? 'bg-green-50 border-green-300' : 
+                        isRevoked ? 'bg-red-50 border-red-300' : 
+                        'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                      }`}>
+                        <button
+                          type="button"
+                          onClick={() => togglePermission(perm.id)}
+                          className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                            isGranted ? 'bg-green-500 border-green-600 text-white' :
+                            isRevoked ? 'bg-white border-slate-300' :
+                            'bg-white border-slate-300'
+                          }`}
+                        >
+                          {isGranted && <CheckCircle className="h-3.5 w-3.5" />}
+                        </button>
+                        <span className={`flex-1 ${isRevoked ? 'line-through text-red-400' : 'text-slate-700'}`}>{perm.label}</span>
+                        {(isGranted || isRevoked) && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); isRevoked ? revokePermission(perm.id) : revokePermission(perm.id); }}
+                            className={`text-xs px-1.5 py-0.5 rounded ${
+                              isRevoked ? 'bg-red-200 text-red-700 hover:bg-red-300' : 'bg-slate-200 text-slate-600 hover:bg-red-200 hover:text-red-700'
+                            }`}
+                            title={isRevoked ? 'Remove restriction' : 'Revoke access'}
+                          >
+                            {isRevoked ? '✕' : '−'}
+                          </button>
+                        )}
+                        {!isGranted && !isRevoked && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); revokePermission(perm.id); }}
+                            className="text-xs px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 hover:bg-red-200 hover:text-red-700"
+                            title="Revoke access"
+                          >
+                            −
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
           <DialogFooter>
