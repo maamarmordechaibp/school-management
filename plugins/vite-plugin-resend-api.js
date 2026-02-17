@@ -58,16 +58,41 @@ export default function resendApiPlugin() {
           });
 
           const authResult = await authResponse.json();
+          let userId;
 
           if (!authResponse.ok) {
-            console.error('Auth create error:', authResult);
-            res.statusCode = authResponse.status;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: authResult.msg || authResult.message || 'Failed to create auth user' }));
-            return;
+            // If the email already exists in auth, look up the user and ensure app_users profile
+            if (authResult.error_code === 'email_exists' || (authResult.msg || '').includes('already been registered')) {
+              console.log('Email exists in auth, looking up existing user...');
+              const listResp = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+                method: 'GET',
+                headers: {
+                  'apikey': SUPABASE_SERVICE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+                }
+              });
+              const listResult = await listResp.json();
+              const existingUser = (listResult.users || []).find(u => u.email === email);
+              
+              if (existingUser) {
+                userId = existingUser.id;
+                // Continue to step 2
+              } else {
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'User exists in auth but could not be found. Check Supabase dashboard.' }));
+                return;
+              }
+            } else {
+              console.error('Auth create error:', authResult);
+              res.statusCode = authResponse.status;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: authResult.msg || authResult.message || 'Failed to create auth user' }));
+              return;
+            }
+          } else {
+            userId = authResult.id;
           }
-
-          const userId = authResult.id;
 
           // 2. Insert into app_users table (only use columns guaranteed to exist)
           const profilePayload = {
@@ -78,13 +103,14 @@ export default function resendApiPlugin() {
           };
           if (assigned_class) profilePayload.assigned_class = assigned_class;
 
+          // Use UPSERT so it works for both new and existing auth users
           const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/app_users`, {
             method: 'POST',
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
               'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
               'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
+              'Prefer': 'return=minimal,resolution=merge-duplicates'
             },
             body: JSON.stringify(profilePayload)
           });
@@ -92,7 +118,7 @@ export default function resendApiPlugin() {
           let warning = null;
           if (!profileResponse.ok) {
             const profileErr = await profileResponse.text();
-            console.error('app_users insert failed:', profileErr);
+            console.error('app_users upsert failed:', profileErr);
             
             // Retry without assigned_class if that column doesn't exist
             if (profileErr.includes('assigned_class')) {
@@ -103,13 +129,13 @@ export default function resendApiPlugin() {
                   'apikey': SUPABASE_SERVICE_KEY,
                   'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
                   'Content-Type': 'application/json',
-                  'Prefer': 'return=minimal'
+                  'Prefer': 'return=minimal,resolution=merge-duplicates'
                 },
                 body: JSON.stringify(profilePayload)
               });
-              if (!retryResp.ok) warning = 'Profile insert failed: ' + (await retryResp.text());
+              if (!retryResp.ok) warning = 'Profile upsert failed: ' + (await retryResp.text());
             } else {
-              warning = 'Profile insert failed: ' + profileErr;
+              warning = 'Profile upsert failed: ' + profileErr;
             }
           }
 

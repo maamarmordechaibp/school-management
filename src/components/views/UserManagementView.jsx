@@ -58,35 +58,7 @@ const UserManagementView = () => {
         .order('email', { ascending: true });
 
       if (error) throw error;
-      
-      let userList = data || [];
-      
-      // If the current logged-in user isn't in app_users, auto-register them
-      if (currentUser && userList.length === 0 || (currentUser && !userList.find(u => u.id === currentUser.id))) {
-        try {
-          const { error: insertErr } = await supabase
-            .from('app_users')
-            .upsert({
-              id: currentUser.id,
-              email: currentUser.email,
-              name: currentUser.user_metadata?.name || currentUser.email,
-              role: 'principal'
-            }, { onConflict: 'id' });
-          
-          if (!insertErr) {
-            // Re-fetch to include the new row
-            const { data: refreshed } = await supabase
-              .from('app_users')
-              .select('*')
-              .order('email', { ascending: true });
-            userList = refreshed || userList;
-          }
-        } catch (e) {
-          console.error('Auto-register current user failed:', e);
-        }
-      }
-      
-      setUsers(userList);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
