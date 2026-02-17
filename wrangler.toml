@@ -5,9 +5,5 @@ compatibility_date = "2024-01-01"
 [build]
 command = "npm run build"
 
-[build.upload]
-format = "service-worker"
-
-# Disable functions
-[pages]
-build_output_dir = "dist"
+# Pages Functions are in /functions directory (auto-detected)
+pages_build_output_dir = "dist"

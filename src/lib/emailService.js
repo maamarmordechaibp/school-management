@@ -23,6 +23,14 @@ export async function sendEmail({ to, subject, body, from, relatedType, relatedI
     })
   });
 
+  // Handle non-JSON responses (e.g. Cloudflare error pages)
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error('Non-JSON response from /api/send-email:', response.status, text.substring(0, 200));
+    throw new Error(`Email API returned non-JSON response (${response.status}). The server may not be configured correctly.`);
+  }
+
   const result = await response.json();
 
   if (!response.ok) {
