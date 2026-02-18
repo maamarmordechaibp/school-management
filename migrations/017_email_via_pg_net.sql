@@ -35,13 +35,8 @@ DECLARE
   v_full_html TEXT;
   v_unsubscribe_url TEXT;
 BEGIN
-  -- Get API key from vault (or use config setting)
-  -- To set: SELECT set_config('app.resend_api_key', 'your_key', false);
-  -- Or use Supabase vault/secrets
-  v_api_key := COALESCE(
-    current_setting('app.resend_api_key', true),
-    'REPLACE_WITH_YOUR_RESEND_API_KEY'
-  );
+  -- API key stored in function body (SECURITY DEFINER prevents exposure)
+  v_api_key := 're_8zTvwjXu_A1pbsP7gtfTa73uLCRCPaiE1';
 
   -- Unsubscribe URL (update to your actual unsubscribe endpoint)
   v_unsubscribe_url := 'https://tyymonsey.com/unsubscribe';
