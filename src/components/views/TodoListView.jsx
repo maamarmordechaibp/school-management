@@ -896,19 +896,20 @@ const TodoListView = ({ role, currentUser }) => {
               <div className="grid gap-2">
                 <Label>Student (Optional)</Label>
                 <Select 
-                  value={formData.student_id} 
+                  value={formData.student_id || '__none__'} 
                   onValueChange={(v) => {
-                    const s = students.find(s => s.id === v);
+                    const actualVal = v === '__none__' ? '' : v;
+                    const s = students.find(s => s.id === actualVal);
                     setFormData({ 
                       ...formData, 
-                      student_id: v, 
+                      student_id: actualVal, 
                       student_name: s ? `${s.first_name} ${s.last_name}` : '' 
                     });
                   }}
                 >
                   <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {students.map(s => (
                       <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
                     ))}
