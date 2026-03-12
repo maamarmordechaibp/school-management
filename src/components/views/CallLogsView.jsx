@@ -56,7 +56,7 @@ const CallLogsView = ({ role, currentUser }) => {
     const { data } = await supabase
       .from('students')
       .select('id, first_name, last_name, father_name, father_phone, mother_name, mother_phone')
-      .eq('is_active', true)
+      .eq('status', 'active')
       .order('last_name');
     setStudents(data || []);
   };
@@ -483,11 +483,12 @@ const CallLogsView = ({ role, currentUser }) => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Student *</Label>
-              <Select value={formData.student_id} onValueChange={handleStudentChange}>
+              <Select value={formData.student_id || '__none__'} onValueChange={(v) => handleStudentChange(v === '__none__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select student" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">-- Select student --</SelectItem>
                   {students.map(s => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.first_name} {s.last_name}

@@ -24,8 +24,6 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
       { type: 'tutor', description: '', frequency: '', tutor_id: '', goals: '' }
     ],
     review_frequency: 'weekly',
-    created_by: '',
-    reviewed_by: '',
     status: 'draft'
   });
 
@@ -62,8 +60,6 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
       limud_notes: '',
       interventions: [{ type: 'tutor', description: '', frequency: '', tutor_id: '', goals: '' }],
       review_frequency: 'weekly',
-      created_by: '',
-      reviewed_by: '',
       status: 'draft'
     });
   };
@@ -95,15 +91,23 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
     try {
       const payload = {
         student_id: studentId,
-        ...formData,
+        goals: formData.goals,
+        social_emotional_notes: formData.social_emotional_notes || null,
+        kriah_notes: formData.kriah_notes || null,
+        limud_notes: formData.limud_notes || null,
+        interventions: formData.interventions || [],
+        review_frequency: formData.review_frequency || 'weekly',
+        status: formData.status || 'draft',
         updated_at: new Date().toISOString()
       };
 
       if (plan) {
-        await supabase.from('student_plans').update(payload).eq('id', plan.id);
+        const { error } = await supabase.from('student_plans').update(payload).eq('id', plan.id);
+        if (error) throw error;
       } else {
         payload.created_at = new Date().toISOString();
-        await supabase.from('student_plans').insert([payload]);
+        const { error } = await supabase.from('student_plans').insert([payload]);
+        if (error) throw error;
       }
 
       toast({ title: 'Success', description: 'Plan saved successfully' });
@@ -111,7 +115,7 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
       onClose();
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save plan' });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save plan' });
     } finally {
       setLoading(false);
     }
@@ -219,13 +223,14 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
                   <div className="space-y-2">
                     <Label>Assign to Tutor</Label>
                     <Select
-                      value={intervention.tutor_id}
-                      onValueChange={(value) => updateIntervention(index, 'tutor_id', value)}
+                      value={intervention.tutor_id || '__none__'}
+                      onValueChange={(value) => updateIntervention(index, 'tutor_id', value === '__none__' ? '' : value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select tutor..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">-- Select tutor --</SelectItem>
                         {tutorsList.map(tutor => (
                           <SelectItem key={tutor.id} value={tutor.id}>{tutor.name}</SelectItem>
                         ))}

@@ -489,11 +489,12 @@ const IssuesView = ({ role, currentUser }) => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Student *</Label>
-              <Select value={issueForm.student_id} onValueChange={(v) => setIssueForm({ ...issueForm, student_id: v })}>
+              <Select value={issueForm.student_id || '__none__'} onValueChange={(v) => setIssueForm({ ...issueForm, student_id: v === '__none__' ? '' : v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select student" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">-- Select student --</SelectItem>
                   {students.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
                   ))}
