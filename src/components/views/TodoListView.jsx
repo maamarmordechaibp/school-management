@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentProfileModal from '@/components/modals/StudentProfileModal';
+import StudentPicker from '@/components/ui/student-picker';
 
 const CATEGORY_OPTIONS = [
   { value: 'general', label: 'General', color: 'bg-slate-100 text-slate-700' },
@@ -895,26 +896,19 @@ const TodoListView = ({ role, currentUser }) => {
 
               <div className="grid gap-2">
                 <Label>Student (Optional)</Label>
-                <Select 
-                  value={formData.student_id || '__none__'} 
-                  onValueChange={(v) => {
-                    const actualVal = v === '__none__' ? '' : v;
-                    const s = students.find(s => s.id === actualVal);
+                <StudentPicker
+                  students={students}
+                  value={formData.student_id}
+                  onChange={(id) => {
+                    const s = students.find(s => s.id === id);
                     setFormData({ 
                       ...formData, 
-                      student_id: actualVal, 
+                      student_id: id, 
                       student_name: s ? `${s.first_name} ${s.last_name}` : '' 
                     });
                   }}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None</SelectItem>
-                    {students.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Search student..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
