@@ -179,16 +179,32 @@ const MassCallView = () => {
       return { list, stats: { kind: 'staff', totalLoaded: (data || []).length, afterFilter: (data || []).length, withPhones: list.length, contactType } };
     }
 
+    // Diagnostic: raw count first (no joins, no columns) to isolate RLS vs query issues
+    const { count: rawCount, error: countErr } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true });
+    if (countErr) {
+      toast({ variant: 'destructive', title: 'Students count failed (RLS?)', description: `${countErr.code || ''} ${countErr.message}` });
+      return empty('students', { rawCount: 0 });
+    }
+
+    // Try WITHOUT the classes join first (in case classes RLS is blocking)
     let query = supabase
       .from('students')
-      .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, home_phone, class_id, class:classes(id, name, grade_id)');
+      .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, home_phone, class_id');
     if (audience === 'class' && audienceId) query = query.eq('class_id', audienceId);
     const { data, error } = await query;
     if (error) {
-      toast({ variant: 'destructive', title: 'Failed to load students', description: error.message });
-      return empty('students');
+      toast({ variant: 'destructive', title: 'Failed to load students', description: `${error.code || ''} ${error.message}` });
+      return empty('students', { rawCount });
+    }
+    if ((data || []).length === 0 && rawCount > 0) {
+      toast({ variant: 'destructive', title: 'RLS hides rows', description: `count=${rawCount} but select returned 0. Run migration 020.` });
     }
     let students = data || [];
+    const classMap = {};
+    classes.forEach(c => { classMap[c.id] = c; });
+    students = students.map(s => ({ ...s, class: s.class_id ? classMap[s.class_id] : null }));
     const totalLoaded = students.length;
     if (audience === 'grade' && audienceId) students = students.filter(s => s.class?.grade_id === audienceId);
     const afterFilter = students.length;
