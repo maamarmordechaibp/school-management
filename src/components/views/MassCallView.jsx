@@ -25,6 +25,7 @@ const MassCallView = () => {
   const [contactType, setContactType] = useState('father'); // father | mother | both | home | all_phones
   const [customNumbers, setCustomNumbers] = useState(''); // newline / comma separated
   const [recipients, setRecipients] = useState([]); // [{ phone, parent_name, student_name, ... }]
+  const [recipientStats, setRecipientStats] = useState(null); // { totalLoaded, afterFilter, withPhones }
   const [excluded, setExcluded] = useState(() => new Set()); // phone strings excluded from send
   const [sending, setSending] = useState(false);
   const [sentSummary, setSentSummary] = useState(null);
@@ -185,6 +186,7 @@ const MassCallView = () => {
         });
       });
       console.log(`[MassCall] staff: ${totalStaff} loaded, ${list.length} with phones`);
+      setRecipientStats({ totalLoaded: totalStaff, afterFilter: totalStaff, withPhones: list.length, kind: 'staff' });
       return list;
     }
 
@@ -229,6 +231,7 @@ const MassCallView = () => {
       }
     });
     console.log(`[MassCall] students: ${totalStudents} total, ${filteredStudents} after filter, ${list.length} with phones in '${contactType}' field(s)`);
+    setRecipientStats({ totalLoaded: totalStudents, afterFilter: filteredStudents, withPhones: list.length, kind: 'students', contactType });
     return list;
   };
 
@@ -614,6 +617,31 @@ const MassCallView = () => {
                   </button>
                 )}
               </div>
+              {recipientStats && (
+                <div className="text-[11px] text-slate-600 bg-slate-50 border rounded p-2 mb-2 space-y-0.5">
+                  {recipientStats.kind === 'students' ? (
+                    <>
+                      <div>• Students loaded: <strong>{recipientStats.totalLoaded}</strong></div>
+                      <div>• After grade/class filter: <strong>{recipientStats.afterFilter}</strong></div>
+                      <div>• With phones in <em>{recipientStats.contactType}</em> field(s): <strong>{recipientStats.withPhones}</strong></div>
+                      {recipientStats.totalLoaded === 0 && (
+                        <div className="text-red-600 mt-1">⚠️ No students loaded — check Supabase RLS or login.</div>
+                      )}
+                      {recipientStats.totalLoaded > 0 && recipientStats.afterFilter === 0 && (
+                        <div className="text-amber-700 mt-1">⚠️ Filter removed all students — selected grade/class has no linked students.</div>
+                      )}
+                      {recipientStats.afterFilter > 0 && recipientStats.withPhones === 0 && (
+                        <div className="text-amber-700 mt-1">⚠️ Students found but none have phones in the chosen field.</div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div>• Active staff loaded: <strong>{recipientStats.totalLoaded}</strong></div>
+                      <div>• With cell or home phone: <strong>{recipientStats.withPhones}</strong></div>
+                    </>
+                  )}
+                </div>
+              )}
               {recipients.length === 0 ? (
                 <p className="text-xs text-slate-500">Click “Refresh recipients” to load.</p>
               ) : (
