@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail, PhoneCall } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,6 +22,7 @@ import ActivityLogView from '@/components/views/ActivityLogView';
 import TemplateDesignerView from '@/components/views/TemplateDesignerView';
 import EmailTemplatesView from '@/components/views/EmailTemplatesView';
 import AnnouncementsView from '@/components/views/AnnouncementsView';
+import MassCallView from '@/components/views/MassCallView';
 import ClassesView from '@/components/views/ClassesView';
 import SettingsView from '@/components/views/SettingsView';
 import UserManagementView from '@/components/views/UserManagementView';
@@ -96,6 +97,7 @@ const Dashboard = () => {
     { id: 'calls', label: 'Phone Calls', icon: Phone, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
     { id: 'meetings', label: 'Meetings', icon: Calendar, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
     { id: 'announcements', label: 'Announcements', icon: Megaphone, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
+    { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
     { id: 'email-templates', label: 'Email Templates', icon: Mail, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Edit reusable email templates' },
     
     // Staff (admin only)
@@ -140,6 +142,7 @@ const Dashboard = () => {
       case 'templates': return <TemplateDesignerView {...viewProps} />;
       case 'email-templates': return <EmailTemplatesView {...viewProps} />;
       case 'announcements': return <AnnouncementsView {...viewProps} />;
+      case 'mass-call': return <MassCallView {...viewProps} />;
       case 'timeslots': return <TimeSlotsView {...viewProps} />;
       case 'bulkschedule': return <BulkScheduleView {...viewProps} />;
       case 'reports': return <ReportsView {...viewProps} />;
