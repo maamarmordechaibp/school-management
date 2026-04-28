@@ -48,6 +48,12 @@ export function buildLateLetterPage(late, opts = {}) {
   const repeatCount = opts.repeatCount;
   const signatureName = opts.signatureName || '';
   const signatureRole = opts.signatureRole || '';
+  // signatureStyle is a CSS object; if provided, render it inline so the
+  // chosen font/size/rotation/color appears on the printed slip.
+  const sigStyle = opts.signatureStyle || null;
+  const sigStyleAttr = sigStyle
+    ? `style="font-family:${sigStyle.fontFamily};font-size:${sigStyle.fontSize};font-weight:${sigStyle.fontWeight};font-style:${sigStyle.fontStyle};color:${sigStyle.color};letter-spacing:${sigStyle.letterSpacing};transform:rotate(${sigStyle.rotate});display:inline-block;"`
+    : '';
 
   return `
     <div class="slip">
@@ -74,7 +80,7 @@ export function buildLateLetterPage(late, opts = {}) {
       <p class="note">ביטע איבערגעבן דעם בריוו צום מלמד ביים אריינקומען אין כיתה.</p>
 
       <div class="sign">
-        ${signatureName ? `<div class="sig-name">${escapeHtml(signatureName)}</div>` : ''}
+        ${signatureName ? `<div class="sig-name" ${sigStyleAttr}>${escapeHtml(signatureName)}</div>` : ''}
         <div class="sig-line"></div>
         <div class="sig-label">${escapeHtml(signatureRole || 'סגן המנהל')}</div>
       </div>
@@ -84,7 +90,7 @@ export function buildLateLetterPage(late, opts = {}) {
 
 // Receipt / 80mm thermal format — narrow, continuous roll, large readable text.
 const LETTER_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Suez+One&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;700;900&family=Suez+One&display=swap');
   @page { size: 80mm auto; margin: 3mm; }
   html, body { margin: 0; padding: 0; }
   body {

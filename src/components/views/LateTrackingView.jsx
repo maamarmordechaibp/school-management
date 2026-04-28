@@ -26,6 +26,66 @@ import {
 import { sendEmail } from '@/lib/emailService';
 import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 
+// Handwritten-look signature styles. Hebrew has very few "real handwriting"
+// fonts on Google Fonts, so we offer a small curated set of visual treatments.
+const SIGNATURE_STYLES = {
+  signature: {
+    label: 'Bold Signature',
+    description: 'Thick, leaning — looks signed in pen',
+    fontFamily: "'Suez One', 'Frank Ruhl Libre', 'David', cursive",
+    fontSize: '24pt',
+    fontWeight: '400',
+    fontStyle: 'italic',
+    color: '#1e3a8a',
+    rotate: '-3deg',
+    letterSpacing: '0.5px',
+  },
+  elegant: {
+    label: 'Elegant Script',
+    description: 'Refined and flowing',
+    fontFamily: "'Frank Ruhl Libre', 'David', serif",
+    fontSize: '22pt',
+    fontWeight: '700',
+    fontStyle: 'italic',
+    color: '#0f172a',
+    rotate: '-1.5deg',
+    letterSpacing: '0px',
+  },
+  classic: {
+    label: 'Classic Italic',
+    description: 'Traditional, slightly leaning',
+    fontFamily: "'Bellefair', 'Frank Ruhl Libre', serif",
+    fontSize: '22pt',
+    fontWeight: '400',
+    fontStyle: 'italic',
+    color: '#1e3a8a',
+    rotate: '-1deg',
+    letterSpacing: '0.3px',
+  },
+  marker: {
+    label: 'Marker',
+    description: 'Heavy, bold ink',
+    fontFamily: "'Heebo', 'Suez One', sans-serif",
+    fontSize: '20pt',
+    fontWeight: '900',
+    fontStyle: 'italic',
+    color: '#0f172a',
+    rotate: '-2deg',
+    letterSpacing: '0.5px',
+  },
+};
+
+const sigStyleCss = (s) => ({
+  fontFamily: s.fontFamily,
+  fontSize: s.fontSize,
+  fontWeight: s.fontWeight,
+  fontStyle: s.fontStyle,
+  color: s.color,
+  letterSpacing: s.letterSpacing,
+  transform: `rotate(${s.rotate})`,
+  display: 'inline-block',
+});
+
 const LateTrackingView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
@@ -40,13 +100,14 @@ const LateTrackingView = ({ role, currentUser }) => {
     late_escalation_threshold: 3,
     late_summary_recipients: '',
     signature_name: '',          // saved permanent signature (e.g. "הרב משה כהן")
-    signature_role: 'סגן המנהל'  // saved permanent role line under the signature
+    signature_role: 'סגן המנהל', // saved permanent role line under the signature
+    signature_style: 'signature' // visual style id (see SIGNATURE_STYLES below)
   });
 
   // Today-only signature override (resets on reload)
-  const [todaySignature, setTodaySignature] = useState(null); // { name, role } | null
+  const [todaySignature, setTodaySignature] = useState(null); // { name, role, style } | null
   const [signatureEditOpen, setSignatureEditOpen] = useState(false);
-  const [sigDraft, setSigDraft] = useState({ name: '', role: 'סגן המנהל' });
+  const [sigDraft, setSigDraft] = useState({ name: '', role: 'סגן המנהל', style: 'signature' });
 
   // Filters
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -76,7 +137,7 @@ const LateTrackingView = ({ role, currentUser }) => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'signature_name', 'signature_role']);
+        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'signature_name', 'signature_role', 'signature_style']);
       if (data) {
         const map = {};
         for (const row of data) map[row.key] = row.value;
@@ -85,7 +146,8 @@ const LateTrackingView = ({ role, currentUser }) => {
           late_escalation_threshold: parseInt(map.late_escalation_threshold || '3', 10) || 3,
           late_summary_recipients: map.late_summary_recipients || '',
           signature_name: map.signature_name || '',
-          signature_role: map.signature_role || prev.signature_role
+          signature_role: map.signature_role || prev.signature_role,
+          signature_style: SIGNATURE_STYLES[map.signature_style] ? map.signature_style : prev.signature_style
         }));
       }
     } catch (e) {
@@ -97,16 +159,18 @@ const LateTrackingView = ({ role, currentUser }) => {
   const savePermanentSignature = async () => {
     const name = (sigDraft.name || '').trim();
     const role = (sigDraft.role || '').trim() || 'סגן המנהל';
+    const style = SIGNATURE_STYLES[sigDraft.style] ? sigDraft.style : 'signature';
     try {
       const rows = [
         { key: 'signature_name', value: name },
-        { key: 'signature_role', value: role }
+        { key: 'signature_role', value: role },
+        { key: 'signature_style', value: style }
       ];
       // Upsert one at a time (key is PK)
       for (const r of rows) {
         await supabase.from('app_settings').upsert(r, { onConflict: 'key' });
       }
-      setSettings((prev) => ({ ...prev, signature_name: name, signature_role: role }));
+      setSettings((prev) => ({ ...prev, signature_name: name, signature_role: role, signature_style: style }));
       setTodaySignature(null); // clear any temp override
       setSignatureEditOpen(false);
       toast({ title: 'Signature saved', description: name ? `Letters will be signed by ${name}` : 'Signature cleared' });
@@ -279,13 +343,14 @@ const LateTrackingView = ({ role, currentUser }) => {
   // Print slip for a student (Yiddish letter, school letterhead)
   const printSlip = (late, repeatCount) => {
     const count = repeatCount ?? monthlyCounts[late.student_id]?.unexcused;
-    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
+    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role, style: settings.signature_style };
     const html = buildLateLetterDocument(late, {
       schoolName: SCHOOL_NAME_YI,
       schoolSubtitle: SCHOOL_SUBTITLE_YI,
       logoUrl: SCHOOL_LOGO_URL,
       signatureName: sig.name,
       signatureRole: sig.role,
+      signatureStyle: SIGNATURE_STYLES[sig.style] || SIGNATURE_STYLES.signature,
       repeatCounts: count ? { [late.id]: count } : {}
     });
     const printWindow = window.open('', '_blank');
@@ -312,13 +377,14 @@ const LateTrackingView = ({ role, currentUser }) => {
       const c = monthlyCounts[l.student_id]?.unexcused;
       if (c) repeatCounts[l.id] = c;
     }
-    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
+    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role, style: settings.signature_style };
     const html = buildLateLetterDocument(unprintedSlips, {
       schoolName: SCHOOL_NAME_YI,
       schoolSubtitle: SCHOOL_SUBTITLE_YI,
       logoUrl: SCHOOL_LOGO_URL,
       signatureName: sig.name,
       signatureRole: sig.role,
+      signatureStyle: SIGNATURE_STYLES[sig.style] || SIGNATURE_STYLES.signature,
       repeatCounts
     });
     const printWindow = window.open('', '_blank');
@@ -469,17 +535,14 @@ const LateTrackingView = ({ role, currentUser }) => {
             <div>
               <div className="text-xs text-slate-500">Letters will be signed by</div>
               {(() => {
-                const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
+                const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role, style: settings.signature_style };
+                const style = SIGNATURE_STYLES[sig.style] || SIGNATURE_STYLES.signature;
                 return (
                   <div className="flex items-center gap-2">
                     <span
                       dir="rtl"
-                      className="font-semibold text-slate-800 text-lg"
-                      style={{
-                        fontFamily: "'Suez One', 'Frank Ruhl Libre', 'David', cursive",
-                        fontStyle: 'italic',
-                        color: '#1e3a8a',
-                      }}
+                      className="font-semibold text-slate-800"
+                      style={{ ...sigStyleCss(style), fontSize: '20pt' }}
                     >
                       {sig.name || <span className="text-slate-400 italic text-sm">Not set yet — click "Set signature"</span>}
                     </span>
@@ -511,7 +574,8 @@ const LateTrackingView = ({ role, currentUser }) => {
               onClick={() => {
                 setSigDraft({
                   name: (todaySignature?.name) || settings.signature_name || '',
-                  role: (todaySignature?.role) || settings.signature_role || 'סגן המנהל'
+                  role: (todaySignature?.role) || settings.signature_role || 'סגן המנהל',
+                  style: (todaySignature?.style) || settings.signature_style || 'signature'
                 });
                 setSignatureEditOpen(true);
               }}
@@ -825,25 +889,59 @@ const LateTrackingView = ({ role, currentUser }) => {
               />
             </div>
 
+            {/* Style picker */}
+            <div>
+              <Label className="text-sm">Signature style</Label>
+              <p className="text-[11px] text-slate-500 mb-2">
+                Pick the look you like best. (Hebrew handwriting fonts are limited on the web —
+                if none feels right, ask me to wire up "upload a real signature image" next.)
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(SIGNATURE_STYLES).map(([id, s]) => {
+                  const selected = sigDraft.style === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setSigDraft({ ...sigDraft, style: id })}
+                      className={`text-left rounded-lg border-2 p-3 transition ${
+                        selected
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        {s.label}
+                      </div>
+                      <div
+                        dir="rtl"
+                        className="min-h-[32px]"
+                        style={{ ...sigStyleCss(s), fontSize: '16pt' }}
+                      >
+                        {sigDraft.name || 'הרב משה'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">{s.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Live preview */}
             <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center bg-white">
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Preview</div>
-              <div
-                dir="rtl"
-                style={{
-                  fontFamily: "'Suez One', 'Frank Ruhl Libre', 'David', cursive",
-                  fontSize: '22pt',
-                  fontStyle: 'italic',
-                  color: '#1e3a8a',
-                  transform: 'rotate(-2deg)',
-                  display: 'inline-block',
-                  marginBottom: '4px',
-                }}
-              >
-                {sigDraft.name || <span className="text-slate-300 text-base not-italic">(your name)</span>}
-              </div>
-              <div className="border-t border-slate-700 w-40 mx-auto mt-1" />
-              <div className="text-xs text-slate-600 mt-1" dir="rtl">{sigDraft.role || 'סגן המנהל'}</div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Preview on the printed slip</div>
+              {(() => {
+                const s = SIGNATURE_STYLES[sigDraft.style] || SIGNATURE_STYLES.signature;
+                return (
+                  <>
+                    <div dir="rtl" style={sigStyleCss(s)}>
+                      {sigDraft.name || <span className="text-slate-300 text-base not-italic">(your name)</span>}
+                    </div>
+                    <div className="border-t border-slate-700 w-40 mx-auto mt-1" />
+                    <div className="text-xs text-slate-600 mt-1" dir="rtl">{sigDraft.role || 'סגן המנהל'}</div>
+                  </>
+                );
+              })()}
             </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
@@ -853,7 +951,8 @@ const LateTrackingView = ({ role, currentUser }) => {
                 // Today-only override — does not save to DB
                 setTodaySignature({
                   name: (sigDraft.name || '').trim(),
-                  role: (sigDraft.role || '').trim() || 'סגן המנהל'
+                  role: (sigDraft.role || '').trim() || 'סגן המנהל',
+                  style: SIGNATURE_STYLES[sigDraft.style] ? sigDraft.style : 'signature'
                 });
                 setSignatureEditOpen(false);
                 toast({ title: 'Today only', description: 'This signature applies until you reload the page.' });
