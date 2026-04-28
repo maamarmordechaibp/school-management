@@ -9,19 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { PhoneCall, Send, Eye, RefreshCw, Users, AlertTriangle, Volume2, Upload, Mic, Trash2, Play, Type } from 'lucide-react';
-
-// Voices SignalWire / Amazon Polly supports for our use cases
-const VOICE_OPTIONS = [
-  { id: 'Polly.Joanna',    label: 'Joanna (English, female)',         language: 'en-US' },
-  { id: 'Polly.Matthew',   label: 'Matthew (English, male)',          language: 'en-US' },
-  { id: 'Polly.Carmen',    label: 'Carmen (Hebrew, female)',          language: 'he-IL' },
-  { id: 'Polly.Tatyana',   label: 'Tatyana (Russian, female)',        language: 'ru-RU' },
-  // Polly does not have a Yiddish voice. Hebrew/English are the closest.
-];
-
-const TEST_MESSAGE_DEFAULT =
-  'Hello, this is a test call from the Talmud Torah Toldos Yaakov Yosef d\'Skvere office. Please disregard.';
+import { PhoneCall, Send, Eye, RefreshCw, Users, AlertTriangle, Upload, Mic, Trash2 } from 'lucide-react';
 
 const MassCallView = () => {
   const { toast } = useToast();
@@ -34,15 +22,11 @@ const MassCallView = () => {
   const [audience, setAudience] = useState('all'); // all | grade | class | custom
   const [audienceId, setAudienceId] = useState('');
   const [contactType, setContactType] = useState('father'); // father | mother | both | home
-  const [voiceId, setVoiceId] = useState('Polly.Joanna');
-  const [message, setMessage] = useState('');
   const [customNumbers, setCustomNumbers] = useState(''); // newline / comma separated
   const [recipients, setRecipients] = useState([]); // [{ phone, parent_name, student_name, ... }]
   const [sending, setSending] = useState(false);
   const [sentSummary, setSentSummary] = useState(null);
 
-  // Audio source: 'tts' (text-to-speech) | 'recording' (use a saved file)
-  const [audioMode, setAudioMode] = useState('tts');
   const [recordings, setRecordings] = useState([]);
   const [selectedRecordingId, setSelectedRecordingId] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -101,7 +85,6 @@ const MassCallView = () => {
       if (fileInputRef.current) fileInputRef.current.value = '';
       await refreshRecordings();
       setSelectedRecordingId(row.id);
-      setAudioMode('recording');
     } catch (err) {
       toast({ variant: 'destructive', title: 'Upload failed', description: err.message });
     }
@@ -131,7 +114,6 @@ const MassCallView = () => {
         if (fresh) {
           setRecordings(list);
           setSelectedRecordingId(fresh.id);
-          setAudioMode('recording');
           toast({ title: 'Recording saved!', description: fresh.label });
           return;
         }
@@ -155,8 +137,6 @@ const MassCallView = () => {
       toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
     }
   };
-
-  const voice = useMemo(() => VOICE_OPTIONS.find(v => v.id === voiceId) || VOICE_OPTIONS[0], [voiceId]);
 
   // Build recipient list based on audience selection
   const computeRecipients = async () => {
@@ -213,11 +193,7 @@ const MassCallView = () => {
       toast({ variant: 'destructive', title: 'Enter a phone number' });
       return;
     }
-    if (audioMode === 'tts' && !message.trim()) {
-      toast({ variant: 'destructive', title: 'Enter a message first' });
-      return;
-    }
-    if (audioMode === 'recording' && !selectedRecording) {
+    if (!selectedRecording) {
       toast({ variant: 'destructive', title: 'Pick a recording first' });
       return;
     }
@@ -225,9 +201,7 @@ const MassCallView = () => {
     try {
       const res = await sendCall({
         to: testNumber.trim(),
-        ...(audioMode === 'recording'
-          ? { audioUrl: selectedRecording.audio_url }
-          : { message, voice: voice.id, language: voice.language }),
+        audioUrl: selectedRecording.audio_url,
         relatedType: 'test',
         sentBy: user?.id,
       });
@@ -244,11 +218,7 @@ const MassCallView = () => {
   };
 
   const send = async () => {
-    if (audioMode === 'tts' && !message.trim()) {
-      toast({ variant: 'destructive', title: 'Enter a message' });
-      return;
-    }
-    if (audioMode === 'recording' && !selectedRecording) {
+    if (!selectedRecording) {
       toast({ variant: 'destructive', title: 'Pick a recording first' });
       return;
     }
@@ -271,9 +241,7 @@ const MassCallView = () => {
       try {
         const res = await sendCall({
           to: chunk.map(r => r.phone),
-          ...(audioMode === 'recording'
-            ? { audioUrl: selectedRecording.audio_url }
-            : { message, voice: voice.id, language: voice.language }),
+          audioUrl: selectedRecording.audio_url,
           relatedType: 'mass_call',
           sentBy: user?.id,
         });
@@ -305,7 +273,7 @@ const MassCallView = () => {
           <PhoneCall className="text-emerald-600" /> Mass Phone Call
         </h1>
         <p className="text-sm text-slate-500">
-          Type a short message and we'll robocall the selected parents. Powered by SignalWire.
+          Upload an audio file or record one by phone, then we'll robocall the selected parents. Powered by SignalWire.
         </p>
       </div>
 
@@ -313,9 +281,7 @@ const MassCallView = () => {
         <AlertTriangle size={14} className="mt-0.5" />
         <div>
           <strong>Heads up:</strong> Each call costs roughly 1¢ on your SignalWire account.
-          Always send a <em>test call</em> to your own phone first to make sure the message sounds right.
-          Yiddish text-to-speech is not available — Hebrew (Carmen) is the closest voice for Hebrew text;
-          for Yiddish, write the script phonetically in English letters and use an English voice.
+          Always send a <em>test call</em> to your own phone first to make sure the recording sounds right.
         </div>
       </div>
 
@@ -396,54 +362,10 @@ const MassCallView = () => {
 
             <div className="border-t pt-4">
               <Label className="text-base font-semibold">What should the parents hear?</Label>
-              <div className="flex gap-2 mt-2">
-                {[
-                  { v: 'tts',       label: 'Type message (TTS)', icon: Type },
-                  { v: 'recording', label: 'Use a recording',     icon: Mic },
-                ].map(opt => {
-                  const Icon = opt.icon;
-                  return (
-                    <Button
-                      key={opt.v}
-                      size="sm"
-                      variant={audioMode === opt.v ? 'default' : 'outline'}
-                      onClick={() => setAudioMode(opt.v)}
-                    >
-                      <Icon size={14} className="mr-1" /> {opt.label}
-                    </Button>
-                  );
-                })}
-              </div>
+              <p className="text-[11px] text-slate-500">Pick a recording from the library, upload one, or call yourself to record.</p>
             </div>
 
-            {audioMode === 'tts' && (
-              <>
-                <div>
-                  <Label className="flex items-center gap-1"><Volume2 size={14} /> Voice</Label>
-                  <select className="w-full border rounded px-2 py-2 text-sm" value={voiceId} onChange={(e) => setVoiceId(e.target.value)}>
-                    {VOICE_OPTIONS.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <Label>Spoken message</Label>
-                  <Textarea
-                    rows={5}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder={TEST_MESSAGE_DEFAULT}
-                    dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Tip: keep it under 30 seconds. The message is repeated twice automatically.
-                    Character count: {message.length}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {audioMode === 'recording' && (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 {/* Library */}
                 <div className="border rounded p-3 bg-slate-50">
                   <div className="flex items-center justify-between mb-2">
@@ -549,8 +471,7 @@ const MassCallView = () => {
                     </Button>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* Test call */}
             <div className="border rounded p-3 bg-slate-50">
@@ -584,23 +505,14 @@ const MassCallView = () => {
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Eye size={16} /> Preview</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="border rounded p-2 bg-slate-50">
-              <div className="text-[10px] text-slate-500 uppercase">Audio source</div>
+              <div className="text-[10px] text-slate-500 uppercase">Recording</div>
               <div className="text-sm">
-                {audioMode === 'tts' ? voice.label : (selectedRecording?.label || <em className="text-slate-400">no recording selected</em>)}
+                {selectedRecording?.label || <em className="text-slate-400">no recording selected</em>}
               </div>
             </div>
             <div className="border rounded p-2">
-              <div className="text-[10px] text-slate-500 uppercase mb-1">
-                {audioMode === 'tts' ? 'Message that will be spoken' : 'Recording that will be played'}
-              </div>
-              {audioMode === 'tts' ? (
-                <div
-                  className="text-sm whitespace-pre-wrap"
-                  dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
-                >
-                  {message || <em className="text-slate-400">(empty)</em>}
-                </div>
-              ) : selectedRecording ? (
+              <div className="text-[10px] text-slate-500 uppercase mb-1">Recording that will be played</div>
+              {selectedRecording ? (
                 <audio controls className="w-full">
                   <source src={selectedRecording.audio_url} />
                 </audio>
