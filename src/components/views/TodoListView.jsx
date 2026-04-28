@@ -121,9 +121,15 @@ const TodoListView = ({ role, currentUser }) => {
 
   const fetchStudents = async () => {
     try {
-      const { data } = await supabase.from('students').select('id, first_name, last_name, hebrew_name');
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, first_name, last_name, hebrew_name, father_name, class:classes(name)')
+        .order('last_name');
+      if (error) throw error;
       setStudents(data || []);
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.error('Error loading students for to-do picker:', e);
+    }
   };
 
   // ─── Today Triage ────────────────────────────────────────────────

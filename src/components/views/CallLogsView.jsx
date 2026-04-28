@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import StudentPicker from '@/components/ui/student-picker';
 
 const CallLogsView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -55,7 +56,7 @@ const CallLogsView = ({ role, currentUser }) => {
   const loadStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, first_name, last_name, father_name, father_phone, mother_name, mother_phone')
+      .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, class:classes(name)')
       .eq('status', 'active')
       .order('last_name');
     setStudents(data || []);
@@ -129,6 +130,10 @@ const CallLogsView = ({ role, currentUser }) => {
   };
 
   const handleStudentChange = (studentId) => {
+    if (!studentId) {
+      setFormData({ ...formData, student_id: '', contact_person: '', phone_number: '' });
+      return;
+    }
     const student = students.find(s => s.id === studentId);
     if (student) {
       const contact = formData.contact_type === 'father' 
@@ -141,6 +146,8 @@ const CallLogsView = ({ role, currentUser }) => {
         contact_person: contact.name || '',
         phone_number: contact.phone || ''
       });
+    } else {
+      setFormData({ ...formData, student_id: studentId });
     }
   };
 
@@ -483,19 +490,12 @@ const CallLogsView = ({ role, currentUser }) => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Student *</Label>
-              <Select value={formData.student_id || '__none__'} onValueChange={(v) => handleStudentChange(v === '__none__' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">-- Select student --</SelectItem>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.first_name} {s.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={students}
+                value={formData.student_id}
+                onChange={(id) => handleStudentChange(id)}
+                placeholder="Search student by name..."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
