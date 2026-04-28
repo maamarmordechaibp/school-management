@@ -23,6 +23,7 @@ import {
   buildDailySummaryEmail
 } from '@/lib/letterTemplates';
 import { sendEmail } from '@/lib/emailService';
+import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 
 const LateTrackingView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -37,9 +38,9 @@ const LateTrackingView = ({ role, currentUser }) => {
   const [settings, setSettings] = useState({
     late_escalation_threshold: 3,
     late_summary_recipients: '',
-    school_name_yi: 'תלמוד תורה תולדות יעקב יוסף דחסידי סקווירא - מאנסי',
-    school_subtitle_yi: 'בנשיאות כ"ק מרן אדמו"ר שליט"א',
-    school_logo_url: '/school-logo.png'
+    school_name_yi: SCHOOL_NAME_YI,
+    school_subtitle_yi: SCHOOL_SUBTITLE_YI,
+    school_logo_url: SCHOOL_LOGO_URL
   });
 
   // Filters

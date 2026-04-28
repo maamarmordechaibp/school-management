@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Megaphone, Send, Eye, RefreshCw, Users, AlertTriangle } from 'lucide-react';
+import { SCHOOL_NAME_YI } from '@/lib/schoolConfig';
 
 const AnnouncementsView = () => {
   const { toast } = useToast();
@@ -108,7 +109,7 @@ const AnnouncementsView = () => {
       ...sample,
       subject: subjectOverride || 'מעלדונג',
       message: messageBody || '(your message here)',
-      school_name: 'תלמוד תורה ימין מאנסי',
+      school_name: SCHOOL_NAME_YI,
     };
     if (!template) return { subject: '', body_html: '', missing: [] };
     return renderTemplate(template, vars);
@@ -138,7 +139,7 @@ const AnnouncementsView = () => {
           class_name: r.class_name,
           subject: subjectOverride || 'מעלדונג',
           message: messageBody || '',
-          school_name: 'תלמוד תורה ימין מאנסי',
+          school_name: SCHOOL_NAME_YI,
         };
         const rendered = renderTemplate(template, vars);
         await sendEmail({

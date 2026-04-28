@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
+import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_NAME_EN, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -68,34 +69,70 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-500/20 blur-3xl"
+          animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+          transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-indigo-500/20 blur-3xl"
+          animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute top-1/3 right-1/4 w-72 h-72 rounded-full bg-amber-400/10 blur-3xl"
+          animate={{ scale: [1, 1.15, 1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.6 }}
+        className="relative w-full max-w-md"
       >
-        <Card className="shadow-xl border-t-4 border-t-blue-600">
-          <CardHeader className="space-y-1 text-center pb-6">
-            <div className="mx-auto bg-blue-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-4">
-              <Lock className="w-8 h-8 text-blue-600" />
+        {/* School identity header */}
+        <div className="text-center mb-6 text-white" dir="rtl">
+          <motion.img
+            src={SCHOOL_LOGO_URL}
+            alt=""
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            className="h-20 w-20 mx-auto mb-3 rounded-full bg-white/95 p-1 shadow-2xl ring-2 ring-white/30"
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+          />
+          <h1 className="text-xl font-bold leading-tight tracking-wide drop-shadow-md">
+            {SCHOOL_NAME_YI}
+          </h1>
+          <p className="text-sm text-blue-200 mt-1">{SCHOOL_SUBTITLE_YI}</p>
+        </div>
+
+        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-md">
+          <CardHeader className="space-y-1 text-center pb-4">
+            <div className="mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-2xl w-14 h-14 flex items-center justify-center mb-3 shadow-lg">
+              <Lock className="w-7 h-7 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold">School Management</CardTitle>
-            <CardDescription>
-              Enter your credentials to access the system
+            <CardTitle className="text-xl font-bold text-slate-800">Welcome Back</CardTitle>
+            <CardDescription className="text-slate-500">
+              Sign in to manage the school
             </CardDescription>
           </CardHeader>
-          
+
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="name@school.edu" 
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@school.edu"
                     className="pl-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -106,8 +143,8 @@ const Login = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="password">Password</Label>
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     className="p-0 h-auto text-xs text-blue-600"
                     onClick={(e) => {
                       e.preventDefault();
@@ -120,10 +157,10 @@ const Login = () => {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
                     className="pl-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -133,7 +170,11 @@ const Login = () => {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700" type="submit" disabled={loading}>
+              <Button
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30 transition-all"
+                type="submit"
+                disabled={loading}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...
@@ -147,9 +188,9 @@ const Login = () => {
             </CardFooter>
           </form>
         </Card>
-        
-        <p className="text-center text-sm text-slate-500 mt-4">
-          Secure School Management System &copy; {new Date().getFullYear()}
+
+        <p className="text-center text-xs text-blue-200/70 mt-4">
+          {SCHOOL_NAME_EN} &copy; {new Date().getFullYear()}
         </p>
       </motion.div>
 

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 
 // Views
 import StudentsView from '@/components/views/StudentsView';
@@ -201,21 +202,30 @@ const Dashboard = () => {
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-lg z-20"
           >
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <div className="flex items-center gap-3 mb-3">
-                <img src="/logo.svg" alt="Logo" className="h-12 w-12 rounded-full shadow-md" />
-                <div>
-                  <h1 className="text-sm font-bold text-slate-800 leading-tight" dir="rtl">תלמוד תורה תולדות יעקב יוסף</h1>
-                  <p className="text-xs text-slate-500" dir="rtl">סקווירא</p>
+            <div className="p-5 border-b border-slate-200 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white relative overflow-hidden">
+              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-12 -left-8 w-28 h-28 rounded-full bg-amber-300/15 blur-2xl pointer-events-none" />
+              <div className="relative flex items-center gap-3 mb-4">
+                <img
+                  src={SCHOOL_LOGO_URL}
+                  alt=""
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  className="h-12 w-12 rounded-full bg-white p-0.5 shadow-lg ring-2 ring-white/40 flex-shrink-0"
+                />
+                <div className="min-w-0" dir="rtl">
+                  <h1 className="text-[13px] font-bold leading-tight truncate" title={SCHOOL_NAME_YI}>
+                    {SCHOOL_NAME_YI}
+                  </h1>
+                  <p className="text-[10px] text-blue-100 mt-0.5 truncate">{SCHOOL_SUBTITLE_YI}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+              <div className="relative flex items-center gap-2 mt-2 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/15">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-blue-900 font-bold text-sm shadow-md">
                   {profile?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-700">{profile?.name || 'User'}</p>
-                  <p className="text-xs text-slate-500 capitalize">{userRole}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{profile?.name || 'User'}</p>
+                  <p className="text-[10px] text-blue-100 capitalize">{userRole?.replace(/_/g, ' ')}</p>
                 </div>
               </div>
             </div>

@@ -3,6 +3,8 @@
  * Pure functions that return HTML strings — caller handles printing or emailing.
  */
 
+import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from './schoolConfig';
+
 const escapeHtml = (s) => {
   if (s == null) return '';
   return String(s)
@@ -26,9 +28,9 @@ const studentDisplayName = (student) => {
 };
 
 // Default school identity — overrideable via app_settings/opts.
-const DEFAULT_SCHOOL_NAME = 'תלמוד תורה תולדות יעקב יוסף דחסידי סקווירא - מאנסי';
-const DEFAULT_SCHOOL_SUBTITLE = 'בנשיאות כ"ק מרן אדמו"ר שליט"א';
-const DEFAULT_LOGO_URL = '/school-logo.png';
+const DEFAULT_SCHOOL_NAME = SCHOOL_NAME_YI;
+const DEFAULT_SCHOOL_SUBTITLE = SCHOOL_SUBTITLE_YI;
+const DEFAULT_LOGO_URL = SCHOOL_LOGO_URL;
 
 /**
  * Build a single Yiddish late-arrival slip (receipt / 80mm thermal format).

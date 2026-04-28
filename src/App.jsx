@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Dashboard from '@/components/Dashboard';
 import Login from '@/components/Login';
 import { Loader2 } from 'lucide-react';
+import { SCHOOL_SHORT_EN, SCHOOL_NAME_EN, SCHOOL_FAVICON_URL } from '@/lib/schoolConfig';
 
 // Wrapper component to handle auth state rendering
 const AppContent = () => {
@@ -36,8 +37,9 @@ function App() {
       <LanguageProvider>
         <StudentProfileProvider>
           <Helmet>
-            <title>School Management System</title>
-            <meta name="description" content="A comprehensive student management system." />
+            <title>{SCHOOL_SHORT_EN} · School Management</title>
+            <meta name="description" content={`${SCHOOL_NAME_EN} — student management system.`} />
+            <link rel="icon" type="image/png" href={SCHOOL_FAVICON_URL} />
           </Helmet>
           <div className="min-h-screen bg-slate-50 font-sans" dir="ltr">
             <AppContent />
