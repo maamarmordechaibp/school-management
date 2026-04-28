@@ -37,3 +37,53 @@ export async function sendEmail({ to, subject, body, from, replyTo, relatedType,
   console.log('Email sent successfully:', data);
   return data || { success: true };
 }
+
+/**
+ * Render an email template by substituting {{variable}} placeholders.
+ * Returns { subject, body_html, missing }.
+ *
+ * - `template` is a row from the `email_templates` table.
+ * - `vars` is a flat object of values, e.g. { student_name: 'משה', count: 3 }.
+ * - Missing variables are reported in `missing` and shown literally in the
+ *   output (so the AP can spot them in preview).
+ */
+export function renderTemplate(template, vars = {}) {
+  if (!template) return { subject: '', body_html: '', missing: [] };
+  const missing = new Set();
+
+  const replace = (str) => {
+    if (!str) return '';
+    return String(str).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
+      const value = vars[key];
+      if (value === undefined || value === null || value === '') {
+        missing.add(key);
+        return `{{${key}}}`;
+      }
+      return String(value);
+    });
+  };
+
+  return {
+    subject: replace(template.subject || ''),
+    body_html: replace(template.body_html || ''),
+    missing: Array.from(missing),
+  };
+}
+
+/**
+ * Load a template from the database by its `key` (e.g. 'late_letter').
+ * Returns null if not found. Caller decides what to do (often: fall back to
+ * the hard-coded version in `letterTemplates.js`).
+ */
+export async function loadTemplate(key) {
+  const { data, error } = await supabase
+    .from('email_templates')
+    .select('*')
+    .eq('key', key)
+    .maybeSingle();
+  if (error) {
+    console.error('loadTemplate error:', error);
+    return null;
+  }
+  return data;
+}

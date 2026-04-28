@@ -12,13 +12,14 @@ SELECT
   cl.id::uuid AS ref_id,
   'call'::text AS kind,
   COALESCE(cl.call_date::timestamptz, cl.created_at) AS occurred_at,
-  COALESCE(cl.purpose, cl.notes, 'Call logged') AS summary,
+  COALESCE(cl.purpose, cl.notes, cl.summary, 'Call logged') AS summary,
   jsonb_build_object(
     'contact_person', cl.contact_person,
     'phone_number', cl.phone_number,
     'call_type', cl.call_type,
     'follow_up_date', cl.follow_up_date,
-    'completed', cl.completed
+    'follow_up_needed', cl.follow_up_needed,
+    'outcome', cl.outcome
   ) AS details
 FROM call_logs cl
 

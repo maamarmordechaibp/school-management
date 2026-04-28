@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { sendEmail } from '@/lib/emailService';
+import React, { useState, useEffect } from 'react';
+import { sendEmail, renderTemplate } from '@/lib/emailService';
+import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,8 @@ import { Mail, Plus, X, Loader2 } from 'lucide-react';
 const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = '', currentUser, relatedType, relatedId }) => {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [formData, setFormData] = useState({
     recipients: [''],
     subject: defaultSubject,
@@ -25,8 +28,33 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
         subject: defaultSubject || '',
         body: defaultBody || ''
       });
+      setSelectedTemplateId('');
     }
   }, [isOpen, defaultSubject, defaultBody]);
+
+  // Load templates once on open
+  useEffect(() => {
+    if (!isOpen) return;
+    (async () => {
+      const { data } = await supabase.from('email_templates').select('id, key, name, subject, body_html, variables').order('name');
+      setTemplates(data || []);
+    })();
+  }, [isOpen]);
+
+  const applyTemplate = (id) => {
+    setSelectedTemplateId(id);
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    // Build sample-vars from each variable's `sample` so the user sees placeholder text rather than literal {{name}}.
+    const sampleVars = {};
+    (tpl.variables || []).forEach(v => { if (v?.name) sampleVars[v.name] = v.sample || ''; });
+    const rendered = renderTemplate(tpl, sampleVars);
+    setFormData(prev => ({
+      ...prev,
+      subject: rendered.subject || prev.subject,
+      body: rendered.body_html || prev.body,
+    }));
+  };
 
   const addRecipient = () => {
     setFormData(prev => ({ ...prev, recipients: [...prev.recipients, ''] }));
@@ -92,6 +120,21 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Template picker */}
+          {templates.length > 0 && (
+            <div>
+              <Label>Insert Template (optional)</Label>
+              <select
+                className="w-full border rounded px-2 py-2 text-sm"
+                value={selectedTemplateId}
+                onChange={(e) => applyTemplate(e.target.value)}
+              >
+                <option value="">-- pick a template --</option>
+                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          )}
+
           {/* Recipients */}
           <div className="space-y-2">
             <Label>To (email addresses)</Label>
