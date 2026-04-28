@@ -148,102 +148,89 @@ const MassCallView = () => {
     }
   };
 
-  // Build recipient list based on audience selection
-  const computeRecipients = async () => {
+  // Returns { list, stats } so refreshRecipients can show a clear diagnostic
+  // without relying on async setState to be flushed first.
+  const computeRecipientsWithStats = async () => {
+    const empty = (kind, extra = {}) => ({ list: [], stats: { kind, totalLoaded: 0, afterFilter: 0, withPhones: 0, contactType, ...extra } });
+
     if (audience === 'custom') {
       const parts = customNumbers.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
-      return parts.map(p => ({ phone: p, parent_name: '', student_name: '', class_name: '', student_id: null }));
+      const list = parts.map(p => ({ phone: p, parent_name: '', student_name: '', class_name: '', student_id: null }));
+      return { list, stats: { kind: 'custom', totalLoaded: parts.length, afterFilter: parts.length, withPhones: list.length, contactType } };
     }
 
-    // Staff audiences (all staff or filtered by position)
     if (audience === 'staff_all' || audience === 'staff_position') {
       let q = supabase
         .from('staff_members')
         .select('id, full_name, hebrew_name, position, cell_phone, home_phone, is_active')
         .eq('is_active', true);
-      if (audience === 'staff_position' && audienceId) {
-        q = q.eq('position', audienceId);
-      }
+      if (audience === 'staff_position' && audienceId) q = q.eq('position', audienceId);
       const { data, error } = await q;
       if (error) {
         toast({ variant: 'destructive', title: 'Failed to load staff', description: error.message });
-        return [];
+        return empty('staff');
       }
       const list = [];
-      let totalStaff = 0;
       (data || []).forEach(s => {
-        totalStaff++;
-        const name = s.hebrew_name || s.full_name || '';
         const phone = s.cell_phone || s.home_phone;
         if (!phone) return;
-        list.push({
-          phone,
-          parent_name: '',
-          student_name: name,
-          class_name: s.position || '',
-          student_id: null,
-          kind: 'staff',
-        });
+        list.push({ phone, parent_name: '', student_name: s.hebrew_name || s.full_name || '', class_name: s.position || '', student_id: null, kind: 'staff' });
       });
-      console.log(`[MassCall] staff: ${totalStaff} loaded, ${list.length} with phones`);
-      setRecipientStats({ totalLoaded: totalStaff, afterFilter: totalStaff, withPhones: list.length, kind: 'staff' });
-      return list;
+      return { list, stats: { kind: 'staff', totalLoaded: (data || []).length, afterFilter: (data || []).length, withPhones: list.length, contactType } };
     }
 
     let query = supabase
       .from('students')
       .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, home_phone, class_id, class:classes(id, name, grade_id)');
-
-    if (audience === 'class' && audienceId) {
-      query = query.eq('class_id', audienceId);
-    }
+    if (audience === 'class' && audienceId) query = query.eq('class_id', audienceId);
     const { data, error } = await query;
     if (error) {
       toast({ variant: 'destructive', title: 'Failed to load students', description: error.message });
-      return [];
+      return empty('students');
     }
     let students = data || [];
-    const totalStudents = students.length;
-    if (audience === 'grade' && audienceId) {
-      students = students.filter(s => s.class?.grade_id === audienceId);
-    }
-    const filteredStudents = students.length;
+    const totalLoaded = students.length;
+    if (audience === 'grade' && audienceId) students = students.filter(s => s.class?.grade_id === audienceId);
+    const afterFilter = students.length;
 
     const list = [];
     students.forEach(s => {
       const baseName = s.hebrew_name || `${s.first_name || ''} ${s.last_name || ''}`.trim();
       const className = s.class?.name || '';
-
       const pushIf = (phone, parent_name, kind) => {
         if (!phone) return;
         list.push({ phone, parent_name, student_name: baseName, class_name: className, student_id: s.id, kind });
       };
-
       if (contactType === 'home') {
         pushIf(s.home_phone, '', 'home');
       } else if (contactType === 'all_phones') {
         pushIf(s.father_phone, s.father_name || '', 'father');
         pushIf(s.mother_phone, s.mother_name || '', 'mother');
-        pushIf(s.home_phone,   '',                  'home');
+        pushIf(s.home_phone, '', 'home');
       } else {
-        if ((contactType === 'father' || contactType === 'both')) pushIf(s.father_phone, s.father_name || '', 'father');
-        if ((contactType === 'mother' || contactType === 'both')) pushIf(s.mother_phone, s.mother_name || '', 'mother');
+        if (contactType === 'father' || contactType === 'both') pushIf(s.father_phone, s.father_name || '', 'father');
+        if (contactType === 'mother' || contactType === 'both') pushIf(s.mother_phone, s.mother_name || '', 'mother');
       }
     });
-    console.log(`[MassCall] students: ${totalStudents} total, ${filteredStudents} after filter, ${list.length} with phones in '${contactType}' field(s)`);
-    setRecipientStats({ totalLoaded: totalStudents, afterFilter: filteredStudents, withPhones: list.length, kind: 'students', contactType });
-    return list;
+    return { list, stats: { kind: 'students', totalLoaded, afterFilter, withPhones: list.length, contactType } };
   };
 
+  // Backwards-compatible: send() and sendTest() still call computeRecipients()
+  const computeRecipients = async () => (await computeRecipientsWithStats()).list;
+
   const refreshRecipients = async () => {
-    const list = await computeRecipients();
+    const result = await computeRecipientsWithStats();
+    const list = result.list;
+    const s = result.stats;
     setRecipients(list);
-    setExcluded(new Set()); // reset exclusions on refresh
+    setRecipientStats(s);
+    setExcluded(new Set());
     if (list.length === 0) {
-      const isStaff = audience === 'staff_all' || audience === 'staff_position';
-      const detail = isStaff
-        ? 'No active staff have a cell or home phone in this group.'
-        : `No students in this group have a phone in the "${contactType}" field. Try "All phones" to include father, mother, and home.`;
+      const detail = s
+        ? (s.kind === 'students'
+            ? `Loaded ${s.totalLoaded} students; ${s.afterFilter} after filter; ${s.withPhones} with phones in "${s.contactType}".`
+            : `Loaded ${s.totalLoaded} active staff; ${s.withPhones} with phones.`)
+        : 'No data returned (check login / RLS).';
       toast({ variant: 'destructive', title: 'No phone numbers found', description: detail });
     } else {
       toast({ title: `Found ${list.length} phone number(s)` });
