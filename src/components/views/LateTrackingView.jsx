@@ -37,7 +37,9 @@ const LateTrackingView = ({ role, currentUser }) => {
   const [settings, setSettings] = useState({
     late_escalation_threshold: 3,
     late_summary_recipients: '',
-    school_name_yi: 'תלמוד תורה ימין מאנסי'
+    school_name_yi: 'תלמוד תורה תולדות יעקב יוסף דחסידי סקווירא - מאנסי',
+    school_subtitle_yi: 'בנשיאות כ"ק מרן אדמו"ר שליט"א',
+    school_logo_url: '/school-logo.png'
   });
 
   // Filters
@@ -68,7 +70,7 @@ const LateTrackingView = ({ role, currentUser }) => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'school_name_yi']);
+        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'school_name_yi', 'school_subtitle_yi', 'school_logo_url']);
       if (data) {
         const map = {};
         for (const row of data) map[row.key] = row.value;
@@ -76,7 +78,9 @@ const LateTrackingView = ({ role, currentUser }) => {
           ...prev,
           late_escalation_threshold: parseInt(map.late_escalation_threshold || '3', 10) || 3,
           late_summary_recipients: map.late_summary_recipients || '',
-          school_name_yi: map.school_name_yi || prev.school_name_yi
+          school_name_yi: map.school_name_yi || prev.school_name_yi,
+          school_subtitle_yi: map.school_subtitle_yi || prev.school_subtitle_yi,
+          school_logo_url: map.school_logo_url || prev.school_logo_url
         }));
       }
     } catch (e) {
@@ -250,6 +254,8 @@ const LateTrackingView = ({ role, currentUser }) => {
     const count = repeatCount ?? monthlyCounts[late.student_id]?.unexcused;
     const html = buildLateLetterDocument(late, {
       schoolName: settings.school_name_yi,
+      schoolSubtitle: settings.school_subtitle_yi,
+      logoUrl: settings.school_logo_url,
       repeatCounts: count ? { [late.id]: count } : {}
     });
     const printWindow = window.open('', '_blank');
@@ -260,7 +266,7 @@ const LateTrackingView = ({ role, currentUser }) => {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => printWindow.print(), 200);
+    // The HTML auto-calls window.print() + window.close() on load.
     markSlipPrinted(late.id);
   };
 
@@ -278,6 +284,8 @@ const LateTrackingView = ({ role, currentUser }) => {
     }
     const html = buildLateLetterDocument(unprintedSlips, {
       schoolName: settings.school_name_yi,
+      schoolSubtitle: settings.school_subtitle_yi,
+      logoUrl: settings.school_logo_url,
       repeatCounts
     });
     const printWindow = window.open('', '_blank');
@@ -288,7 +296,7 @@ const LateTrackingView = ({ role, currentUser }) => {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => printWindow.print(), 200);
+    // The HTML auto-calls window.print() + window.close() on load.
 
     // Mark all as printed
     unprintedSlips.forEach(l => markSlipPrinted(l.id));
@@ -488,7 +496,6 @@ const LateTrackingView = ({ role, currentUser }) => {
                 <TableHead>Class</TableHead>
                 <TableHead>This Month</TableHead>
                 <TableHead>Time</TableHead>
-                <TableHead>Minutes Late</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -516,13 +523,6 @@ const LateTrackingView = ({ role, currentUser }) => {
                     ) : <span className="text-slate-400 text-xs">—</span>}
                   </TableCell>
                   <TableCell>{late.arrival_time || '-'}</TableCell>
-                  <TableCell>
-                    {late.minutes_late && (
-                      <Badge className={late.minutes_late > 15 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>
-                        {late.minutes_late} min
-                      </Badge>
-                    )}
-                  </TableCell>
                   <TableCell className="max-w-[200px] truncate">{late.reason || '-'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
@@ -561,7 +561,7 @@ const LateTrackingView = ({ role, currentUser }) => {
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEmailContext({
                           subject: `Late Arrival - ${late.student?.hebrew_name || late.student?.first_name}`,
-                          body: `${late.student?.hebrew_name || late.student?.first_name} ${late.student?.last_name} arrived late on ${new Date(selectedDate).toLocaleDateString('en-US')}\n\nTime: ${late.arrival_time || 'N/A'}\nMinutes Late: ${late.minutes_late || 'N/A'}\nReason: ${late.reason || 'N/A'}`
+                          body: `${late.student?.hebrew_name || late.student?.first_name} ${late.student?.last_name} arrived late on ${new Date(selectedDate).toLocaleDateString('en-US')}\n\nTime: ${late.arrival_time || 'N/A'}\nReason: ${late.reason || 'N/A'}`
                         });
                         setIsEmailModalOpen(true);
                       }}>
@@ -573,7 +573,7 @@ const LateTrackingView = ({ role, currentUser }) => {
               );})}
               {filteredLateArrivals.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                     <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No one arrived late on {new Date(selectedDate).toLocaleDateString('en-US')}</p>
                   </TableCell>
@@ -626,15 +626,9 @@ const LateTrackingView = ({ role, currentUser }) => {
                 placeholder="Search student..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Arrival Time</Label>
-                <Input type="time" value={formData.arrival_time} onChange={(e) => setFormData({ ...formData, arrival_time: e.target.value })} />
-              </div>
-              <div>
-                <Label>Minutes Late</Label>
-                <Input type="number" value={formData.minutes_late} onChange={(e) => setFormData({ ...formData, minutes_late: e.target.value })} />
-              </div>
+            <div>
+              <Label>Arrival Time</Label>
+              <Input type="time" value={formData.arrival_time} onChange={(e) => setFormData({ ...formData, arrival_time: e.target.value })} />
             </div>
             <div>
               <Label>Reason</Label>

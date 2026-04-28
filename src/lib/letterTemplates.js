@@ -25,131 +25,123 @@ const studentDisplayName = (student) => {
   return student.hebrew_name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
 };
 
+// Default school identity — overrideable via app_settings/opts.
+const DEFAULT_SCHOOL_NAME = 'תלמוד תורה תולדות יעקב יוסף דחסידי סקווירא - מאנסי';
+const DEFAULT_SCHOOL_SUBTITLE = 'בנשיאות כ"ק מרן אדמו"ר שליט"א';
+const DEFAULT_LOGO_URL = '/school-logo.png';
+
 /**
- * Build a single Yiddish late-arrival letter (one per page).
- * Returns the inner HTML for one letter (no <html>/<body> wrapper).
+ * Build a single Yiddish late-arrival slip (receipt / 80mm thermal format).
+ * Returns the inner HTML for one slip (no <html>/<body> wrapper).
  */
 export function buildLateLetterPage(late, opts = {}) {
-  const schoolName = opts.schoolName || 'תלמוד תורה ימין מאנסי';
+  const schoolName = opts.schoolName || DEFAULT_SCHOOL_NAME;
+  const schoolSubtitle = opts.schoolSubtitle || DEFAULT_SCHOOL_SUBTITLE;
+  const logoUrl = opts.logoUrl || DEFAULT_LOGO_URL;
   const student = late.student || {};
   const className = student.class?.name || '';
   const dateStr = formatHebrewDate(late.date);
   const arrivalTime = late.arrival_time || '';
-  const minutesLate = late.minutes_late ?? '';
   const reason = late.reason || '';
   const repeatCount = opts.repeatCount;
 
   return `
-    <div class="letter-page">
-      <div class="letterhead">
+    <div class="slip">
+      <div class="head">
+        <img class="logo" src="${escapeHtml(logoUrl)}" alt="" onerror="this.style.display='none'"/>
         <div class="school-name">${escapeHtml(schoolName)}</div>
-        <div class="letter-title">בריוו פאר א שפעטן בחור</div>
+        <div class="school-sub">${escapeHtml(schoolSubtitle)}</div>
+        <div class="rule"></div>
+        <div class="title">בריוו פאר א בחור וואס איז שפעט געקומען</div>
       </div>
 
-      <div class="letter-meta">
-        <span><strong>דאטום:</strong> ${escapeHtml(dateStr)}</span>
-      </div>
+      <div class="row"><span class="lbl">דאטום:</span><span>${escapeHtml(dateStr)}</span></div>
 
-      <div class="letter-body">
-        <p class="greeting">לכבוד הרב המלמד שליט"א,</p>
+      <p class="greet">לכבוד הרב המלמד שליט"א,</p>
 
-        <p>דער תלמיד <strong>${escapeHtml(studentDisplayName(student))}</strong>
-           פון כיתה <strong>${escapeHtml(className)}</strong>
-           איז היינט אנגעקומען שפעט אין ישיבה.</p>
+      <p class="body">
+        דער בחור <strong>${escapeHtml(studentDisplayName(student))}</strong>${className ? ` פון כיתה <strong>${escapeHtml(className)}</strong>` : ''} איז היינט אנגעקומען שפעט צו די ישיבה.
+      </p>
 
-        <table class="details">
-          <tr><td class="label">צייט פון אנקומען:</td><td>${escapeHtml(arrivalTime || '—')}</td></tr>
-          <tr><td class="label">מינוטן שפעט:</td><td>${escapeHtml(String(minutesLate || '—'))}</td></tr>
-          ${reason ? `<tr><td class="label">סיבה:</td><td>${escapeHtml(reason)}</td></tr>` : ''}
-          ${repeatCount && repeatCount > 1 ? `<tr><td class="label">שפעט דעם חודש:</td><td><strong>${repeatCount} מאל</strong></td></tr>` : ''}
-        </table>
+      <div class="row"><span class="lbl">צייט פון אנקומען:</span><span><strong>${escapeHtml(arrivalTime || '—')}</strong></span></div>
+      ${reason ? `<div class="row"><span class="lbl">סיבה:</span><span>${escapeHtml(reason)}</span></div>` : ''}
+      ${repeatCount && repeatCount > 1 ? `<div class="row warn"><span class="lbl">שפעט דעם חודש:</span><span><strong>${repeatCount} מאל</strong></span></div>` : ''}
 
-        <p class="note">דער בריוו דארף איבערגעגעבן ווערן צום מלמד ביים אריינקומען אין כיתה.</p>
-      </div>
+      <p class="note">ביטע איבערגעבן דעם בריוו צום מלמד ביים אריינקומען אין כיתה.</p>
 
-      <div class="signature">
-        <div class="line"></div>
+      <div class="sign">
+        <div class="sig-line"></div>
         <div class="sig-label">סגן המנהל</div>
       </div>
     </div>
   `;
 }
 
+// Receipt / 80mm thermal format — narrow, continuous roll, large readable text.
 const LETTER_STYLES = `
-  @page { size: letter; margin: 0.6in; }
-  body { font-family: 'David', 'Times New Roman', serif; color: #111; margin: 0; }
-  .letter-page {
-    page-break-after: always;
-    padding: 0.4in 0.5in;
-    max-width: 7in;
-    margin: 0 auto;
-    box-sizing: border-box;
+  @page { size: 80mm auto; margin: 3mm; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'David', 'Narkisim', 'Times New Roman', serif;
+    color: #000;
+    width: 74mm;
+    font-size: 11pt;
+    line-height: 1.45;
   }
-  .letter-page:last-child { page-break-after: auto; }
-  .letterhead {
-    text-align: center;
-    border-bottom: 3px double #1e3a8a;
-    padding-bottom: 14px;
-    margin-bottom: 24px;
+  .slip {
+    page-break-after: always;
+    padding: 2mm 0 6mm 0;
+  }
+  .slip:last-child { page-break-after: auto; }
+  .head { text-align: center; margin-bottom: 4mm; }
+  .head .logo {
+    max-width: 22mm;
+    max-height: 22mm;
+    display: block;
+    margin: 0 auto 2mm auto;
   }
   .school-name {
-    font-size: 26px;
+    font-size: 12pt;
     font-weight: bold;
-    color: #1e3a8a;
-    letter-spacing: 1px;
+    line-height: 1.25;
   }
-  .letter-title {
-    font-size: 16px;
-    color: #475569;
-    margin-top: 6px;
+  .school-sub {
+    font-size: 8.5pt;
+    margin-top: 1mm;
+    color: #000;
   }
-  .letter-meta {
+  .rule {
+    border-top: 1px solid #000;
+    margin: 2mm 0;
+  }
+  .title {
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  .row {
     display: flex;
     justify-content: space-between;
-    font-size: 14px;
-    margin-bottom: 18px;
+    gap: 4mm;
+    font-size: 10.5pt;
+    margin: 1mm 0;
+    border-bottom: 1px dotted #999;
+    padding-bottom: 1mm;
   }
-  .letter-body { font-size: 16px; line-height: 1.7; }
-  .greeting { margin: 0 0 14px 0; font-weight: bold; }
-  table.details {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 18px 0;
-    font-size: 15px;
-  }
-  table.details td {
-    padding: 6px 8px;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  table.details td.label {
-    font-weight: bold;
-    width: 40%;
-    color: #334155;
-  }
+  .row .lbl { font-weight: bold; }
+  .row.warn { color: #000; background: #000; color: #fff; padding: 1mm 2mm; border-radius: 1mm; }
+  .greet { margin: 3mm 0 2mm 0; font-weight: bold; font-size: 11pt; }
+  .body { margin: 0 0 2mm 0; font-size: 11pt; }
   .note {
-    margin-top: 18px;
-    padding: 10px 12px;
-    background: #fef3c7;
-    border-right: 4px solid #f59e0b;
-    font-size: 14px;
-  }
-  .signature {
-    margin-top: 60px;
+    margin-top: 3mm;
+    padding: 2mm;
+    border: 1px dashed #000;
+    font-size: 9.5pt;
     text-align: center;
   }
-  .signature .line {
-    width: 200px;
-    border-top: 1px solid #111;
-    margin: 0 auto;
-  }
-  .signature .sig-label {
-    margin-top: 6px;
-    font-size: 13px;
-    color: #475569;
-  }
-  @media print {
-    body { background: white; }
-  }
+  .sign { margin-top: 8mm; text-align: center; }
+  .sig-line { width: 50mm; border-top: 1px solid #000; margin: 0 auto; }
+  .sig-label { font-size: 9pt; margin-top: 1mm; }
+  @media print { body { background: white; } }
 `;
 
 /**
@@ -166,10 +158,10 @@ export function buildLateLetterDocument(lates, opts = {}) {
 <html lang="yi" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>בריוו פאר שפעטן</title>
+  <title>בריוו פאר א שפעטן בחור</title>
   <style>${LETTER_STYLES}</style>
 </head>
-<body>
+<body onload="window.focus(); window.print(); setTimeout(function(){ try { window.close(); } catch(e){} }, 500);">
   ${pages}
 </body>
 </html>`;
@@ -186,23 +178,23 @@ export function buildParentEscalationEmail(late, opts = {}) {
 
   return `
     <div style="font-family: Arial, sans-serif; line-height: 1.7; color: #111;" dir="rtl">
-      <p>טייערע עלטערן,</p>
+      <p>טייערע עלטערן שיחיו,</p>
       <p>
-        מיר ווילן אייך לאזן וויסן אז אייער זון
+        מיר ווילן אייך געבן צו וויסן אז אייער זון
         <strong>${escapeHtml(studentDisplayName(student))}</strong>
-        איז היינט (${escapeHtml(formatHebrewDate(late.date))}) ווידער אנגעקומען שפעט אין ישיבה.
+        איז היינט (${escapeHtml(formatHebrewDate(late.date))}) ווידעראמאל אנגעקומען שפעט אין ישיבה.
       </p>
       <p>
         דאס איז שוין <strong>${repeatCount} מאל</strong> דעם חודש (${escapeHtml(monthName)}).
       </p>
       <p>
-        מיר ווילן זייער אייך בעטן צו ארבעטן מיט אונז דאס צו פאררעכטן, אז דער תלמיד זאל קענען אנקומען צו זמן און נישט פארפאסן דעם אנהויב פון די לימודים.
+        מיר בעטן אייך הארציג זיך אנצושטרענגען צו זען אז דער בחור זאל אנקומען צו זמן, אזוי ער זאל נישט פארפאסן דעם אנהויב פון די לימודים און נישט שטערן די אנדערע תלמידים.
       </p>
       <p style="margin-top: 18px;">
-        אויב עס איז דא אן ענין אדער אן ערקלערונג, ביטע פארבינדט אייך מיט די ישיבה.
+        אויב עס איז דא ספעציעלע אומשטענדן, ביטע פארבינדט אייך מיט די ישיבה און מיר וועלן בעז"ה ארבעטן צוזאמען אויף א לעזונג.
       </p>
       <p style="margin-top: 24px;">
-        בכבוד רב,<br>
+        בכבוד רב ובברכת התורה,<br>
         <strong>סגן המנהל</strong>
       </p>
     </div>
@@ -234,7 +226,6 @@ export function buildDailySummaryEmail(date, lates, opts = {}) {
             ${repeat && repeat >= 3 ? ` <span style="color:#b91c1c;font-weight:bold;">(${repeat} this month)</span>` : ''}
           </td>
           <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(l.arrival_time || '—')}</td>
-          <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(String(l.minutes_late || '—'))}</td>
           <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;">${escapeHtml(l.reason || '')}</td>
         </tr>
       `;
@@ -246,7 +237,6 @@ export function buildDailySummaryEmail(date, lates, opts = {}) {
           <tr style="background:#f1f5f9;">
             <th style="text-align:left;padding:6px 8px;">Student</th>
             <th style="text-align:left;padding:6px 8px;">Time</th>
-            <th style="text-align:left;padding:6px 8px;">Min Late</th>
             <th style="text-align:left;padding:6px 8px;">Reason</th>
           </tr>
         </thead>
