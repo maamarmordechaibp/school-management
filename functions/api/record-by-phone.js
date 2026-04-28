@@ -113,7 +113,7 @@ export async function onRequestPost(context) {
         `Hello. Please record your announcement after the beep. Press pound when you are done. ` +
         `You will hear a confirmation, then the call will end.` +
       `</Say>` +
-      `<Record action="${escapeXml(actionUrl)}" method="POST" maxLength="180" finishOnKey="#" playBeep="true" trim="trim-silence"/>` +
+      `<Record action="${escapeXml(actionUrl)}" method="POST" maxLength="180" finishOnKey="#" playBeep="true"/>` +
       `<Say voice="Polly.Joanna" language="en-US">We did not detect a recording. Please try again. Goodbye.</Say>` +
       `<Hangup/>` +
     `</Response>`;

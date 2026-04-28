@@ -78,24 +78,43 @@ export async function onRequestPost(context) {
     return twimlResponse('Invalid form data. Goodbye.');
   }
 
-  const recordingUrl = form.get('RecordingUrl');
-  const recordingSid = form.get('RecordingSid');
+  // Log everything for debugging
+  const allFields = {};
+  for (const [k, v] of form.entries()) {
+    allFields[k] = typeof v === 'string' ? v : '[non-string]';
+  }
+  console.log('Recording callback fields:', JSON.stringify(allFields));
+
+  // SignalWire usually sends RecordingUrl + RecordingSid. Sometimes only RecordingUrl.
+  let recordingUrl = form.get('RecordingUrl');
+  let recordingSid = form.get('RecordingSid');
   const duration = parseInt(form.get('RecordingDuration') || '0', 10) || null;
 
-  if (!recordingUrl || !recordingSid) {
-    return twimlResponse('No recording was captured. Goodbye.');
+  // Fallback: extract sid from the URL if not provided as a field.
+  // URL looks like .../recordings/<sid>.wav
+  if (!recordingSid && recordingUrl) {
+    const m = String(recordingUrl).match(/recordings\/([a-f0-9-]+)/i);
+    if (m) recordingSid = m[1];
   }
 
-  // SignalWire's RecordingUrl returns the audio when fetched with project auth.
-  // Append .mp3 to get the MP3 representation.
-  const audioFetchUrl = recordingUrl.endsWith('.mp3') ? recordingUrl : `${recordingUrl}.mp3`;
+  if (!recordingUrl || !recordingSid) {
+    console.warn('Missing recording fields. Form:', allFields);
+    return twimlResponse('No recording was captured. Please try again. Goodbye.');
+  }
+
+  // SignalWire's files.signalwire.com URLs are direct downloads.
+  // The URL already includes the file extension (.wav or .mp3). Fetch as-is.
+  const audioFetchUrl = recordingUrl;
+  const isWav = /\.wav(\?|$)/i.test(audioFetchUrl);
+  const ext = isWav ? 'wav' : 'mp3';
+  const mimeType = isWav ? 'audio/wav' : 'audio/mpeg';
   const basicAuth = 'Basic ' + btoa(`${PROJECT_ID}:${API_TOKEN}`);
 
   let audioBuf;
   try {
     const audioResp = await fetch(audioFetchUrl, { headers: { 'Authorization': basicAuth } });
     if (!audioResp.ok) {
-      console.error('Failed to fetch recording from SignalWire:', audioResp.status);
+      console.error('Failed to fetch recording from SignalWire:', audioResp.status, audioFetchUrl);
       return twimlResponse('Could not download the recording. Goodbye.');
     }
     audioBuf = await audioResp.arrayBuffer();
@@ -105,7 +124,7 @@ export async function onRequestPost(context) {
   }
 
   // Upload to Supabase Storage (bucket: call-audio)
-  const filename = `phone/${recordingSid}.mp3`;
+  const filename = `phone/${recordingSid}.${ext}`;
   try {
     const uploadResp = await fetch(
       `${SUPABASE_URL}/storage/v1/object/call-audio/${filename}`,
@@ -114,7 +133,7 @@ export async function onRequestPost(context) {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Content-Type': 'audio/mpeg',
+          'Content-Type': mimeType,
           'x-upsert': 'true',
         },
         body: audioBuf,
@@ -147,7 +166,7 @@ export async function onRequestPost(context) {
         audio_url: publicUrl,
         source: 'phone',
         duration_sec: duration,
-        mime_type: 'audio/mpeg',
+        mime_type: mimeType,
         size_bytes: audioBuf.byteLength,
         provider_sid: recordingSid,
         created_by: userId,
