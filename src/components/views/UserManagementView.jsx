@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { apiFetch } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,16 +189,15 @@ const UserManagementView = () => {
     setCreating(true);
 
     try {
-      const response = await fetch('/api/create-user', {
+      const response = await apiFetch('/api/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           email: newUser.email,
           password: newUser.password,
           name: newUser.name,
           role: newUser.role,
           assigned_class: newUser.assigned_class || null
-        })
+        }
       });
 
       const result = await response.json();
@@ -240,14 +240,13 @@ const UserManagementView = () => {
 
     try {
       // Save role via backend API
-      const response = await fetch('/api/update-user-role', {
+      const response = await apiFetch('/api/update-user-role', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           userId: editingUser.id,
           role: editingUser.role,
           assigned_class: editingUser.assigned_class || null
-        })
+        }
       });
 
       const result = await response.json();

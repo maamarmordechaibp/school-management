@@ -8,6 +8,8 @@
  *   SUPABASE_SERVICE_KEY  (service role key — NOT the anon key)
  */
 
+import { requireRole, logAudit, ADMIN_ROLES } from '../_lib/auth.js';
+
 export async function onRequestPost(context) {
   const SUPABASE_URL = context.env.SUPABASE_URL || 'https://rfvgjyfrjawqpdpwicev.supabase.co';
   const SUPABASE_SERVICE_KEY = context.env.SUPABASE_SERVICE_KEY;
@@ -20,12 +22,19 @@ export async function onRequestPost(context) {
     }), { status: 500, headers });
   }
 
+  // --- Auth gate: admin/principal only ---
+  const auth = await requireRole(context, 'create-user', ADMIN_ROLES);
+  if (auth.response) return auth.response;
+  const { user: caller, role: callerRole } = auth;
+
   try {
     const { email, password, name, role, first_name, last_name, assigned_class } = await context.request.json();
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: 'Email and password are required' }), { status: 400, headers });
     }
+
+    await logAudit(context, { endpoint: 'create-user', caller_user_id: caller.id, caller_email: caller.email, caller_role: callerRole, status: 'allowed', status_code: 200, reason: 'ok', request_meta: { target_email: email, target_role: role } });
 
     // 1. Create auth user via Supabase Admin API
     const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {

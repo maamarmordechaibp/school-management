@@ -9,6 +9,8 @@
  *   SUPABASE_SERVICE_KEY  (service role key for DB writes)
  */
 
+import { requireRole, rateLimit, logAudit, STAFF_ROLES } from '../_lib/auth.js';
+
 const UNSUBSCRIBE_URL = 'https://tyymonsey.com/unsubscribe';
 
 /**
@@ -51,6 +53,18 @@ export async function onRequestPost(context) {
   }
 
   const headers = { 'Content-Type': 'application/json' };
+
+  // --- Auth gate: any school staff role may send ---
+  const auth = await requireRole(context, 'send-email', STAFF_ROLES);
+  if (auth.response) return auth.response;
+  const { user, role } = auth;
+
+  // --- Rate limit: 100 calls / 5 min / user ---
+  const rl = rateLimit(context, user.id, 100, 5 * 60 * 1000);
+  if (!rl.ok) {
+    await logAudit(context, { endpoint: 'send-email', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'denied', status_code: 429, reason: 'rate_limited' });
+    return new Response(JSON.stringify({ error: 'Too many requests', retryAfter: rl.retryAfter }), { status: 429, headers: { ...headers, 'Retry-After': String(rl.retryAfter) } });
+  }
 
   try {
     const { to, subject, html, text, from, replyTo, relatedType, relatedId, sentBy } = await context.request.json();
@@ -132,9 +146,11 @@ export async function onRequestPost(context) {
 
     // 3. Return result
     if (emailStatus === 'failed') {
+      await logAudit(context, { endpoint: 'send-email', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'error', status_code: 502, reason: sendError || 'send_failed', request_meta: { recipient_count: recipients.length } });
       return new Response(JSON.stringify({ error: sendError || 'Failed to send email' }), { status: 502, headers });
     }
 
+    await logAudit(context, { endpoint: 'send-email', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'allowed', status_code: 200, reason: 'ok', request_meta: { recipient_count: recipients.length, related_type: relatedType || null } });
     return new Response(JSON.stringify({ success: true, id: resendId }), { status: 200, headers });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });

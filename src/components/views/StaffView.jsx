@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { apiFetch } from '@/lib/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -200,10 +201,9 @@ const StaffView = ({ role, currentUser }) => {
       const nameParts = (loginStaff.full_name || '').split(',').map(s => s.trim());
       const lastName = nameParts[0] || '';
       const firstName = nameParts[1] || loginStaff.first_name || '';
-      const res = await fetch('/api/create-user', {
+      const res = await apiFetch('/api/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           email: loginForm.email,
           password: loginForm.password,
           name: loginStaff.full_name || `${firstName} ${lastName}`,
@@ -211,7 +211,7 @@ const StaffView = ({ role, currentUser }) => {
           last_name: lastName || loginStaff.last_name || '',
           role: loginForm.role,
           assigned_class: loginStaff.class_assignment || '',
-        }),
+        },
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Failed to create login');
