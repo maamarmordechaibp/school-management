@@ -14,9 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const IssuesView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [issues, setIssues] = useState([]);
   const [students, setStudents] = useState([]);
   const [users, setUsers] = useState([]);
@@ -440,7 +442,7 @@ const IssuesView = ({ role, currentUser }) => {
                       <Badge className={getStatusColor(issue.status)}>{issue.status?.replace('_', ' ')}</Badge>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-slate-600 mb-2">
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 hover:text-blue-600 cursor-pointer" onClick={(e) => { e.stopPropagation(); issue.student_id && openProfile(issue.student_id); }}>
                         <User className="h-4 w-4" />
                         {issue.student?.first_name} {issue.student?.last_name}
                       </span>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import StudentPicker from '@/components/ui/student-picker';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
@@ -25,6 +26,7 @@ import { sendEmail } from '@/lib/emailService';
 
 const LateTrackingView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [loading, setLoading] = useState(true);
   const [lateArrivals, setLateArrivals] = useState([]);
   const [students, setStudents] = useState([]);
@@ -501,7 +503,9 @@ const LateTrackingView = ({ role, currentUser }) => {
                 return (
                 <TableRow key={late.id} className={late.excused ? 'opacity-60' : ''}>
                   <TableCell className="font-medium">
-                    {late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}
+                    <span className="hover:text-blue-600 cursor-pointer" onClick={() => late.student_id && openProfile(late.student_id)}>
+                      {late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}
+                    </span>
                   </TableCell>
                   <TableCell><Badge variant="outline">{late.student?.class?.name || 'N/A'}</Badge></TableCell>
                   <TableCell>

@@ -22,7 +22,7 @@ import StudentPlanModal from '@/components/modals/StudentPlanModal';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { MessageSquare, Edit, Heart as HeartIcon } from 'lucide-react';
+import { MessageSquare, Edit, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
 
 const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
@@ -68,9 +68,37 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailContext, setEmailContext] = useState({});
 
+  // Timeline (unified feed across calls/meetings/issues/lates/todos)
+  const [timeline, setTimeline] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState('all');
+
   useEffect(() => {
     fetchStudentData();
     fetchAvailableFees();
+  }, [studentId]);
+
+  useEffect(() => {
+    if (!studentId) return;
+    let cancelled = false;
+    (async () => {
+      setTimelineLoading(true);
+      const { data: rows, error } = await supabase
+        .from('v_student_timeline')
+        .select('*')
+        .eq('student_id', studentId)
+        .order('occurred_at', { ascending: false })
+        .limit(200);
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to load student timeline:', error);
+        setTimeline([]);
+      } else {
+        setTimeline(rows || []);
+      }
+      setTimelineLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, [studentId]);
 
   // Load all available fees in the system for dropdown
@@ -466,6 +494,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 overflow-x-auto">
           <TabsTrigger value="overview" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Overview</TabsTrigger>
+          <TabsTrigger value="timeline" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <Activity size={14} />
+            Timeline ({timeline.length})
+          </TabsTrigger>
           <TabsTrigger value="financial" className="data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-2">
             <DollarSign size={16} />
             Financial
@@ -489,6 +521,95 @@ const StudentProfileView = ({ studentId, onBack }) => {
             </TabsTrigger>
           )}
         </TabsList>
+
+        {/* Timeline Tab */}
+        <TabsContent value="timeline" className="mt-6 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity size={18} className="text-indigo-600" /> Activity Timeline
+              </CardTitle>
+              <div className="flex gap-1">
+                {[
+                  { v: 'all', label: 'All' },
+                  { v: 'call', label: 'Calls' },
+                  { v: 'meeting', label: 'Meetings' },
+                  { v: 'issue', label: 'Issues' },
+                  { v: 'late', label: 'Lates' },
+                  { v: 'todo', label: 'Todos' },
+                ].map(opt => (
+                  <Button
+                    key={opt.v}
+                    size="sm"
+                    variant={timelineFilter === opt.v ? 'default' : 'outline'}
+                    onClick={() => setTimelineFilter(opt.v)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {timelineLoading ? (
+                <p className="text-sm text-slate-500 py-6 text-center">Loading timeline…</p>
+              ) : timeline.length === 0 ? (
+                <p className="text-sm text-slate-500 py-6 text-center">No activity recorded yet for this student.</p>
+              ) : (
+                <ol className="relative border-r-2 border-slate-200 pr-4 space-y-4">
+                  {timeline
+                    .filter(item => timelineFilter === 'all' || item.kind === timelineFilter)
+                    .map((item) => {
+                      const config = {
+                        call:    { color: 'bg-blue-100 text-blue-700',    label: 'Call',    Icon: PhoneIcon },
+                        meeting: { color: 'bg-green-100 text-green-700',  label: 'Meeting', Icon: CalendarIconLucide },
+                        issue:   { color: 'bg-orange-100 text-orange-700',label: 'Issue',   Icon: AlertCircle },
+                        late:    { color: 'bg-amber-100 text-amber-700', label: 'Late',    Icon: Clock },
+                        todo:    { color: 'bg-purple-100 text-purple-700',label: 'Todo',    Icon: CheckCircle },
+                      }[item.kind] || { color: 'bg-slate-100 text-slate-700', label: item.kind, Icon: FileText };
+                      const Icon = config.Icon;
+                      const occurred = new Date(item.occurred_at);
+                      return (
+                        <li key={`${item.kind}-${item.ref_id}`} className="relative">
+                          <span className={`absolute -right-[26px] top-1 flex h-4 w-4 items-center justify-center rounded-full ${config.color}`}>
+                            <Icon size={10} />
+                          </span>
+                          <div className="bg-white border rounded-lg p-3 shadow-sm">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge className={config.color}>{config.label}</Badge>
+                              <span className="text-xs text-slate-500">
+                                {occurred.toLocaleDateString('en-GB')} {occurred.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {item.details?.status && (
+                                <Badge variant="outline" className="text-xs">{item.details.status}</Badge>
+                              )}
+                              {item.details?.severity && (
+                                <Badge variant="outline" className="text-xs">{item.details.severity}</Badge>
+                              )}
+                              {item.kind === 'late' && item.details?.excused && (
+                                <Badge className="bg-purple-100 text-purple-700 text-xs">Excused</Badge>
+                              )}
+                              {item.kind === 'late' && item.details?.parent_notified_at && (
+                                <Badge className="bg-orange-100 text-orange-700 text-xs">Parent emailed</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium text-slate-800 mt-1">{item.summary || '—'}</p>
+                            {item.details?.description && (
+                              <p className="text-xs text-slate-600 mt-1 line-clamp-2">{item.details.description}</p>
+                            )}
+                            {item.details?.contact_person && (
+                              <p className="text-xs text-slate-500 mt-1">
+                                With {item.details.contact_person}{item.details.phone_number ? ` (${item.details.phone_number})` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6 space-y-6">

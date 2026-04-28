@@ -16,9 +16,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const MeetingsView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [meetings, setMeetings] = useState([]);
   const [students, setStudents] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -390,7 +392,7 @@ const MeetingsView = ({ role, currentUser }) => {
                       </TableCell>
                       <TableCell>
                         {meeting.student ? (
-                          <div>
+                          <div className="hover:text-blue-600 cursor-pointer" onClick={() => meeting.student_id && openProfile(meeting.student_id)}>
                             <div className="font-medium">{meeting.student.first_name} {meeting.student.last_name}</div>
                             <div className="text-xs text-slate-500">{meeting.student.class?.name}</div>
                           </div>

@@ -14,9 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const CallLogsView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [callLogs, setCallLogs] = useState([]);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -382,7 +384,7 @@ const CallLogsView = ({ role, currentUser }) => {
               <div className="flex justify-between items-start">
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-slate-800">
+                    <h3 className="text-lg font-bold text-slate-800 hover:text-blue-600 cursor-pointer" onClick={() => log.student_id && openProfile(log.student_id)}>
                       {log.student?.first_name} {log.student?.last_name}
                     </h3>
                     <Badge variant={log.call_type === 'outgoing' ? 'default' : 'secondary'}>
