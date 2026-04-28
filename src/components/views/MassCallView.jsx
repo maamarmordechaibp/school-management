@@ -17,9 +17,10 @@ const MassCallView = () => {
 
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [audience, setAudience] = useState('all'); // all | grade | class | custom
+  const [audience, setAudience] = useState('all'); // all | grade | class | staff_all | staff_position | custom
   const [audienceId, setAudienceId] = useState('');
   const [contactType, setContactType] = useState('father'); // father | mother | both | home
   const [customNumbers, setCustomNumbers] = useState(''); // newline / comma separated
@@ -51,6 +52,13 @@ const MassCallView = () => {
       ]);
       setGrades(g.data || []);
       setClasses(c.data || []);
+      // distinct staff positions (active only)
+      const { data: staffRows } = await supabase
+        .from('staff_members')
+        .select('position')
+        .eq('is_active', true);
+      const distinct = Array.from(new Set((staffRows || []).map(r => r.position).filter(Boolean))).sort();
+      setPositions(distinct);
       setLoading(false);
     })();
     refreshRecordings();
@@ -143,6 +151,37 @@ const MassCallView = () => {
     if (audience === 'custom') {
       const parts = customNumbers.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
       return parts.map(p => ({ phone: p, parent_name: '', student_name: '', class_name: '', student_id: null }));
+    }
+
+    // Staff audiences (all staff or filtered by position)
+    if (audience === 'staff_all' || audience === 'staff_position') {
+      let q = supabase
+        .from('staff_members')
+        .select('id, full_name, hebrew_name, position, cell_phone, home_phone, is_active')
+        .eq('is_active', true);
+      if (audience === 'staff_position' && audienceId) {
+        q = q.eq('position', audienceId);
+      }
+      const { data, error } = await q;
+      if (error) {
+        toast({ variant: 'destructive', title: 'Failed to load staff', description: error.message });
+        return [];
+      }
+      const list = [];
+      (data || []).forEach(s => {
+        const name = s.hebrew_name || s.full_name || '';
+        const phone = s.cell_phone || s.home_phone;
+        if (!phone) return;
+        list.push({
+          phone,
+          parent_name: '',
+          student_name: name,
+          class_name: s.position || '',
+          student_id: null,
+          kind: 'staff',
+        });
+      });
+      return list;
     }
 
     let query = supabase
@@ -294,10 +333,12 @@ const MassCallView = () => {
               <Label>Audience</Label>
               <div className="flex gap-2 mt-1 flex-wrap">
                 {[
-                  { v: 'all',    label: 'All students' },
-                  { v: 'grade',  label: 'By grade' },
-                  { v: 'class',  label: 'By class' },
-                  { v: 'custom', label: 'Custom numbers' },
+                  { v: 'all',             label: 'All students' },
+                  { v: 'grade',           label: 'By grade' },
+                  { v: 'class',           label: 'By class' },
+                  { v: 'staff_all',       label: 'All staff' },
+                  { v: 'staff_position',  label: 'By position' },
+                  { v: 'custom',          label: 'Custom numbers' },
                 ].map(opt => (
                   <Button
                     key={opt.v}
@@ -329,6 +370,15 @@ const MassCallView = () => {
                 </select>
               </div>
             )}
+            {audience === 'staff_position' && (
+              <div>
+                <Label>Position</Label>
+                <select className="w-full border rounded px-2 py-2 text-sm" value={audienceId} onChange={(e) => { setAudienceId(e.target.value); setRecipients([]); }}>
+                  <option value="">-- pick a position --</option>
+                  {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            )}
             {audience === 'custom' && (
               <div>
                 <Label>Phone numbers (one per line)</Label>
@@ -342,7 +392,7 @@ const MassCallView = () => {
               </div>
             )}
 
-            {audience !== 'custom' && (
+            {audience !== 'custom' && audience !== 'staff_all' && audience !== 'staff_position' && (
               <div>
                 <Label>Call which phone</Label>
                 <div className="flex gap-2 mt-1 flex-wrap">
