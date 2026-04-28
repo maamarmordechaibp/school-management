@@ -62,7 +62,7 @@ export function buildLateLetterPage(late, opts = {}) {
         <div class="school-name">${escapeHtml(schoolName)}</div>
         <div class="school-sub">${escapeHtml(schoolSubtitle)}</div>
         <div class="rule"></div>
-        <div class="title">בריוו פאר א בחור וואס איז שפעט געקומען</div>
+        <div class="title">בריוו פאר א קינד וואס איז שפעט געקומען</div>
       </div>
 
       <div class="row"><span class="lbl">דאטום:</span><span>${escapeHtml(dateStr)}</span></div>
@@ -70,7 +70,7 @@ export function buildLateLetterPage(late, opts = {}) {
       <p class="greet">לכבוד הרב המלמד שליט"א,</p>
 
       <p class="body">
-        דער בחור <strong>${escapeHtml(studentDisplayName(student))}</strong>${className ? ` פון כיתה <strong>${escapeHtml(className)}</strong>` : ''} איז היינט אנגעקומען שפעט צום חדר.
+        דער קינד <strong>${escapeHtml(studentDisplayName(student))}</strong>${className ? ` פון כיתה <strong>${escapeHtml(className)}</strong>` : ''} איז היינט אנגעקומען שפעט צום חדר.
       </p>
 
       <div class="row"><span class="lbl">צייט פון אנקומען:</span><span><strong>${escapeHtml(arrivalTime || '—')}</strong></span></div>
@@ -181,7 +181,7 @@ export function buildLateLetterDocument(lates, opts = {}) {
 <html lang="yi" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>בריוו פאר א שפעטן בחור</title>
+  <title>בריוו פאר א שפעטן קינד</title>
   <style>${LETTER_STYLES}</style>
 </head>
 <body onload="window.focus(); window.print(); setTimeout(function(){ try { window.close(); } catch(e){} }, 500);">
@@ -211,7 +211,7 @@ export function buildParentEscalationEmail(late, opts = {}) {
         דאס איז שוין <strong>${repeatCount} מאל</strong> דעם חודש (${escapeHtml(monthName)}).
       </p>
       <p>
-        מיר בעטן אייך הארציג זיך אנצושטרענגען צו זען אז דער בחור זאל אנקומען צו זמן, אזוי ער זאל נישט פארפאסן דעם אנהויב פון די לימודים און נישט שטערן די אנדערע תלמידים.
+        מיר בעטן אייך הארציג זיך אנצושטרענגען צו זען אז דער קינד זאל אנקומען צו זמן, אזוי ער זאל נישט פארפאסן דעם אנהויב פון די לימודים און נישט שטערן די אנדערע תלמידים.
       </p>
       <p style="margin-top: 18px;">
         אויב עס איז דא ספעציעלע אומשטענדן, ביטע פארבינדט אייך מיט דעם חדר און מיר וועלן בעז"ה ארבעטן צוזאמען אויף א לעזונג.
