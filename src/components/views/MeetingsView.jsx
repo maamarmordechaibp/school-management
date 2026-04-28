@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import StudentPicker from '@/components/ui/student-picker';
 
 const MeetingsView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -54,7 +55,7 @@ const MeetingsView = ({ role, currentUser }) => {
   const loadStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, first_name, last_name, class:classes!class_id(name)')
+      .select('id, first_name, last_name, hebrew_name, father_name, class:classes!class_id(name)')
       .eq('status', 'active')
       .order('last_name');
     setStudents(data || []);
@@ -530,19 +531,12 @@ const MeetingsView = ({ role, currentUser }) => {
 
             <div className="space-y-2">
               <Label>Student (optional)</Label>
-              <Select value={formData.student_id || 'none'} onValueChange={(v) => setFormData({ ...formData, student_id: v === 'none' ? null : v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No specific student</SelectItem>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.first_name} {s.last_name} {s.class?.name ? `(${s.class.name})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={students}
+                value={formData.student_id || ''}
+                onChange={(id) => setFormData({ ...formData, student_id: id || null })}
+                placeholder="Search student (optional)..."
+              />
             </div>
 
             <div className="space-y-2">

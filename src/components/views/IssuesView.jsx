@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import StudentPicker from '@/components/ui/student-picker';
 
 const IssuesView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -95,7 +96,7 @@ const IssuesView = ({ role, currentUser }) => {
       // Load students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, hebrew_name, father_name, class:classes(name)')
         .eq('status', 'active')
         .order('last_name');
       if (studentsError) throw studentsError;
@@ -489,17 +490,12 @@ const IssuesView = ({ role, currentUser }) => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Student *</Label>
-              <Select value={issueForm.student_id || '__none__'} onValueChange={(v) => setIssueForm({ ...issueForm, student_id: v === '__none__' ? '' : v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">-- Select student --</SelectItem>
-                  {students.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.first_name} {s.last_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentPicker
+                students={students}
+                value={issueForm.student_id}
+                onChange={(id) => setIssueForm({ ...issueForm, student_id: id })}
+                placeholder="Search student by name..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Title *</Label>

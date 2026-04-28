@@ -14,8 +14,14 @@ import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
   Clock, AlertCircle, Printer, Search, Plus, Calendar, Users,
-  FileText, Download, Mail, Loader2, RefreshCw
+  FileText, Download, Mail, Loader2, RefreshCw, ShieldCheck, Send
 } from 'lucide-react';
+import {
+  buildLateLetterDocument,
+  buildParentEscalationEmail,
+  buildDailySummaryEmail
+} from '@/lib/letterTemplates';
+import { sendEmail } from '@/lib/emailService';
 
 const LateTrackingView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -23,16 +29,26 @@ const LateTrackingView = ({ role, currentUser }) => {
   const [lateArrivals, setLateArrivals] = useState([]);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
-  
+
+  // Monthly counts: { [studentId]: { unexcused_count, total_count } }
+  const [monthlyCounts, setMonthlyCounts] = useState({});
+  const [settings, setSettings] = useState({
+    late_escalation_threshold: 3,
+    late_summary_recipients: '',
+    school_name_yi: 'תלמוד תורה ימין מאנסי'
+  });
+
   // Filters
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClass, setSelectedClass] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailContext, setEmailContext] = useState({});
+  const [escalationPrompt, setEscalationPrompt] = useState(null); // { late, count }
+  const [sendingSummary, setSendingSummary] = useState(false);
   const [formData, setFormData] = useState({
     student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: ''
   });
@@ -40,6 +56,64 @@ const LateTrackingView = ({ role, currentUser }) => {
   useEffect(() => {
     loadData();
   }, [selectedDate]);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'school_name_yi']);
+      if (data) {
+        const map = {};
+        for (const row of data) map[row.key] = row.value;
+        setSettings((prev) => ({
+          ...prev,
+          late_escalation_threshold: parseInt(map.late_escalation_threshold || '3', 10) || 3,
+          late_summary_recipients: map.late_summary_recipients || '',
+          school_name_yi: map.school_name_yi || prev.school_name_yi
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to load late-tracking settings:', e);
+    }
+  };
+
+  const loadMonthlyCounts = async (lateData) => {
+    const studentIds = [...new Set((lateData || []).map(l => l.student_id))];
+    if (studentIds.length === 0) {
+      setMonthlyCounts({});
+      return;
+    }
+    const monthStart = new Date(selectedDate);
+    monthStart.setDate(1);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const nextMonth = new Date(monthStart);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthStr = nextMonth.toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('late_arrivals')
+      .select('student_id, excused')
+      .in('student_id', studentIds)
+      .gte('date', monthStartStr)
+      .lt('date', nextMonthStr);
+
+    if (error) {
+      console.error('Failed to load monthly counts:', error);
+      return;
+    }
+    const counts = {};
+    for (const row of data || []) {
+      if (!counts[row.student_id]) counts[row.student_id] = { total: 0, unexcused: 0 };
+      counts[row.student_id].total += 1;
+      if (!row.excused) counts[row.student_id].unexcused += 1;
+    }
+    setMonthlyCounts(counts);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -51,12 +125,14 @@ const LateTrackingView = ({ role, currentUser }) => {
           *,
           student:students(id, first_name, last_name, hebrew_name, class_id,
             class:classes!class_id(name, grade:grades(name)),
-            father_name, father_phone
+            father_name, father_phone, father_email,
+            mother_name, mother_phone, mother_email
           )
         `)
         .eq('date', selectedDate)
         .order('arrival_time', { ascending: false });
       setLateArrivals(lateData || []);
+      loadMonthlyCounts(lateData || []);
 
       // Load students
       const { data: studentsData } = await supabase
@@ -94,15 +170,49 @@ const LateTrackingView = ({ role, currentUser }) => {
         reason: formData.reason || null,
         notes: formData.notes || null,
         recorded_by: currentUser?.id
-      }]).select('*, student:students(*, class:classes!class_id(*))');
+      }]).select(`
+        *,
+        student:students(id, first_name, last_name, hebrew_name, class_id,
+          class:classes!class_id(name, grade:grades(name)),
+          father_name, father_phone, father_email,
+          mother_name, mother_phone, mother_email
+        )
+      `);
       if (error) throw error;
       toast({ title: 'Recorded', description: 'Late arrival has been recorded' });
       setIsModalOpen(false);
       setFormData({ student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: '' });
-      loadData();
-      // Auto-print the late slip
-      if (inserted && inserted[0]) {
-        printSlip(inserted[0]);
+
+      const newRecord = inserted && inserted[0];
+      // Reload + then print + check escalation
+      await loadData();
+
+      if (newRecord) {
+        // Compute monthly count for this student (after insert, including this one)
+        const studentId = newRecord.student_id;
+        const monthStart = new Date(selectedDate);
+        monthStart.setDate(1);
+        const monthStartStr = monthStart.toISOString().split('T')[0];
+        const nextMonth = new Date(monthStart);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        const nextMonthStr = nextMonth.toISOString().split('T')[0];
+        const { data: monthData } = await supabase
+          .from('late_arrivals')
+          .select('id, excused')
+          .eq('student_id', studentId)
+          .gte('date', monthStartStr)
+          .lt('date', nextMonthStr);
+        const unexcused = (monthData || []).filter(r => !r.excused).length;
+
+        // Auto-print the new letter
+        printSlip(newRecord, unexcused);
+
+        // Trigger escalation prompt if threshold reached
+        const threshold = settings.late_escalation_threshold || 3;
+        const alreadyNotified = !!newRecord.parent_notified_at;
+        if (!alreadyNotified && unexcused >= threshold) {
+          setEscalationPrompt({ late: newRecord, count: unexcused });
+        }
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -119,65 +229,144 @@ const LateTrackingView = ({ role, currentUser }) => {
     loadData();
   };
 
-  // Print slip for a student
-  const printSlip = (late) => {
-    const slipContent = `
-      <html dir="rtl">
-      <head><style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; }
-        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
-        .field { margin: 8px 0; font-size: 14px; }
-        .label { font-weight: bold; }
-        .footer { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 10px; text-align: center; font-size: 12px; color: #666; }
-      </style></head>
-      <body>
-        <div class="header">
-          <h2>Slip - Late Arrival</h2>
-          <p>${new Date(selectedDate).toLocaleDateString('en-US')}</p>
-        </div>
-        <div class="field"><span class="label">Student:</span> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</div>
-        <div class="field"><span class="label">Class:</span> ${late.student?.class?.name || 'N/A'}</div>
-        <div class="field"><span class="label">Arrival Time:</span> ${late.arrival_time || 'N/A'}</div>
-        <div class="field"><span class="label">Minutes Late:</span> ${late.minutes_late || 'N/A'}</div>
-        ${late.reason ? `<div class="field"><span class="label">Reason:</span> ${late.reason}</div>` : ''}
-        <div class="footer">Recorded by Assistant Principal</div>
-      </body></html>
-    `;
+  const toggleExcused = async (late) => {
+    const next = !late.excused;
+    const { error } = await supabase
+      .from('late_arrivals')
+      .update({ excused: next })
+      .eq('id', late.id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      return;
+    }
+    toast({ title: next ? 'Marked excused' : 'Excused removed' });
+    loadData();
+  };
+
+  // Print slip for a student (Yiddish letter, school letterhead)
+  const printSlip = (late, repeatCount) => {
+    const count = repeatCount ?? monthlyCounts[late.student_id]?.unexcused;
+    const html = buildLateLetterDocument(late, {
+      schoolName: settings.school_name_yi,
+      repeatCounts: count ? { [late.id]: count } : {}
+    });
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(slipContent);
+    if (!printWindow) {
+      toast({ variant: 'destructive', title: 'Pop-up blocked', description: 'Allow pop-ups to print letters.' });
+      return;
+    }
+    printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.print();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 200);
     markSlipPrinted(late.id);
   };
 
-  // Print all slips for the day
+  // Print all letters for the day
   const printAllSlips = () => {
     const unprintedSlips = filteredLateArrivals.filter(l => !l.slip_printed);
     if (unprintedSlips.length === 0) {
-      toast({ title: 'Info', description: 'All slips have already been printed' });
+      toast({ title: 'Info', description: 'All letters have already been printed' });
       return;
     }
-
-    const slipsHtml = unprintedSlips.map(late => `
-      <div style="page-break-after: always; padding: 20px; max-width: 400px; margin: 0 auto; border: 1px solid #ccc; margin-bottom: 20px;">
-        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
-          <h3>Slip - Late Arrival</h3>
-          <p>${new Date(selectedDate).toLocaleDateString('en-US')}</p>
-        </div>
-        <p><strong>Student:</strong> ${late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}</p>
-        <p><strong>Class:</strong> ${late.student?.class?.name || 'N/A'}</p>
-        <p><strong>Time:</strong> ${late.arrival_time || 'N/A'} (${late.minutes_late || '?'} minutes late)</p>
-        ${late.reason ? `<p><strong>Reason:</strong> ${late.reason}</p>` : ''}
-      </div>
-    `).join('');
-
+    const repeatCounts = {};
+    for (const l of unprintedSlips) {
+      const c = monthlyCounts[l.student_id]?.unexcused;
+      if (c) repeatCounts[l.id] = c;
+    }
+    const html = buildLateLetterDocument(unprintedSlips, {
+      schoolName: settings.school_name_yi,
+      repeatCounts
+    });
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<html dir="rtl"><head><style>body { font-family: Arial, sans-serif; }</style></head><body>${slipsHtml}</body></html>`);
+    if (!printWindow) {
+      toast({ variant: 'destructive', title: 'Pop-up blocked', description: 'Allow pop-ups to print letters.' });
+      return;
+    }
+    printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.print();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 200);
 
     // Mark all as printed
     unprintedSlips.forEach(l => markSlipPrinted(l.id));
+  };
+
+  // Send the parent escalation email (after AP confirms)
+  const confirmEscalationEmail = async () => {
+    if (!escalationPrompt) return;
+    const { late, count } = escalationPrompt;
+    const parentEmail = late.student?.father_email || late.student?.mother_email;
+    if (!parentEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'No parent email on file',
+        description: 'Add a parent email to the student record before sending escalation notices.'
+      });
+      setEscalationPrompt(null);
+      return;
+    }
+    try {
+      const html = buildParentEscalationEmail(late, { repeatCount: count });
+      const subject = `התראה: ${late.student?.hebrew_name || late.student?.first_name} איז שפעט אנגעקומען (${count} מאל דעם חודש)`;
+      await sendEmail({
+        to: parentEmail,
+        subject,
+        body: html,
+        relatedType: 'late_arrival',
+        relatedId: late.id,
+        sentBy: currentUser?.id
+      });
+      await supabase
+        .from('late_arrivals')
+        .update({ parent_notified_at: new Date().toISOString() })
+        .eq('id', late.id);
+      toast({ title: 'Parent notified', description: `Escalation email sent to ${parentEmail}` });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Email failed', description: e.message });
+    } finally {
+      setEscalationPrompt(null);
+      loadData();
+    }
+  };
+
+  // Send daily summary to principal / configured recipients
+  const sendDailySummary = async () => {
+    const recipientStr = (settings.late_summary_recipients || '').trim();
+    if (!recipientStr) {
+      toast({
+        variant: 'destructive',
+        title: 'No recipients configured',
+        description: 'Set "late_summary_recipients" in Settings (comma-separated emails).'
+      });
+      return;
+    }
+    const recipients = recipientStr.split(',').map(s => s.trim()).filter(Boolean);
+
+    setSendingSummary(true);
+    try {
+      const repeatCounts = {};
+      for (const l of filteredLateArrivals) {
+        const c = monthlyCounts[l.student_id]?.unexcused;
+        if (c) repeatCounts[l.id] = c;
+      }
+      const html = buildDailySummaryEmail(selectedDate, filteredLateArrivals, { repeatCounts });
+      const subject = `Daily Late Arrivals — ${new Date(selectedDate).toLocaleDateString('en-GB')} (${filteredLateArrivals.length})`;
+      await sendEmail({
+        to: recipients,
+        subject,
+        body: html,
+        relatedType: 'late_summary',
+        sentBy: currentUser?.id
+      });
+      toast({ title: 'Summary sent', description: `Sent to ${recipients.length} recipient${recipients.length === 1 ? '' : 's'}.` });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Send failed', description: e.message });
+    } finally {
+      setSendingSummary(false);
+    }
   };
 
   // Filter
@@ -211,8 +400,12 @@ const LateTrackingView = ({ role, currentUser }) => {
           <p className="text-slate-500">Track students who arrive late, print slips for teachers</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={sendDailySummary} disabled={sendingSummary || filteredLateArrivals.length === 0}>
+            {sendingSummary ? <Loader2 className="h-4 w-4 ml-2 animate-spin" /> : <Send className="h-4 w-4 ml-2" />}
+            Email Daily Summary
+          </Button>
           <Button variant="outline" onClick={printAllSlips}>
-            <Printer className="h-4 w-4 ml-2" /> Print All Slips
+            <Printer className="h-4 w-4 ml-2" /> Print All Letters
           </Button>
           <Button onClick={() => {
             setFormData({ student_id: '', arrival_time: new Date().toTimeString().slice(0,5), minutes_late: '', reason: '', notes: '' });
@@ -291,20 +484,33 @@ const LateTrackingView = ({ role, currentUser }) => {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead>Class</TableHead>
+                <TableHead>This Month</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead>Minutes Late</TableHead>
                 <TableHead>Reason</TableHead>
-                <TableHead>Slip</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLateArrivals.map(late => (
-                <TableRow key={late.id}>
+              {filteredLateArrivals.map(late => {
+                const counts = monthlyCounts[late.student_id];
+                const monthCount = counts?.unexcused || 0;
+                const threshold = settings.late_escalation_threshold || 3;
+                const overThreshold = monthCount >= threshold;
+                return (
+                <TableRow key={late.id} className={late.excused ? 'opacity-60' : ''}>
                   <TableCell className="font-medium">
                     {late.student?.hebrew_name || `${late.student?.first_name} ${late.student?.last_name}`}
                   </TableCell>
                   <TableCell><Badge variant="outline">{late.student?.class?.name || 'N/A'}</Badge></TableCell>
+                  <TableCell>
+                    {monthCount > 0 ? (
+                      <Badge className={overThreshold ? 'bg-red-100 text-red-800 font-bold' : 'bg-blue-100 text-blue-800'}>
+                        {monthCount}×{overThreshold ? ' ⚠' : ''}
+                      </Badge>
+                    ) : <span className="text-slate-400 text-xs">—</span>}
+                  </TableCell>
                   <TableCell>{late.arrival_time || '-'}</TableCell>
                   <TableCell>
                     {late.minutes_late && (
@@ -315,20 +521,24 @@ const LateTrackingView = ({ role, currentUser }) => {
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">{late.reason || '-'}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
+                      {late.excused && <Badge className="bg-purple-100 text-purple-800">Excused</Badge>}
                       {late.slip_printed ? (
                         <Badge className="bg-green-100 text-green-800">Printed</Badge>
                       ) : (
-                        <Badge className="bg-gray-100 text-gray-600">No</Badge>
+                        <Badge className="bg-gray-100 text-gray-600">Not printed</Badge>
                       )}
                       {late.slip_given_to_teacher && (
                         <Badge className="bg-blue-100 text-blue-800">Given</Badge>
+                      )}
+                      {late.parent_notified_at && (
+                        <Badge className="bg-orange-100 text-orange-800">Parent emailed</Badge>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => printSlip(late)} title="Print Slip">
+                      <Button variant="ghost" size="sm" onClick={() => printSlip(late)} title="Print Letter">
                         <Printer className="h-4 w-4" />
                       </Button>
                       {!late.slip_given_to_teacher && late.slip_printed && (
@@ -336,6 +546,14 @@ const LateTrackingView = ({ role, currentUser }) => {
                           <FileText className="h-4 w-4 text-green-600" />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleExcused(late)}
+                        title={late.excused ? 'Remove excused' : 'Mark excused (won’t count toward escalation)'}
+                      >
+                        <ShieldCheck className={`h-4 w-4 ${late.excused ? 'text-purple-600' : 'text-slate-400'}`} />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEmailContext({
                           subject: `Late Arrival - ${late.student?.hebrew_name || late.student?.first_name}`,
@@ -348,10 +566,10 @@ const LateTrackingView = ({ role, currentUser }) => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              );})}
               {filteredLateArrivals.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">
+                  <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                     <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No one arrived late on {new Date(selectedDate).toLocaleDateString('en-US')}</p>
                   </TableCell>
@@ -438,6 +656,44 @@ const LateTrackingView = ({ role, currentUser }) => {
         defaultBody={emailContext.body}
         currentUser={currentUser}
       />
+
+      {/* Escalation Prompt */}
+      <Dialog open={!!escalationPrompt} onOpenChange={(open) => !open && setEscalationPrompt(null)}>
+        <DialogContent dir="ltr">
+          <DialogHeader>
+            <DialogTitle className="text-red-700 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Repeat Lateness — Notify Parents?
+            </DialogTitle>
+          </DialogHeader>
+          {escalationPrompt && (
+            <div className="space-y-3 py-2 text-sm">
+              <p>
+                <strong>
+                  {escalationPrompt.late.student?.hebrew_name ||
+                    `${escalationPrompt.late.student?.first_name} ${escalationPrompt.late.student?.last_name}`}
+                </strong>{' '}
+                has been late{' '}
+                <strong className="text-red-700">{escalationPrompt.count} times</strong>{' '}
+                this month (unexcused).
+              </p>
+              <p className="text-slate-600">
+                This is at or above the escalation threshold ({settings.late_escalation_threshold}).
+                Send an email notice to the parent(s)?
+              </p>
+              <div className="bg-slate-50 border rounded p-3 text-xs">
+                <div><strong>Father:</strong> {escalationPrompt.late.student?.father_email || <span className="text-slate-400">no email</span>}</div>
+                <div><strong>Mother:</strong> {escalationPrompt.late.student?.mother_email || <span className="text-slate-400">no email</span>}</div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEscalationPrompt(null)}>Skip</Button>
+            <Button onClick={confirmEscalationEmail} className="bg-red-600 hover:bg-red-700">
+              <Mail className="h-4 w-4 mr-2" /> Send Notice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
