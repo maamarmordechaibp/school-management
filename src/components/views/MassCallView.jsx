@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
-import { sendCall } from '@/lib/callService';
+import { sendCall, recordByPhone, listRecordings, deleteRecording, uploadRecording } from '@/lib/callService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { PhoneCall, Send, Eye, RefreshCw, Users, AlertTriangle, Volume2 } from 'lucide-react';
+import { PhoneCall, Send, Eye, RefreshCw, Users, AlertTriangle, Volume2, Upload, Mic, Trash2, Play, Type } from 'lucide-react';
 
 // Voices SignalWire / Amazon Polly supports for our use cases
 const VOICE_OPTIONS = [
@@ -41,6 +41,19 @@ const MassCallView = () => {
   const [sending, setSending] = useState(false);
   const [sentSummary, setSentSummary] = useState(null);
 
+  // Audio source: 'tts' (text-to-speech) | 'recording' (use a saved file)
+  const [audioMode, setAudioMode] = useState('tts');
+  const [recordings, setRecordings] = useState([]);
+  const [selectedRecordingId, setSelectedRecordingId] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadLabel, setUploadLabel] = useState('');
+  const fileInputRef = useRef(null);
+
+  // Record-by-phone
+  const [recordPhone, setRecordPhone] = useState('');
+  const [recordLabel, setRecordLabel] = useState('');
+  const [triggeringRecord, setTriggeringRecord] = useState(false);
+
   // Test-call (single) field
   const [testNumber, setTestNumber] = useState('');
   const [testing, setTesting] = useState(false);
@@ -56,7 +69,92 @@ const MassCallView = () => {
       setClasses(c.data || []);
       setLoading(false);
     })();
+    refreshRecordings();
   }, []);
+
+  const refreshRecordings = async () => {
+    try {
+      const list = await listRecordings();
+      setRecordings(list);
+    } catch (err) {
+      console.warn('listRecordings failed:', err);
+    }
+  };
+
+  const selectedRecording = useMemo(
+    () => recordings.find(r => r.id === selectedRecordingId) || null,
+    [recordings, selectedRecordingId]
+  );
+
+  const onUploadFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ variant: 'destructive', title: 'File too large', description: 'Max 10 MB. Trim or compress the audio.' });
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const row = await uploadRecording({ file, label: uploadLabel || file.name, userId: user?.id });
+      toast({ title: 'Uploaded', description: row.label });
+      setUploadLabel('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await refreshRecordings();
+      setSelectedRecordingId(row.id);
+      setAudioMode('recording');
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Upload failed', description: err.message });
+    }
+    setUploadingFile(false);
+  };
+
+  const triggerRecordByPhone = async () => {
+    if (!recordPhone.trim()) {
+      toast({ variant: 'destructive', title: 'Enter your phone number first' });
+      return;
+    }
+    setTriggeringRecord(true);
+    try {
+      const res = await recordByPhone({ to: recordPhone.trim(), label: recordLabel || `Recording ${new Date().toLocaleString()}` });
+      toast({
+        title: 'Calling you now',
+        description: 'Pick up, listen for the beep, record, then press # when done. The recording will appear in the library shortly.',
+      });
+      // Poll for the new recording for up to 5 minutes
+      const sid = res.sid;
+      const deadline = Date.now() + 5 * 60 * 1000;
+      const poll = async () => {
+        if (Date.now() > deadline) return;
+        await refreshRecordings();
+        const list = await listRecordings();
+        const fresh = list.find(r => r.source === 'phone' && new Date(r.created_at).getTime() > Date.now() - 6 * 60 * 1000);
+        if (fresh) {
+          setRecordings(list);
+          setSelectedRecordingId(fresh.id);
+          setAudioMode('recording');
+          toast({ title: 'Recording saved!', description: fresh.label });
+          return;
+        }
+        setTimeout(poll, 5000);
+      };
+      setTimeout(poll, 8000);
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Could not start recording call', description: err.message });
+    }
+    setTriggeringRecord(false);
+  };
+
+  const onDeleteRecording = async (rec) => {
+    if (!confirm(`Delete recording "${rec.label}"?`)) return;
+    try {
+      await deleteRecording(rec);
+      if (selectedRecordingId === rec.id) setSelectedRecordingId('');
+      await refreshRecordings();
+      toast({ title: 'Deleted' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+    }
+  };
 
   const voice = useMemo(() => VOICE_OPTIONS.find(v => v.id === voiceId) || VOICE_OPTIONS[0], [voiceId]);
 
@@ -115,17 +213,21 @@ const MassCallView = () => {
       toast({ variant: 'destructive', title: 'Enter a phone number' });
       return;
     }
-    if (!message.trim()) {
+    if (audioMode === 'tts' && !message.trim()) {
       toast({ variant: 'destructive', title: 'Enter a message first' });
+      return;
+    }
+    if (audioMode === 'recording' && !selectedRecording) {
+      toast({ variant: 'destructive', title: 'Pick a recording first' });
       return;
     }
     setTesting(true);
     try {
       const res = await sendCall({
         to: testNumber.trim(),
-        message,
-        voice: voice.id,
-        language: voice.language,
+        ...(audioMode === 'recording'
+          ? { audioUrl: selectedRecording.audio_url }
+          : { message, voice: voice.id, language: voice.language }),
         relatedType: 'test',
         sentBy: user?.id,
       });
@@ -142,8 +244,12 @@ const MassCallView = () => {
   };
 
   const send = async () => {
-    if (!message.trim()) {
+    if (audioMode === 'tts' && !message.trim()) {
       toast({ variant: 'destructive', title: 'Enter a message' });
+      return;
+    }
+    if (audioMode === 'recording' && !selectedRecording) {
+      toast({ variant: 'destructive', title: 'Pick a recording first' });
       return;
     }
     const list = recipients.length ? recipients : await computeRecipients();
@@ -165,9 +271,9 @@ const MassCallView = () => {
       try {
         const res = await sendCall({
           to: chunk.map(r => r.phone),
-          message,
-          voice: voice.id,
-          language: voice.language,
+          ...(audioMode === 'recording'
+            ? { audioUrl: selectedRecording.audio_url }
+            : { message, voice: voice.id, language: voice.language }),
           relatedType: 'mass_call',
           sentBy: user?.id,
         });
@@ -288,27 +394,163 @@ const MassCallView = () => {
               </div>
             )}
 
-            <div>
-              <Label className="flex items-center gap-1"><Volume2 size={14} /> Voice</Label>
-              <select className="w-full border rounded px-2 py-2 text-sm" value={voiceId} onChange={(e) => setVoiceId(e.target.value)}>
-                {VOICE_OPTIONS.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-              </select>
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">What should the parents hear?</Label>
+              <div className="flex gap-2 mt-2">
+                {[
+                  { v: 'tts',       label: 'Type message (TTS)', icon: Type },
+                  { v: 'recording', label: 'Use a recording',     icon: Mic },
+                ].map(opt => {
+                  const Icon = opt.icon;
+                  return (
+                    <Button
+                      key={opt.v}
+                      size="sm"
+                      variant={audioMode === opt.v ? 'default' : 'outline'}
+                      onClick={() => setAudioMode(opt.v)}
+                    >
+                      <Icon size={14} className="mr-1" /> {opt.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
-              <Label>Spoken message</Label>
-              <Textarea
-                rows={5}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={TEST_MESSAGE_DEFAULT}
-                dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Tip: keep it under 30 seconds. The message is repeated twice automatically (in case the parent missed the start).
-                Character count: {message.length}
-              </p>
-            </div>
+            {audioMode === 'tts' && (
+              <>
+                <div>
+                  <Label className="flex items-center gap-1"><Volume2 size={14} /> Voice</Label>
+                  <select className="w-full border rounded px-2 py-2 text-sm" value={voiceId} onChange={(e) => setVoiceId(e.target.value)}>
+                    {VOICE_OPTIONS.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <Label>Spoken message</Label>
+                  <Textarea
+                    rows={5}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder={TEST_MESSAGE_DEFAULT}
+                    dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Tip: keep it under 30 seconds. The message is repeated twice automatically.
+                    Character count: {message.length}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {audioMode === 'recording' && (
+              <div className="space-y-3">
+                {/* Library */}
+                <div className="border rounded p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-semibold">Recording library</Label>
+                    <Button size="sm" variant="ghost" onClick={refreshRecordings}>
+                      <RefreshCw size={12} className="mr-1" /> Refresh
+                    </Button>
+                  </div>
+                  {recordings.length === 0 ? (
+                    <p className="text-xs text-slate-500">No recordings yet. Upload a file or call yourself to record one.</p>
+                  ) : (
+                    <div className="space-y-1 max-h-56 overflow-y-auto">
+                      {recordings.map(r => (
+                        <div
+                          key={r.id}
+                          className={`flex items-center gap-2 p-2 rounded border-2 transition cursor-pointer ${
+                            selectedRecordingId === r.id
+                              ? 'border-emerald-500 bg-emerald-50'
+                              : 'border-transparent bg-white hover:border-slate-200'
+                          }`}
+                          onClick={() => setSelectedRecordingId(r.id)}
+                        >
+                          <input
+                            type="radio"
+                            checked={selectedRecordingId === r.id}
+                            onChange={() => setSelectedRecordingId(r.id)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{r.label}</div>
+                            <div className="text-[10px] text-slate-500 flex items-center gap-2">
+                              <Badge variant="outline" className="text-[9px] py-0 px-1">{r.source}</Badge>
+                              {r.duration_sec ? <span>{r.duration_sec}s</span> : null}
+                              <span>{new Date(r.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <audio controls preload="none" className="h-7" style={{ maxWidth: 180 }}>
+                            <source src={r.audio_url} />
+                          </audio>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); onDeleteRecording(r); }}
+                            className="text-red-600"
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload file */}
+                <div className="border rounded p-3">
+                  <Label className="text-sm font-semibold flex items-center gap-1"><Upload size={14} /> Upload audio file</Label>
+                  <p className="text-[11px] text-slate-500 mb-2">MP3, WAV, M4A or OGG. Max 10 MB.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Label (optional, e.g. 'Snow day')"
+                      value={uploadLabel}
+                      onChange={(e) => setUploadLabel(e.target.value)}
+                      className="flex-1"
+                    />
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={onUploadFile}
+                      ref={fileInputRef}
+                      disabled={uploadingFile}
+                      className="text-xs"
+                    />
+                  </div>
+                  {uploadingFile && <p className="text-xs text-slate-500 mt-1">Uploading…</p>}
+                </div>
+
+                {/* Record by phone */}
+                <div className="border rounded p-3 bg-blue-50/40">
+                  <Label className="text-sm font-semibold flex items-center gap-1"><Mic size={14} /> Record by phone</Label>
+                  <p className="text-[11px] text-slate-500 mb-2">
+                    We'll call your phone — pick up, speak after the beep, press <strong>#</strong> when done.
+                    The recording will appear in the library above.
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Your phone (e.g. 8455551234)"
+                      value={recordPhone}
+                      onChange={(e) => setRecordPhone(e.target.value)}
+                      className="font-mono text-sm"
+                    />
+                    <Input
+                      placeholder="Label (optional)"
+                      value={recordLabel}
+                      onChange={(e) => setRecordLabel(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={triggerRecordByPhone}
+                      disabled={triggeringRecord}
+                      className="bg-blue-600 hover:bg-blue-700 w-full"
+                    >
+                      <PhoneCall size={14} className="mr-1" />
+                      {triggeringRecord ? 'Calling…' : 'Call me to record'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Test call */}
             <div className="border rounded p-3 bg-slate-50">
@@ -342,17 +584,29 @@ const MassCallView = () => {
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><Eye size={16} /> Preview</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <div className="border rounded p-2 bg-slate-50">
-              <div className="text-[10px] text-slate-500 uppercase">Voice</div>
-              <div className="text-sm">{voice.label}</div>
+              <div className="text-[10px] text-slate-500 uppercase">Audio source</div>
+              <div className="text-sm">
+                {audioMode === 'tts' ? voice.label : (selectedRecording?.label || <em className="text-slate-400">no recording selected</em>)}
+              </div>
             </div>
             <div className="border rounded p-2">
-              <div className="text-[10px] text-slate-500 uppercase mb-1">Message that will be spoken</div>
-              <div
-                className="text-sm whitespace-pre-wrap"
-                dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
-              >
-                {message || <em className="text-slate-400">(empty)</em>}
+              <div className="text-[10px] text-slate-500 uppercase mb-1">
+                {audioMode === 'tts' ? 'Message that will be spoken' : 'Recording that will be played'}
               </div>
+              {audioMode === 'tts' ? (
+                <div
+                  className="text-sm whitespace-pre-wrap"
+                  dir={voice.language === 'he-IL' ? 'rtl' : 'ltr'}
+                >
+                  {message || <em className="text-slate-400">(empty)</em>}
+                </div>
+              ) : selectedRecording ? (
+                <audio controls className="w-full">
+                  <source src={selectedRecording.audio_url} />
+                </audio>
+              ) : (
+                <em className="text-slate-400 text-sm">Pick a recording from the library on the left</em>
+              )}
             </div>
 
             <div className="border rounded p-2">

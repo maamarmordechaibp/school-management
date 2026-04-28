@@ -89,10 +89,10 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers });
   }
 
-  const { to, message, voice, language, relatedType, relatedId, sentBy } = body || {};
+  const { to, message, audioUrl, voice, language, relatedType, relatedId, sentBy } = body || {};
 
-  if (!to || !message) {
-    return new Response(JSON.stringify({ error: 'Missing required fields: to, message' }), { status: 400, headers });
+  if (!to || (!message && !audioUrl)) {
+    return new Response(JSON.stringify({ error: 'Missing required fields: to and (message or audioUrl)' }), { status: 400, headers });
   }
 
   const recipientsRaw = Array.isArray(to) ? to : [to];
@@ -109,15 +109,20 @@ export async function onRequestPost(context) {
   const ttsVoice = voice || 'Polly.Joanna';
   const ttsLang = language || 'en-US';
 
-  // Build inline TwiML — repeats the message twice, then a polite goodbye.
-  // Pause helps cell-phone audio settle before the speech starts.
+  // Build inline TwiML. If audioUrl is provided, use <Play> (real recording);
+  // otherwise use <Say> (text-to-speech). Either way, repeat twice with a
+  // pause between so the parent doesn't miss the start.
+  const speakOrPlay = audioUrl
+    ? `<Play>${escapeXml(audioUrl)}</Play>`
+    : `<Say voice="${escapeXml(ttsVoice)}" language="${escapeXml(ttsLang)}">${escapeXml(message)}</Say>`;
+
   const twiml =
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Response>` +
       `<Pause length="1"/>` +
-      `<Say voice="${escapeXml(ttsVoice)}" language="${escapeXml(ttsLang)}">${escapeXml(message)}</Say>` +
+      speakOrPlay +
       `<Pause length="1"/>` +
-      `<Say voice="${escapeXml(ttsVoice)}" language="${escapeXml(ttsLang)}">${escapeXml(message)}</Say>` +
+      speakOrPlay +
     `</Response>`;
 
   const callsUrl = `https://${SPACE_URL}/api/laml/2010-04-01/Accounts/${PROJECT_ID}/Calls.json`;
@@ -171,9 +176,9 @@ export async function onRequestPost(context) {
           },
           body: JSON.stringify({
             recipient: e164,
-            message,
-            voice: ttsVoice,
-            language: ttsLang,
+            message: audioUrl ? `[audio] ${audioUrl}` : message,
+            voice: audioUrl ? null : ttsVoice,
+            language: audioUrl ? null : ttsLang,
             provider: 'signalwire',
             provider_sid: data?.sid || null,
             status: resp.ok ? 'queued' : 'failed',
