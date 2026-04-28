@@ -46,6 +46,8 @@ export function buildLateLetterPage(late, opts = {}) {
   const arrivalTime = late.arrival_time || '';
   const reason = late.reason || '';
   const repeatCount = opts.repeatCount;
+  const signatureName = opts.signatureName || '';
+  const signatureRole = opts.signatureRole || '';
 
   return `
     <div class="slip">
@@ -62,7 +64,7 @@ export function buildLateLetterPage(late, opts = {}) {
       <p class="greet">לכבוד הרב המלמד שליט"א,</p>
 
       <p class="body">
-        דער בחור <strong>${escapeHtml(studentDisplayName(student))}</strong>${className ? ` פון כיתה <strong>${escapeHtml(className)}</strong>` : ''} איז היינט אנגעקומען שפעט צו די ישיבה.
+        דער בחור <strong>${escapeHtml(studentDisplayName(student))}</strong>${className ? ` פון כיתה <strong>${escapeHtml(className)}</strong>` : ''} איז היינט אנגעקומען שפעט צום חדר.
       </p>
 
       <div class="row"><span class="lbl">צייט פון אנקומען:</span><span><strong>${escapeHtml(arrivalTime || '—')}</strong></span></div>
@@ -72,8 +74,9 @@ export function buildLateLetterPage(late, opts = {}) {
       <p class="note">ביטע איבערגעבן דעם בריוו צום מלמד ביים אריינקומען אין כיתה.</p>
 
       <div class="sign">
+        ${signatureName ? `<div class="sig-name">${escapeHtml(signatureName)}</div>` : ''}
         <div class="sig-line"></div>
-        <div class="sig-label">סגן המנהל</div>
+        <div class="sig-label">${escapeHtml(signatureRole || 'סגן המנהל')}</div>
       </div>
     </div>
   `;
@@ -81,10 +84,11 @@ export function buildLateLetterPage(late, opts = {}) {
 
 // Receipt / 80mm thermal format — narrow, continuous roll, large readable text.
 const LETTER_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Suez+One&display=swap');
   @page { size: 80mm auto; margin: 3mm; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: 'David', 'Narkisim', 'Times New Roman', serif;
+    font-family: 'Frank Ruhl Libre', 'David', 'Narkisim', 'Times New Roman', serif;
     color: #000;
     width: 74mm;
     font-size: 11pt;
@@ -141,6 +145,17 @@ const LETTER_STYLES = `
     text-align: center;
   }
   .sign { margin-top: 8mm; text-align: center; }
+  .sig-name {
+    font-family: 'Suez One', 'Frank Ruhl Libre', 'David', cursive;
+    font-size: 18pt;
+    font-weight: 500;
+    font-style: italic;
+    color: #1e3a8a;
+    margin-bottom: 1mm;
+    transform: rotate(-2deg);
+    display: inline-block;
+    letter-spacing: 0.5px;
+  }
   .sig-line { width: 50mm; border-top: 1px solid #000; margin: 0 auto; }
   .sig-label { font-size: 9pt; margin-top: 1mm; }
   @media print { body { background: white; } }
@@ -184,7 +199,7 @@ export function buildParentEscalationEmail(late, opts = {}) {
       <p>
         מיר ווילן אייך געבן צו וויסן אז אייער זון
         <strong>${escapeHtml(studentDisplayName(student))}</strong>
-        איז היינט (${escapeHtml(formatHebrewDate(late.date))}) ווידעראמאל אנגעקומען שפעט אין ישיבה.
+        איז היינט (${escapeHtml(formatHebrewDate(late.date))}) ווידעראמאל אנגעקומען שפעט אין חדר.
       </p>
       <p>
         דאס איז שוין <strong>${repeatCount} מאל</strong> דעם חודש (${escapeHtml(monthName)}).
@@ -193,7 +208,7 @@ export function buildParentEscalationEmail(late, opts = {}) {
         מיר בעטן אייך הארציג זיך אנצושטרענגען צו זען אז דער בחור זאל אנקומען צו זמן, אזוי ער זאל נישט פארפאסן דעם אנהויב פון די לימודים און נישט שטערן די אנדערע תלמידים.
       </p>
       <p style="margin-top: 18px;">
-        אויב עס איז דא ספעציעלע אומשטענדן, ביטע פארבינדט אייך מיט די ישיבה און מיר וועלן בעז"ה ארבעטן צוזאמען אויף א לעזונג.
+        אויב עס איז דא ספעציעלע אומשטענדן, ביטע פארבינדט אייך מיט דעם חדר און מיר וועלן בעז"ה ארבעטן צוזאמען אויף א לעזונג.
       </p>
       <p style="margin-top: 24px;">
         בכבוד רב ובברכת התורה,<br>

@@ -15,7 +15,8 @@ import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
   Clock, AlertCircle, Printer, Search, Plus, Calendar, Users,
-  FileText, Download, Mail, Loader2, RefreshCw, ShieldCheck, Send
+  FileText, Download, Mail, Loader2, RefreshCw, ShieldCheck, Send,
+  PenLine, Edit3, X
 } from 'lucide-react';
 import {
   buildLateLetterDocument,
@@ -38,10 +39,14 @@ const LateTrackingView = ({ role, currentUser }) => {
   const [settings, setSettings] = useState({
     late_escalation_threshold: 3,
     late_summary_recipients: '',
-    school_name_yi: SCHOOL_NAME_YI,
-    school_subtitle_yi: SCHOOL_SUBTITLE_YI,
-    school_logo_url: SCHOOL_LOGO_URL
+    signature_name: '',          // saved permanent signature (e.g. "הרב משה כהן")
+    signature_role: 'סגן המנהל'  // saved permanent role line under the signature
   });
+
+  // Today-only signature override (resets on reload)
+  const [todaySignature, setTodaySignature] = useState(null); // { name, role } | null
+  const [signatureEditOpen, setSignatureEditOpen] = useState(false);
+  const [sigDraft, setSigDraft] = useState({ name: '', role: 'סגן המנהל' });
 
   // Filters
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -71,7 +76,7 @@ const LateTrackingView = ({ role, currentUser }) => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'school_name_yi', 'school_subtitle_yi', 'school_logo_url']);
+        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'signature_name', 'signature_role']);
       if (data) {
         const map = {};
         for (const row of data) map[row.key] = row.value;
@@ -79,13 +84,34 @@ const LateTrackingView = ({ role, currentUser }) => {
           ...prev,
           late_escalation_threshold: parseInt(map.late_escalation_threshold || '3', 10) || 3,
           late_summary_recipients: map.late_summary_recipients || '',
-          school_name_yi: map.school_name_yi || prev.school_name_yi,
-          school_subtitle_yi: map.school_subtitle_yi || prev.school_subtitle_yi,
-          school_logo_url: map.school_logo_url || prev.school_logo_url
+          signature_name: map.signature_name || '',
+          signature_role: map.signature_role || prev.signature_role
         }));
       }
     } catch (e) {
       console.error('Failed to load late-tracking settings:', e);
+    }
+  };
+
+  // Persist a new permanent signature
+  const savePermanentSignature = async () => {
+    const name = (sigDraft.name || '').trim();
+    const role = (sigDraft.role || '').trim() || 'סגן המנהל';
+    try {
+      const rows = [
+        { key: 'signature_name', value: name },
+        { key: 'signature_role', value: role }
+      ];
+      // Upsert one at a time (key is PK)
+      for (const r of rows) {
+        await supabase.from('app_settings').upsert(r, { onConflict: 'key' });
+      }
+      setSettings((prev) => ({ ...prev, signature_name: name, signature_role: role }));
+      setTodaySignature(null); // clear any temp override
+      setSignatureEditOpen(false);
+      toast({ title: 'Signature saved', description: name ? `Letters will be signed by ${name}` : 'Signature cleared' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Save failed', description: e.message });
     }
   };
 
@@ -253,10 +279,13 @@ const LateTrackingView = ({ role, currentUser }) => {
   // Print slip for a student (Yiddish letter, school letterhead)
   const printSlip = (late, repeatCount) => {
     const count = repeatCount ?? monthlyCounts[late.student_id]?.unexcused;
+    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
     const html = buildLateLetterDocument(late, {
-      schoolName: settings.school_name_yi,
-      schoolSubtitle: settings.school_subtitle_yi,
-      logoUrl: settings.school_logo_url,
+      schoolName: SCHOOL_NAME_YI,
+      schoolSubtitle: SCHOOL_SUBTITLE_YI,
+      logoUrl: SCHOOL_LOGO_URL,
+      signatureName: sig.name,
+      signatureRole: sig.role,
       repeatCounts: count ? { [late.id]: count } : {}
     });
     const printWindow = window.open('', '_blank');
@@ -283,10 +312,13 @@ const LateTrackingView = ({ role, currentUser }) => {
       const c = monthlyCounts[l.student_id]?.unexcused;
       if (c) repeatCounts[l.id] = c;
     }
+    const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
     const html = buildLateLetterDocument(unprintedSlips, {
-      schoolName: settings.school_name_yi,
-      schoolSubtitle: settings.school_subtitle_yi,
-      logoUrl: settings.school_logo_url,
+      schoolName: SCHOOL_NAME_YI,
+      schoolSubtitle: SCHOOL_SUBTITLE_YI,
+      logoUrl: SCHOOL_LOGO_URL,
+      signatureName: sig.name,
+      signatureRole: sig.role,
       repeatCounts
     });
     const printWindow = window.open('', '_blank');
@@ -426,6 +458,69 @@ const LateTrackingView = ({ role, currentUser }) => {
           </Button>
         </div>
       </div>
+
+      {/* Signature bar */}
+      <Card className="border-blue-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+        <CardContent className="p-3 flex items-center justify-between flex-wrap gap-3" dir="ltr">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white rounded-lg shadow-sm">
+              <PenLine className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Letters will be signed by</div>
+              {(() => {
+                const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role };
+                return (
+                  <div className="flex items-center gap-2">
+                    <span
+                      dir="rtl"
+                      className="font-semibold text-slate-800 text-lg"
+                      style={{
+                        fontFamily: "'Suez One', 'Frank Ruhl Libre', 'David', cursive",
+                        fontStyle: 'italic',
+                        color: '#1e3a8a',
+                      }}
+                    >
+                      {sig.name || <span className="text-slate-400 italic text-sm">Not set yet — click "Set signature"</span>}
+                    </span>
+                    {sig.name && (
+                      <span className="text-xs text-slate-500" dir="rtl">— {sig.role}</span>
+                    )}
+                    {todaySignature && (
+                      <Badge className="bg-amber-100 text-amber-800 text-[10px]">Today only</Badge>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {todaySignature && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setTodaySignature(null)}
+                className="text-amber-700"
+              >
+                <X className="h-4 w-4 mr-1" /> Clear today's override
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSigDraft({
+                  name: (todaySignature?.name) || settings.signature_name || '',
+                  role: (todaySignature?.role) || settings.signature_role || 'סגן המנהל'
+                });
+                setSignatureEditOpen(true);
+              }}
+            >
+              <Edit3 className="h-4 w-4 mr-1" /> {settings.signature_name ? 'Change signature' : 'Set signature'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -689,6 +784,86 @@ const LateTrackingView = ({ role, currentUser }) => {
             <Button variant="outline" onClick={() => setEscalationPrompt(null)}>Skip</Button>
             <Button onClick={confirmEscalationEmail} className="bg-red-600 hover:bg-red-700">
               <Mail className="h-4 w-4 mr-2" /> Send Notice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Signature Edit Dialog */}
+      <Dialog open={signatureEditOpen} onOpenChange={setSignatureEditOpen}>
+        <DialogContent dir="ltr" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenLine className="h-5 w-5 text-blue-600" /> Letter Signature
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-slate-600">
+              This name is printed at the bottom of every late slip in elegant Hebrew script.
+              Set it once — it'll be remembered.
+            </p>
+
+            <div>
+              <Label className="text-sm">Name (in Hebrew/Yiddish)</Label>
+              <Input
+                value={sigDraft.name}
+                onChange={(e) => setSigDraft({ ...sigDraft, name: e.target.value })}
+                placeholder="הרב משה כהן"
+                dir="rtl"
+                className="text-lg"
+                style={{ fontFamily: "'Suez One', 'Frank Ruhl Libre', cursive", color: '#1e3a8a', fontStyle: 'italic' }}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm">Title (line under the signature)</Label>
+              <Input
+                value={sigDraft.role}
+                onChange={(e) => setSigDraft({ ...sigDraft, role: e.target.value })}
+                placeholder="סגן המנהל"
+                dir="rtl"
+              />
+            </div>
+
+            {/* Live preview */}
+            <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center bg-white">
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Preview</div>
+              <div
+                dir="rtl"
+                style={{
+                  fontFamily: "'Suez One', 'Frank Ruhl Libre', 'David', cursive",
+                  fontSize: '22pt',
+                  fontStyle: 'italic',
+                  color: '#1e3a8a',
+                  transform: 'rotate(-2deg)',
+                  display: 'inline-block',
+                  marginBottom: '4px',
+                }}
+              >
+                {sigDraft.name || <span className="text-slate-300 text-base not-italic">(your name)</span>}
+              </div>
+              <div className="border-t border-slate-700 w-40 mx-auto mt-1" />
+              <div className="text-xs text-slate-600 mt-1" dir="rtl">{sigDraft.role || 'סגן המנהל'}</div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Today-only override — does not save to DB
+                setTodaySignature({
+                  name: (sigDraft.name || '').trim(),
+                  role: (sigDraft.role || '').trim() || 'סגן המנהל'
+                });
+                setSignatureEditOpen(false);
+                toast({ title: 'Today only', description: 'This signature applies until you reload the page.' });
+              }}
+              className="text-amber-700 border-amber-300"
+            >
+              Use today only
+            </Button>
+            <Button onClick={savePermanentSignature} className="bg-blue-600 hover:bg-blue-700">
+              <PenLine className="h-4 w-4 mr-2" /> Save permanently
             </Button>
           </DialogFooter>
         </DialogContent>
