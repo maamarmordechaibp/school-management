@@ -169,7 +169,9 @@ const MassCallView = () => {
         return [];
       }
       const list = [];
+      let totalStaff = 0;
       (data || []).forEach(s => {
+        totalStaff++;
         const name = s.hebrew_name || s.full_name || '';
         const phone = s.cell_phone || s.home_phone;
         if (!phone) return;
@@ -182,6 +184,7 @@ const MassCallView = () => {
           kind: 'staff',
         });
       });
+      console.log(`[MassCall] staff: ${totalStaff} loaded, ${list.length} with phones`);
       return list;
     }
 
@@ -198,9 +201,11 @@ const MassCallView = () => {
       return [];
     }
     let students = data || [];
+    const totalStudents = students.length;
     if (audience === 'grade' && audienceId) {
       students = students.filter(s => s.class?.grade_id === audienceId);
     }
+    const filteredStudents = students.length;
 
     const list = [];
     students.forEach(s => {
@@ -223,6 +228,7 @@ const MassCallView = () => {
         if ((contactType === 'mother' || contactType === 'both')) pushIf(s.mother_phone, s.mother_name || '', 'mother');
       }
     });
+    console.log(`[MassCall] students: ${totalStudents} total, ${filteredStudents} after filter, ${list.length} with phones in '${contactType}' field(s)`);
     return list;
   };
 
@@ -231,7 +237,11 @@ const MassCallView = () => {
     setRecipients(list);
     setExcluded(new Set()); // reset exclusions on refresh
     if (list.length === 0) {
-      toast({ variant: 'destructive', title: 'No phone numbers found', description: 'Selected audience has no usable phone numbers in the chosen field.' });
+      const isStaff = audience === 'staff_all' || audience === 'staff_position';
+      const detail = isStaff
+        ? 'No active staff have a cell or home phone in this group.'
+        : `No students in this group have a phone in the "${contactType}" field. Try "All phones" to include father, mother, and home.`;
+      toast({ variant: 'destructive', title: 'No phone numbers found', description: detail });
     } else {
       toast({ title: `Found ${list.length} phone number(s)` });
     }
