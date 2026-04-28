@@ -22,9 +22,10 @@ const MassCallView = () => {
 
   const [audience, setAudience] = useState('all'); // all | grade | class | staff_all | staff_position | custom
   const [audienceId, setAudienceId] = useState('');
-  const [contactType, setContactType] = useState('father'); // father | mother | both | home
+  const [contactType, setContactType] = useState('father'); // father | mother | both | home | all_phones
   const [customNumbers, setCustomNumbers] = useState(''); // newline / comma separated
   const [recipients, setRecipients] = useState([]); // [{ phone, parent_name, student_name, ... }]
+  const [excluded, setExcluded] = useState(() => new Set()); // phone strings excluded from send
   const [sending, setSending] = useState(false);
   const [sentSummary, setSentSummary] = useState(null);
 
@@ -213,6 +214,10 @@ const MassCallView = () => {
 
       if (contactType === 'home') {
         pushIf(s.home_phone, '', 'home');
+      } else if (contactType === 'all_phones') {
+        pushIf(s.father_phone, s.father_name || '', 'father');
+        pushIf(s.mother_phone, s.mother_name || '', 'mother');
+        pushIf(s.home_phone,   '',                  'home');
       } else {
         if ((contactType === 'father' || contactType === 'both')) pushIf(s.father_phone, s.father_name || '', 'father');
         if ((contactType === 'mother' || contactType === 'both')) pushIf(s.mother_phone, s.mother_name || '', 'mother');
@@ -224,8 +229,26 @@ const MassCallView = () => {
   const refreshRecipients = async () => {
     const list = await computeRecipients();
     setRecipients(list);
-    toast({ title: `Found ${list.length} phone number(s)` });
+    setExcluded(new Set()); // reset exclusions on refresh
+    if (list.length === 0) {
+      toast({ variant: 'destructive', title: 'No phone numbers found', description: 'Selected audience has no usable phone numbers in the chosen field.' });
+    } else {
+      toast({ title: `Found ${list.length} phone number(s)` });
+    }
   };
+
+  const toggleExcluded = (phone) => {
+    setExcluded(prev => {
+      const next = new Set(prev);
+      if (next.has(phone)) next.delete(phone); else next.add(phone);
+      return next;
+    });
+  };
+
+  const activeRecipients = useMemo(
+    () => recipients.filter(r => !excluded.has(r.phone)),
+    [recipients, excluded]
+  );
 
   const sendTest = async () => {
     if (!testNumber.trim()) {
@@ -261,9 +284,9 @@ const MassCallView = () => {
       toast({ variant: 'destructive', title: 'Pick a recording first' });
       return;
     }
-    const list = recipients.length ? recipients : await computeRecipients();
+    const list = activeRecipients.length ? activeRecipients : (await computeRecipients()).filter(r => !excluded.has(r.phone));
     if (!list.length) {
-      toast({ variant: 'destructive', title: 'No recipients', description: 'Refresh recipients first.' });
+      toast({ variant: 'destructive', title: 'No recipients', description: 'Refresh recipients first, or un-exclude some.' });
       return;
     }
     if (!confirm(`Place ${list.length} call(s)? Each call will cost ~1¢ on SignalWire.`)) return;
@@ -397,10 +420,11 @@ const MassCallView = () => {
                 <Label>Call which phone</Label>
                 <div className="flex gap-2 mt-1 flex-wrap">
                   {[
-                    { v: 'father', label: "Father's phone" },
-                    { v: 'mother', label: "Mother's phone" },
-                    { v: 'both',   label: 'Both parents' },
-                    { v: 'home',   label: 'Home phone' },
+                    { v: 'father',     label: "Father's phone" },
+                    { v: 'mother',     label: "Mother's phone" },
+                    { v: 'both',       label: 'Father & Mother' },
+                    { v: 'all_phones', label: 'All (Father + Mother + Home)' },
+                    { v: 'home',       label: 'Home phone only' },
                   ].map(opt => (
                     <Button key={opt.v} size="sm" variant={contactType === opt.v ? 'default' : 'outline'} onClick={() => { setContactType(opt.v); setRecipients([]); }}>
                       {opt.label}
@@ -543,8 +567,8 @@ const MassCallView = () => {
               <Button variant="outline" onClick={refreshRecipients}>
                 <RefreshCw size={14} className="mr-1" /> Refresh recipients
               </Button>
-              <Button onClick={send} disabled={sending || !recipients.length} className="bg-emerald-600 hover:bg-emerald-700">
-                <Send size={14} className="mr-1" /> {sending ? 'Calling…' : `Place ${recipients.length} call${recipients.length === 1 ? '' : 's'}`}
+              <Button onClick={send} disabled={sending || !activeRecipients.length} className="bg-emerald-600 hover:bg-emerald-700">
+                <Send size={14} className="mr-1" /> {sending ? 'Calling…' : `Place ${activeRecipients.length} call${activeRecipients.length === 1 ? '' : 's'}`}
               </Button>
             </div>
           </CardContent>
@@ -572,24 +596,44 @@ const MassCallView = () => {
             </div>
 
             <div className="border rounded p-2">
-              <div className="text-[10px] text-slate-500 uppercase mb-1 flex items-center gap-1">
-                <Users size={12} /> Recipients ({recipients.length})
+              <div className="text-[10px] text-slate-500 uppercase mb-1 flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1"><Users size={12} /> Recipients ({activeRecipients.length}{excluded.size > 0 ? ` of ${recipients.length}` : ''})</span>
+                {excluded.size > 0 && (
+                  <button onClick={() => setExcluded(new Set())} className="text-blue-600 hover:underline normal-case text-[10px]">
+                    Restore {excluded.size} excluded
+                  </button>
+                )}
               </div>
               {recipients.length === 0 ? (
                 <p className="text-xs text-slate-500">Click “Refresh recipients” to load.</p>
               ) : (
                 <div className="max-h-64 overflow-y-auto text-xs space-y-1">
-                  {recipients.slice(0, 80).map((r, i) => (
-                    <div key={i} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 last:border-b-0">
-                      <span className="truncate">
-                        {r.student_name && <strong>{r.student_name}</strong>}
-                        {r.parent_name && <span className="text-slate-500"> · {r.parent_name}</span>}
-                        {r.kind && <Badge variant="outline" className="ml-1 text-[9px] py-0 px-1">{r.kind}</Badge>}
-                      </span>
-                      <span className="text-slate-500 truncate font-mono">{r.phone}</span>
-                    </div>
-                  ))}
-                  {recipients.length > 80 && <p className="text-slate-400 text-center pt-1">…and {recipients.length - 80} more</p>}
+                  {recipients.slice(0, 200).map((r, i) => {
+                    const isExcluded = excluded.has(r.phone);
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between gap-2 py-1 border-b border-slate-100 last:border-b-0 ${
+                          isExcluded ? 'opacity-40 line-through' : ''
+                        }`}
+                      >
+                        <span className="truncate flex-1">
+                          {r.student_name && <strong>{r.student_name}</strong>}
+                          {r.parent_name && <span className="text-slate-500"> · {r.parent_name}</span>}
+                          {r.kind && <Badge variant="outline" className="ml-1 text-[9px] py-0 px-1">{r.kind}</Badge>}
+                        </span>
+                        <span className="text-slate-500 truncate font-mono">{r.phone}</span>
+                        <button
+                          onClick={() => toggleExcluded(r.phone)}
+                          className={`text-[10px] px-1 rounded ${isExcluded ? 'text-blue-600 hover:bg-blue-50' : 'text-red-600 hover:bg-red-50'}`}
+                          title={isExcluded ? 'Include' : 'Exclude'}
+                        >
+                          {isExcluded ? '↶' : '✕'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {recipients.length > 200 && <p className="text-slate-400 text-center pt-1">…and {recipients.length - 200} more</p>}
                 </div>
               )}
             </div>
