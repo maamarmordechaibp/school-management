@@ -24,6 +24,7 @@ const MeetingsView = ({ role, currentUser }) => {
   const [meetings, setMeetings] = useState([]);
   const [students, setStudents] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [mentors, setMentors] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [viewMode, setViewMode] = useState('list');
@@ -52,7 +53,17 @@ const MeetingsView = ({ role, currentUser }) => {
     loadMeetings();
     loadStudents();
     loadStaff();
+    loadMentors();
   }, []);
+
+  const loadMentors = async () => {
+    const { data } = await supabase
+      .from('special_ed_staff')
+      .select('id, name, hebrew_name, role')
+      .eq('is_active', true)
+      .order('name');
+    setMentors(data || []);
+  };
 
   const loadStudents = async () => {
     const { data } = await supabase
@@ -84,7 +95,11 @@ const MeetingsView = ({ role, currentUser }) => {
           organizer:app_users!organizer_id(id, first_name, last_name),
           meeting_participants(
             id,
-            participant:app_users(id, first_name, last_name, role)
+            user_id,
+            mentor_id,
+            external_name,
+            participant:app_users!user_id(id, first_name, last_name, role),
+            mentor:special_ed_staff!mentor_id(id, name, role)
           )
         `)
         .order('scheduled_date', { ascending: true });
@@ -112,7 +127,8 @@ const MeetingsView = ({ role, currentUser }) => {
         scheduled_time: datetime.toTimeString().slice(0, 5),
         duration_minutes: meeting.duration_minutes || 30,
         location: meeting.location || '',
-        participant_ids: meeting.meeting_participants?.map(p => p.participant?.id).filter(Boolean) || [],
+        participant_ids: meeting.meeting_participants?.map(p => p.user_id).filter(Boolean) || [],
+        mentor_ids: meeting.meeting_participants?.map(p => p.mentor_id).filter(Boolean) || [],
         notes: meeting.notes || ''
       });
     } else {
@@ -127,6 +143,7 @@ const MeetingsView = ({ role, currentUser }) => {
         duration_minutes: 30,
         location: '',
         participant_ids: [],
+        mentor_ids: [],
         notes: ''
       });
     }
@@ -148,7 +165,10 @@ const MeetingsView = ({ role, currentUser }) => {
         student_id: formData.student_id || null,
         organizer_id: currentUser?.id,
         meeting_type: formData.meeting_type,
-        scheduled_date: scheduledDatetime.toISOString(),
+        // Write both columns so we work with either schema (legacy meeting_date NOT NULL or new scheduled_date)
+        scheduled_date: formData.scheduled_date,
+        meeting_date: formData.scheduled_date,
+        start_time: formData.scheduled_time || null,
         duration_minutes: formData.duration_minutes,
         location: formData.location || null,
         notes: formData.notes || null,
@@ -170,13 +190,17 @@ const MeetingsView = ({ role, currentUser }) => {
         meetingId = data.id;
       }
 
-      // Add participants
-      if (formData.participant_ids.length > 0) {
-        const participantInserts = formData.participant_ids.map(pid => ({
-          meeting_id: meetingId,
-          participant_id: pid
-        }));
-        await supabase.from('meeting_participants').insert(participantInserts);
+      // Add participants (staff = app_users, mentors = special_ed_staff)
+      const inserts = [];
+      for (const pid of formData.participant_ids || []) {
+        inserts.push({ meeting_id: meetingId, user_id: pid });
+      }
+      for (const mid of formData.mentor_ids || []) {
+        inserts.push({ meeting_id: meetingId, mentor_id: mid });
+      }
+      if (inserts.length > 0) {
+        const { error: pErr } = await supabase.from('meeting_participants').insert(inserts);
+        if (pErr) console.error('Participants insert error:', pErr);
       }
 
       toast({ title: 'Success', description: selectedMeeting ? 'Meeting updated' : 'Meeting scheduled' });
@@ -238,6 +262,15 @@ const MeetingsView = ({ role, currentUser }) => {
       participant_ids: prev.participant_ids.includes(participantId)
         ? prev.participant_ids.filter(id => id !== participantId)
         : [...prev.participant_ids, participantId]
+    }));
+  };
+
+  const toggleMentor = (mentorId) => {
+    setFormData(prev => ({
+      ...prev,
+      mentor_ids: (prev.mentor_ids || []).includes(mentorId)
+        ? prev.mentor_ids.filter(id => id !== mentorId)
+        : [...(prev.mentor_ids || []), mentorId]
     }));
   };
 
@@ -401,15 +434,24 @@ const MeetingsView = ({ role, currentUser }) => {
                       <TableCell>{getMeetingTypeBadge(meeting.meeting_type)}</TableCell>
                       <TableCell>
                         <div className="flex -space-x-2">
-                          {meeting.meeting_participants?.slice(0, 3).map((p, i) => (
-                            <div 
-                              key={i}
-                              className="h-7 w-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs text-indigo-700 font-medium border-2 border-white"
-                              title={`${p.participant?.first_name} ${p.participant?.last_name}`}
-                            >
-                              {p.participant?.first_name?.charAt(0)}{p.participant?.last_name?.charAt(0)}
-                            </div>
-                          ))}
+                          {meeting.meeting_participants?.slice(0, 3).map((p, i) => {
+                            const label = p.participant
+                              ? `${p.participant.first_name || ''} ${p.participant.last_name || ''}`.trim()
+                              : (p.mentor?.name || p.external_name || '?');
+                            const initials = p.participant
+                              ? `${p.participant.first_name?.charAt(0) || ''}${p.participant.last_name?.charAt(0) || ''}`
+                              : (p.mentor?.name || p.external_name || '?').slice(0, 2).toUpperCase();
+                            const bg = p.mentor_id ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700';
+                            return (
+                              <div
+                                key={i}
+                                className={`h-7 w-7 rounded-full ${bg} flex items-center justify-center text-xs font-medium border-2 border-white`}
+                                title={label}
+                              >
+                                {initials}
+                              </div>
+                            );
+                          })}
                           {meeting.meeting_participants?.length > 3 && (
                             <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-600 font-medium border-2 border-white">
                               +{meeting.meeting_participants.length - 3}
@@ -551,8 +593,11 @@ const MeetingsView = ({ role, currentUser }) => {
             </div>
 
             <div className="space-y-2">
-              <Label>Participants</Label>
+              <Label>Staff Participants</Label>
               <div className="border rounded-md p-3 max-h-32 overflow-y-auto bg-slate-50 grid grid-cols-2 gap-2">
+                {staff.length === 0 && (
+                  <div className="text-xs text-slate-400 col-span-2">No staff users available.</div>
+                )}
                 {staff.map(s => (
                   <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 p-1.5 rounded">
                     <input 
@@ -562,6 +607,26 @@ const MeetingsView = ({ role, currentUser }) => {
                       className="rounded border-slate-300"
                     />
                     {s.first_name} {s.last_name}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mentors / Tutors</Label>
+              <div className="border rounded-md p-3 max-h-32 overflow-y-auto bg-slate-50 grid grid-cols-2 gap-2">
+                {mentors.length === 0 && (
+                  <div className="text-xs text-slate-400 col-span-2">No mentors yet — add them in the Special Education → Staff tab.</div>
+                )}
+                {mentors.map(m => (
+                  <label key={m.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 p-1.5 rounded">
+                    <input
+                      type="checkbox"
+                      checked={(formData.mentor_ids || []).includes(m.id)}
+                      onChange={() => toggleMentor(m.id)}
+                      className="rounded border-slate-300"
+                    />
+                    <span>{m.name}{m.role ? <span className="text-xs text-slate-500"> ({m.role})</span> : null}</span>
                   </label>
                 ))}
               </div>

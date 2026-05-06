@@ -13,7 +13,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 border-b border-slate-300 min-h-[80px]">
         <div className="col-span-10 p-2">
           <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="Remarks..."
             value={formData.limud_learning || ''}
@@ -29,7 +29,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 border-b border-slate-300 min-h-[80px]">
         <div className="col-span-10 p-2">
           <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="Remarks..."
             value={formData.ivri_language || ''}
@@ -45,7 +45,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 border-b border-slate-300 min-h-[80px]">
         <div className="col-span-10 p-2">
            <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="Remarks..."
             value={formData.hitnahagut_behavior || ''}
@@ -61,7 +61,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 border-b border-slate-300 min-h-[80px]">
         <div className="col-span-10 p-2">
            <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="Remarks..."
             value={formData.emotional || ''}
@@ -77,7 +77,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 border-b border-slate-300 min-h-[80px]">
          <div className="col-span-10 p-2">
            <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="Remarks..."
             value={formData.social || ''}
@@ -93,7 +93,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      <div className="grid grid-cols-12 min-h-[80px]">
          <div className="col-span-10 p-2">
            <textarea 
-            dir="rtl"
+            dir="auto"
             className="w-full h-full resize-none bg-transparent outline-none text-right"
             placeholder="General notes..."
             value={formData.remarks || ''}
@@ -106,7 +106,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
      </div>
 
     {/* Summary Section */}
-    <div className="my-6" dir="rtl">
+    <div className="my-6" dir="auto">
       <h3 className="text-center font-bold mb-2 border-b-2 border-slate-800 pb-1 w-full">Summary of the Situation</h3>
       <textarea 
         className="w-full p-2 border border-slate-300 rounded min-h-[100px]"
@@ -117,7 +117,7 @@ const StandardHebrewForm = ({ formData, handleChange }) => (
     </div>
 
     {/* Plan Section */}
-    <div className="mb-8" dir="rtl">
+    <div className="mb-8" dir="auto">
       <h3 className="text-center font-bold mb-2 border-b-2 border-slate-800 pb-1 w-full">Plan</h3>
       <textarea 
         className="w-full p-2 border border-slate-300 rounded min-h-[100px]"
@@ -271,8 +271,24 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
   };
 
   const handleSubmit = async (status) => {
+    if (!student?.id) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Missing student.' });
+      return;
+    }
     const dataToSave = {
-      ...formData,
+      teacher_name: formData.teacher_name || null,
+      date: formData.date || null,
+      // also write the legacy assessment_date column so old reports keep working
+      assessment_date: formData.date || null,
+      limud_learning: formData.limud_learning || null,
+      ivri_language: formData.ivri_language || null,
+      hitnahagut_behavior: formData.hitnahagut_behavior || null,
+      emotional: formData.emotional || null,
+      social: formData.social || null,
+      remarks: formData.remarks || null,
+      summary: formData.summary || null,
+      plan: formData.plan || null,
+      custom_data: formData.custom_data || {},
       status,
       student_id: student.id,
       template_id: selectedTemplateId === 'standard' ? null : selectedTemplateId
@@ -291,10 +307,11 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
     }
 
     if (result.error) {
+      console.error('Assessment save error:', result.error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save assessment'
+        description: result.error.message || 'Failed to save assessment'
       });
     } else {
       toast({
@@ -340,7 +357,7 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
       </div>
 
       {/* Header Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-right bg-slate-50 p-4 rounded-md border" dir="rtl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-right bg-slate-50 p-4 rounded-md border" dir="auto">
         <div className="space-y-2">
           <div className="flex gap-2 items-center">
             <span className="font-bold">Student Name:</span>

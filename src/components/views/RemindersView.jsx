@@ -46,6 +46,9 @@ const RemindersView = ({ role, currentUser }) => {
     priority: 'normal',
     related_student_id: null,
     related_student_name: '',
+    is_recurring: false,
+    recurrence_pattern: 'monthly',
+    recurrence_end_date: '',
   });
 
   // Students for linking
@@ -114,6 +117,9 @@ const RemindersView = ({ role, currentUser }) => {
         priority: form.priority,
         related_student_id: form.related_student_id || null,
         related_student_name: form.related_student_name || null,
+        is_recurring: !!form.is_recurring,
+        recurrence_pattern: form.is_recurring ? form.recurrence_pattern : null,
+        recurrence_end_date: form.is_recurring && form.recurrence_end_date ? form.recurrence_end_date : null,
         created_by: currentUser?.id,
         created_by_name: currentUser?.name || currentUser?.first_name,
       };
@@ -156,16 +162,54 @@ const RemindersView = ({ role, currentUser }) => {
 
   const handleComplete = async (id) => {
     try {
-      const { error } = await supabase.from('reminders').update({
-        is_completed: true,
-        completed_at: new Date().toISOString()
-      }).eq('id', id);
-      if (error) throw error;
-      toast({ title: 'Done', description: 'Reminder has been completed' });
+      // Find the reminder so we can decide: complete or roll forward (recurring)
+      const r = reminders.find(x => x.id === id);
+      if (r?.is_recurring && r.recurrence_pattern) {
+        const next = computeNextOccurrence(r.reminder_date, r.recurrence_pattern);
+        // If we've passed the recurrence_end_date, mark complete instead
+        if (r.recurrence_end_date && next > r.recurrence_end_date) {
+          const { error } = await supabase.from('reminders').update({
+            is_completed: true,
+            completed_at: new Date().toISOString()
+          }).eq('id', id);
+          if (error) throw error;
+          toast({ title: 'Done', description: 'Recurring reminder finished (passed end date).' });
+        } else {
+          const { error } = await supabase.from('reminders').update({
+            reminder_date: next,
+            is_completed: false
+          }).eq('id', id);
+          if (error) throw error;
+          toast({ title: 'Done', description: `Next occurrence: ${next}` });
+        }
+      } else {
+        const { error } = await supabase.from('reminders').update({
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        }).eq('id', id);
+        if (error) throw error;
+        toast({ title: 'Done', description: 'Reminder has been completed' });
+      }
       loadReminders();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
+  };
+
+  // Compute next occurrence ISO date string (YYYY-MM-DD)
+  const computeNextOccurrence = (fromDate, pattern) => {
+    const d = new Date(`${fromDate}T00:00:00`);
+    switch (pattern) {
+      case 'daily': d.setDate(d.getDate() + 1); break;
+      case 'weekly': d.setDate(d.getDate() + 7); break;
+      case 'biweekly': d.setDate(d.getDate() + 14); break;
+      case 'monthly': d.setMonth(d.getMonth() + 1); break;
+      case 'bimonthly': d.setMonth(d.getMonth() + 2); break;
+      case 'quarterly': d.setMonth(d.getMonth() + 3); break;
+      case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
+      default: d.setMonth(d.getMonth() + 1);
+    }
+    return d.toISOString().split('T')[0];
   };
 
   const handleDelete = async (id) => {
@@ -184,7 +228,8 @@ const RemindersView = ({ role, currentUser }) => {
     setForm({
       title: '', description: '', reminder_type: 'general',
       reminder_date: '', reminder_time: '09:00', send_email: false,
-      email_recipients: '', priority: 'normal', related_student_id: null, related_student_name: ''
+      email_recipients: '', priority: 'normal', related_student_id: null, related_student_name: '',
+      is_recurring: false, recurrence_pattern: 'monthly', recurrence_end_date: ''
     });
     setIsModalOpen(true);
   };
@@ -202,6 +247,9 @@ const RemindersView = ({ role, currentUser }) => {
       priority: r.priority || 'normal',
       related_student_id: r.related_student_id,
       related_student_name: r.related_student_name || '',
+      is_recurring: !!r.is_recurring,
+      recurrence_pattern: r.recurrence_pattern || 'monthly',
+      recurrence_end_date: r.recurrence_end_date || '',
     });
     setIsModalOpen(true);
   };
@@ -453,6 +501,51 @@ const RemindersView = ({ role, currentUser }) => {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+            {/* Recurring */}
+            <div className="space-y-2 border rounded-md p-3 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_recurring"
+                  checked={!!form.is_recurring}
+                  onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="is_recurring" className="cursor-pointer">
+                  Repeat this reminder (so it shows up again on the to-do list)
+                </Label>
+              </div>
+              {form.is_recurring && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>How often?</Label>
+                    <Select
+                      value={form.recurrence_pattern}
+                      onValueChange={(v) => setForm({ ...form, recurrence_pattern: v })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="bimonthly">Every 2 months</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Stop repeating on (optional)</Label>
+                    <Input
+                      type="date"
+                      value={form.recurrence_end_date}
+                      onChange={(e) => setForm({ ...form, recurrence_end_date: e.target.value })}
+                    />
+                  </div>
                 </div>
               )}
             </div>
