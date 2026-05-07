@@ -3,7 +3,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { 
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
   CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
-  DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift, X
+  DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift, X,
+  ListTodo, Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -51,7 +52,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
     plans: [],
     progress_reviews: [],
     studentFees: [],
-    payments: []
+    payments: [],
+    todos: [],
+    reminders: []
   });
   const [isAssessmentMode, setIsAssessmentMode] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState(null);
@@ -67,6 +70,19 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [noteForm, setNoteForm] = useState({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailContext, setEmailContext] = useState({});
+
+  // Quick recurring reminder/todo state for the Tasks tab
+  const [quickTask, setQuickTask] = useState({
+    type: 'reminder', // 'reminder' or 'todo'
+    title: '',
+    description: '',
+    start_date: new Date().toISOString().split('T')[0],
+    is_recurring: true,
+    recurrence_pattern: 'monthly',
+    recurrence_end_date: '',
+    priority: 'normal'
+  });
+  const [savingQuickTask, setSavingQuickTask] = useState(false);
 
   // Timeline (unified feed across calls/meetings/issues/lates/todos)
   const [timeline, setTimeline] = useState([]);
@@ -126,17 +142,19 @@ const StudentProfileView = ({ studentId, onBack }) => {
       setStudent(studentInfo);
 
       // 2. Parallel Fetching for related data
-      const [calls, issues, grades, assessments, interventions, meetings, plans, reviews, studentFees, payments] = await Promise.all([
+      const [calls, issues, grades, assessments, interventions, meetings, plans, reviews, studentFees, payments, todos, reminders] = await Promise.all([
         supabase.from('call_logs').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
-        supabase.from('issues').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('student_issues').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('grades').select('*').eq('student_id', studentId).order('created_at', { ascending: true }),
         supabase.from('assessments').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('interventions').select('*').eq('student_id', studentId).order('start_date', { ascending: false }),
-        supabase.from('meetings').select('*').eq('student_id', studentId).order('meeting_date', { ascending: false }),
+        supabase.from('meetings').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('student_plans').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('progress_reviews').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
         supabase.from('student_fees').select('*, fee:fees(name, description, due_date, academic_year, fee_type:fee_types(name, category))').eq('student_id', studentId).order('created_at', { ascending: false }),
-        supabase.from('payments').select('*, student_fee:student_fees(id, fee:fees(name, academic_year))').eq('student_id', studentId).order('payment_date', { ascending: false })
+        supabase.from('payments').select('*, student_fee:student_fees(id, fee:fees(name, academic_year))').eq('student_id', studentId).order('payment_date', { ascending: false }),
+        supabase.from('todos').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
+        supabase.from('reminders').select('*').eq('related_student_id', studentId).order('reminder_date', { ascending: false })
       ]);
 
       setData({
@@ -149,7 +167,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
         plans: plans.data || [],
         progress_reviews: reviews.data || [],
         studentFees: studentFees.data || [],
-        payments: payments.data || []
+        payments: payments.data || [],
+        todos: todos.data || [],
+        reminders: reminders.data || []
       });
 
       // Fetch student notes (communication log)
@@ -208,6 +228,107 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setIsAssessmentMode(false);
     setEditingAssessment(null);
     fetchStudentData(); // Refresh list
+  };
+
+  // Save a recurring (or one-off) reminder/todo for this student
+  const handleSaveQuickTask = async () => {
+    if (!quickTask.title.trim()) {
+      toast({ variant: 'destructive', title: 'Missing title', description: 'Give your reminder a title.' });
+      return;
+    }
+    setSavingQuickTask(true);
+    try {
+      if (quickTask.type === 'reminder') {
+        const payload = {
+          title: quickTask.title,
+          description: quickTask.description || null,
+          reminder_date: quickTask.start_date,
+          related_type: 'student',
+          related_id: studentId,
+          related_student_id: studentId,
+          related_student_name: student?.name || null,
+          priority: quickTask.priority || 'normal',
+          status: 'pending',
+          is_recurring: !!quickTask.is_recurring,
+          recurrence_pattern: quickTask.is_recurring ? quickTask.recurrence_pattern : null,
+          recurrence_end_date: quickTask.is_recurring && quickTask.recurrence_end_date ? quickTask.recurrence_end_date : null,
+          next_occurrence_date: quickTask.is_recurring ? quickTask.start_date : null,
+        };
+        const { error } = await supabase.from('reminders').insert([payload]);
+        if (error) throw error;
+      } else {
+        const payload = {
+          title: quickTask.title,
+          description: quickTask.description || null,
+          student_id: studentId,
+          student_name: student?.name || null,
+          due_date: quickTask.start_date,
+          priority: quickTask.priority || 'normal',
+          status: 'pending',
+          category: 'general',
+          is_recurring: !!quickTask.is_recurring,
+          recurrence_pattern: quickTask.is_recurring ? quickTask.recurrence_pattern : null,
+          recurrence_end_date: quickTask.is_recurring && quickTask.recurrence_end_date ? quickTask.recurrence_end_date : null,
+          next_occurrence_date: quickTask.is_recurring ? quickTask.start_date : null,
+          related_type: 'student',
+          related_id: studentId,
+        };
+        const { error } = await supabase.from('todos').insert([payload]);
+        if (error) throw error;
+      }
+      toast({ title: 'Saved', description: quickTask.is_recurring ? `Recurring ${quickTask.type} created` : `${quickTask.type} created` });
+      setQuickTask({
+        type: quickTask.type,
+        title: '',
+        description: '',
+        start_date: new Date().toISOString().split('T')[0],
+        is_recurring: true,
+        recurrence_pattern: 'monthly',
+        recurrence_end_date: '',
+        priority: 'normal'
+      });
+      fetchStudentData();
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setSavingQuickTask(false);
+    }
+  };
+
+  const handleDeleteTodo = async (id) => {
+    if (!window.confirm('Delete this todo?')) return;
+    const { error } = await supabase.from('todos').delete().eq('id', id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } else {
+      toast({ title: 'Deleted', description: 'Todo removed' });
+      fetchStudentData();
+    }
+  };
+
+  const handleToggleTodo = async (todo) => {
+    const next = todo.status === 'completed' ? 'pending' : 'completed';
+    const { error } = await supabase
+      .from('todos')
+      .update({ status: next, completed_at: next === 'completed' ? new Date().toISOString() : null })
+      .eq('id', todo.id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } else {
+      fetchStudentData();
+    }
+  };
+
+  const handleDeleteReminder = async (id) => {
+    if (!window.confirm('Delete this reminder?')) return;
+    const { error } = await supabase.from('reminders').delete().eq('id', id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } else {
+      toast({ title: 'Deleted', description: 'Reminder removed' });
+      fetchStudentData();
+    }
   };
 
   // Get unpaid charges for this student (for payment dropdown)
@@ -505,6 +626,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <TabsTrigger value="workflow" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Workflow & Plans</TabsTrigger>
           <TabsTrigger value="academic" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Academic</TabsTrigger>
           <TabsTrigger value="communication" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Communication</TabsTrigger>
+          <TabsTrigger value="tasks" className="data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <ListTodo size={14} />
+            Tasks & Reminders ({data.todos.length + data.reminders.length})
+          </TabsTrigger>
           <TabsTrigger value="intervention" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Assessments</TabsTrigger>
           <TabsTrigger value="notes" className="data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <MessageSquare size={14} />
@@ -529,7 +654,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
               <CardTitle className="text-lg flex items-center gap-2">
                 <Activity size={18} className="text-indigo-600" /> Activity Timeline
               </CardTitle>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {[
                   { v: 'all', label: 'All' },
                   { v: 'call', label: 'Calls' },
@@ -537,6 +662,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
                   { v: 'issue', label: 'Issues' },
                   { v: 'late', label: 'Lates' },
                   { v: 'todo', label: 'Todos' },
+                  { v: 'reminder', label: 'Reminders' },
+                  { v: 'grade', label: 'Grades' },
+                  { v: 'assessment', label: 'Assessments' },
+                  { v: 'note', label: 'Notes' },
                 ].map(opt => (
                   <Button
                     key={opt.v}
@@ -565,6 +694,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         issue:   { color: 'bg-orange-100 text-orange-700',label: 'Issue',   Icon: AlertCircle },
                         late:    { color: 'bg-amber-100 text-amber-700', label: 'Late',    Icon: Clock },
                         todo:    { color: 'bg-purple-100 text-purple-700',label: 'Todo',    Icon: CheckCircle },
+                        reminder:   { color: 'bg-yellow-100 text-yellow-800', label: 'Reminder',   Icon: Bell },
+                        grade:      { color: 'bg-sky-100 text-sky-700',       label: 'Grade',      Icon: TrendingUp },
+                        assessment: { color: 'bg-indigo-100 text-indigo-700', label: 'Assessment', Icon: FileText },
+                        note:       { color: 'bg-purple-100 text-purple-700', label: 'Note',       Icon: MessageSquare },
                       }[item.kind] || { color: 'bg-slate-100 text-slate-700', label: item.kind, Icon: FileText };
                       const Icon = config.Icon;
                       const occurred = new Date(item.occurred_at);
@@ -668,7 +801,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                 <CardContent className="space-y-3">
                    {data.issues.slice(0,3).map(issue => (
                      <div key={issue.id} className="flex gap-2 items-start text-sm">
-                        <AlertTriangle size={16} className={`shrink-0 mt-0.5 ${issue.priority === 'high' ? 'text-red-500' : 'text-amber-500'}`} />
+                        <AlertTriangle size={16} className={`shrink-0 mt-0.5 ${issue.severity === 'critical' || issue.severity === 'high' ? 'text-red-500' : 'text-amber-500'}`} />
                         <div>
                            <p className="font-medium">{issue.title}</p>
                            <p className="text-xs text-slate-500">{new Date(issue.created_at).toLocaleDateString()}</p>
@@ -1393,20 +1526,212 @@ const StudentProfileView = ({ studentId, onBack }) => {
               <Card>
                  <CardHeader><CardTitle>Meetings</CardTitle></CardHeader>
                  <CardContent className="space-y-4">
-                    {data.meetings.map(m => (
+                    {data.meetings.map(m => {
+                      const dt = m.scheduled_date || m.meeting_date || m.created_at;
+                      return (
                       <div key={m.id} className="flex gap-3 items-start p-3 bg-slate-50 rounded">
                          <Calendar className="shrink-0 text-slate-400" />
                          <div>
                             <p className="font-medium">{m.title}</p>
-                            <p className="text-sm text-slate-600">{new Date(m.meeting_date).toLocaleDateString()} at {new Date(m.meeting_date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                            <p className="text-xs text-slate-500 mt-1 capitalize">Status: {m.status}</p>
+                            <p className="text-sm text-slate-600">{dt ? `${new Date(dt).toLocaleDateString()} at ${new Date(dt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}` : 'No date set'}</p>
+                            {m.location && <p className="text-xs text-slate-500 mt-1">📍 {m.location}</p>}
+                            <p className="text-xs text-slate-500 mt-1 capitalize">Status: {m.status || 'scheduled'}{m.meeting_type ? ` • ${m.meeting_type}` : ''}</p>
+                            {m.description && <p className="text-xs text-slate-600 mt-1">{m.description}</p>}
                          </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     {data.meetings.length === 0 && <p className="text-center text-slate-400">No meetings scheduled.</p>}
                  </CardContent>
               </Card>
            </div>
+        </TabsContent>
+
+        {/* Tasks & Reminders Tab */}
+        <TabsContent value="tasks" className="mt-6 space-y-6">
+          {/* Quick recurring/one-off task creator */}
+          <Card className="border-emerald-200">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Plus size={18} className="text-emerald-600" /> Add Reminder or Todo for {student.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Type</Label>
+                  <Select value={quickTask.type} onValueChange={(v) => setQuickTask({ ...quickTask, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reminder">Reminder (with date)</SelectItem>
+                      <SelectItem value="todo">Todo (task to do)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Select value={quickTask.priority} onValueChange={(v) => setQuickTask({ ...quickTask, priority: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Title *</Label>
+                <Input
+                  value={quickTask.title}
+                  onChange={(e) => setQuickTask({ ...quickTask, title: e.target.value })}
+                  placeholder="e.g. Monthly check-in call with parents"
+                />
+              </div>
+              <div>
+                <Label>Description / Notes</Label>
+                <Textarea
+                  rows={2}
+                  value={quickTask.description}
+                  onChange={(e) => setQuickTask({ ...quickTask, description: e.target.value })}
+                  placeholder="Optional details"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <Label>{quickTask.type === 'reminder' ? 'First reminder date' : 'Due date'}</Label>
+                  <Input type="date" value={quickTask.start_date} onChange={(e) => setQuickTask({ ...quickTask, start_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Repeat?</Label>
+                  <Select value={quickTask.is_recurring ? quickTask.recurrence_pattern : 'none'} onValueChange={(v) => {
+                    if (v === 'none') setQuickTask({ ...quickTask, is_recurring: false });
+                    else setQuickTask({ ...quickTask, is_recurring: true, recurrence_pattern: v });
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">One-time only</SelectItem>
+                      <SelectItem value="daily">Every day</SelectItem>
+                      <SelectItem value="weekly">Every week</SelectItem>
+                      <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                      <SelectItem value="monthly">Every month</SelectItem>
+                      <SelectItem value="bimonthly">Every 2 months</SelectItem>
+                      <SelectItem value="quarterly">Every 3 months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Stop repeating on (optional)</Label>
+                  <Input
+                    type="date"
+                    disabled={!quickTask.is_recurring}
+                    value={quickTask.recurrence_end_date}
+                    onChange={(e) => setQuickTask({ ...quickTask, recurrence_end_date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveQuickTask} disabled={savingQuickTask}>
+                  {savingQuickTask ? 'Saving…' : `Save ${quickTask.is_recurring ? 'recurring ' : ''}${quickTask.type}`}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ListTodo size={18} className="text-emerald-600" /> Todos
+                </CardTitle>
+                <span className="text-sm text-slate-500">{data.todos.length} total</span>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {data.todos.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    No todos linked to this student yet. Add one above or open the Todo List.
+                  </p>
+                )}
+                {data.todos.map(t => {
+                  const overdue = t.due_date && t.status !== 'completed' && new Date(t.due_date) < new Date();
+                  return (
+                    <div key={t.id} className={`border rounded-lg p-3 ${t.status === 'completed' ? 'bg-slate-50 opacity-70' : 'bg-white'}`}>
+                      <div className="flex items-start gap-2">
+                        <button onClick={() => handleToggleTodo(t)} className="shrink-0 mt-0.5" title="Toggle complete">
+                          {t.status === 'completed'
+                            ? <CheckCircle size={16} className="text-emerald-600" />
+                            : <div className="w-4 h-4 rounded-full border-2 border-slate-300" />}
+                        </button>
+                        <div className="flex-1">
+                          <p className={`font-medium text-sm ${t.status === 'completed' ? 'line-through text-slate-500' : ''}`}>{t.title}</p>
+                          {t.description && <p className="text-xs text-slate-600 mt-1">{t.description}</p>}
+                          <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                            {t.priority && <Badge variant="outline" className="capitalize">{t.priority}</Badge>}
+                            {t.category && <Badge variant="outline" className="capitalize">{t.category}</Badge>}
+                            {t.due_date && (
+                              <Badge className={overdue ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}>
+                                Due {new Date(t.due_date).toLocaleDateString()}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="capitalize">{t.status || 'pending'}</Badge>
+                            {t.is_recurring && (
+                              <Badge className="bg-purple-100 text-purple-700">
+                                Recurring{t.recurrence_pattern ? ` • ${t.recurrence_pattern}` : ''}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteTodo(t.id)} title="Delete">
+                          <X size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bell size={18} className="text-amber-600" /> Reminders
+                </CardTitle>
+                <span className="text-sm text-slate-500">{data.reminders.length} total</span>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {data.reminders.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-6">
+                    No reminders linked to this student yet. Add one above.
+                  </p>
+                )}
+                {data.reminders.map(r => (
+                  <div key={r.id} className="border rounded-lg p-3 bg-white">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{r.title}</p>
+                        {r.description && <p className="text-xs text-slate-600 mt-1">{r.description}</p>}
+                        <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                          <Badge className="bg-amber-100 text-amber-700">
+                            {r.reminder_date ? new Date(r.reminder_date).toLocaleDateString() : 'No date'}
+                            {r.reminder_time ? ` ${r.reminder_time}` : ''}
+                          </Badge>
+                          {r.priority && <Badge variant="outline" className="capitalize">{r.priority}</Badge>}
+                          <Badge variant="outline" className="capitalize">{r.status || 'pending'}</Badge>
+                          {r.is_recurring && <Badge className="bg-purple-100 text-purple-700">Recurring{r.recurrence_pattern ? ` • ${r.recurrence_pattern}` : ''}</Badge>}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteReminder(r.id)} title="Delete">
+                        <X size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Intervention Tab */}

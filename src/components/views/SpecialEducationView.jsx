@@ -425,6 +425,59 @@ const SpecialEducationView = ({ role, currentUser }) => {
     }
   };
 
+  // Generic delete for any special-ed child record
+  const handleDeleteRecord = async (table, id, label = 'record', refresh = 'detail') => {
+    if (!id) return;
+    if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    try {
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: `${label} removed` });
+      if (refresh === 'detail' && selectedSpecEd?.id) {
+        loadStudentDetail(selectedSpecEd.id);
+      } else if (refresh === 'all') {
+        loadData();
+      } else if (refresh === 'schedules' && selectedStaff?.id) {
+        loadStaffSchedules(selectedStaff.id);
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  const handleRemoveStudentFromSpecEd = async (specEdId) => {
+    if (!specEdId) return;
+    if (!window.confirm('Remove this student from special education? Their info, evaluations, tutoring and session logs will also be deleted. This cannot be undone.')) return;
+    try {
+      // Remove children explicitly in case CASCADE isn't set
+      await supabase.from('special_ed_session_logs').delete().eq('special_ed_student_id', specEdId);
+      await supabase.from('special_ed_tutoring').delete().eq('special_ed_student_id', specEdId);
+      await supabase.from('special_ed_evaluations').delete().eq('special_ed_student_id', specEdId);
+      await supabase.from('special_ed_info_sources').delete().eq('special_ed_student_id', specEdId);
+      const { error } = await supabase.from('special_ed_students').delete().eq('id', specEdId);
+      if (error) throw error;
+      toast({ title: 'Removed', description: 'Student removed from special education' });
+      setExpandedStudentId(null);
+      loadData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  const handleDeleteStaff = async (staffId) => {
+    if (!staffId) return;
+    if (!window.confirm('Delete this staff member and their schedule? This cannot be undone.')) return;
+    try {
+      await supabase.from('special_ed_staff_schedule').delete().eq('special_ed_staff_id', staffId);
+      const { error } = await supabase.from('special_ed_staff').delete().eq('id', staffId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Staff member removed' });
+      loadData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
   const getStatusBadge = (status) => {
     const opt = STATUS_OPTIONS.find(s => s.value === status);
     return opt ? <Badge className={opt.color}>{opt.label}</Badge> : <Badge>{status}</Badge>;
@@ -642,6 +695,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
                         }}>
                           <Mail className="h-4 w-4 mr-1" /> Send Email
                         </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 ml-auto"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveStudentFromSpecEd(specEd.id); }}>
+                          <Trash2 className="h-4 w-4 mr-1" /> Remove from Special Ed
+                        </Button>
                       </div>
 
                       {/* Current Plan */}
@@ -666,10 +723,16 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           <h4 className="font-semibold text-slate-700 mb-2">Information Gathered ({detailData.infoSources.length})</h4>
                           <div className="space-y-2 max-h-48 overflow-y-auto">
                             {detailData.infoSources.map(info => (
-                              <div key={info.id} className="p-3 bg-white rounded border text-sm">
+                              <div key={info.id} className="p-3 bg-white rounded border text-sm relative group">
                                 <div className="flex justify-between items-center mb-1">
                                   <Badge variant="outline">{SOURCE_TYPES.find(s => s.value === info.source_type)?.label || info.source_type}</Badge>
-                                  <span className="text-xs text-slate-400">{new Date(info.date_gathered).toLocaleDateString('he-IL')}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400">{new Date(info.date_gathered).toLocaleDateString('he-IL')}</span>
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteRecord('special_ed_info_sources', info.id, 'information record'); }}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 {info.source_name && <p className="text-xs text-slate-500 mb-1">From: {info.source_name}</p>}
                                 <p className="text-slate-700">{info.content}</p>
@@ -688,7 +751,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
                               <div key={ev.id} className="p-3 bg-white rounded border text-sm space-y-1">
                                 <div className="flex justify-between items-center">
                                   <Badge variant="outline">{EVAL_TYPES.find(e => e.value === ev.evaluation_type)?.label || ev.evaluation_type}</Badge>
-                                  <span className="text-xs text-slate-400">{ev.evaluation_date && new Date(ev.evaluation_date).toLocaleDateString('he-IL')}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400">{ev.evaluation_date && new Date(ev.evaluation_date).toLocaleDateString('he-IL')}</span>
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteRecord('special_ed_evaluations', ev.id, 'evaluation'); }}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 {ev.evaluator_name && <p className="text-xs text-slate-500">Evaluator: {ev.evaluator_name}</p>}
                                 {ev.results && <div className="bg-blue-50 p-2 rounded"><strong>Results:</strong> {ev.results}</div>}
@@ -707,7 +776,11 @@ const SpecialEducationView = ({ role, currentUser }) => {
                           <h4 className="font-semibold text-slate-700 mb-2">Private Tutors ({detailData.tutoring.length})</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {detailData.tutoring.map(t => (
-                              <div key={t.id} className="p-3 bg-white rounded border text-sm">
+                              <div key={t.id} className="p-3 bg-white rounded border text-sm relative">
+                                <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteRecord('special_ed_tutoring', t.id, 'tutoring assignment'); }}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                                 <p className="font-bold">{t.tutor_name}</p>
                                 {t.tutor_phone && <p className="text-slate-500">{t.tutor_phone}</p>}
                                 <p className="text-orange-600">{t.subject || 'N/A'} | {t.schedule_days} {t.schedule_time}</p>
@@ -727,7 +800,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
                               <div key={sess.id} className="p-3 bg-white rounded border text-sm">
                                 <div className="flex justify-between">
                                   <span className="font-medium">{sess.staff?.name || sess.tutor_name || 'N/A'} - {sess.subject || ''}</span>
-                                  <span className="text-xs text-slate-400">{new Date(sess.session_date).toLocaleDateString('he-IL')}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400">{new Date(sess.session_date).toLocaleDateString('he-IL')}</span>
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteRecord('special_ed_session_logs', sess.id, 'session log'); }}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                                 <p className="text-slate-600 mt-1">{sess.content}</p>
                                 {sess.progress_notes && <p className="text-green-600 text-xs mt-1">Progress: {sess.progress_notes}</p>}
@@ -784,6 +863,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
                         setIsStaffModalOpen(true);
                       }}>
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteStaff(staff.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
