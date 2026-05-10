@@ -84,6 +84,9 @@ const SpecialEducationView = ({ role, currentUser }) => {
   // Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
+  const [expandedStaffId, setExpandedStaffId] = useState(null);
+  const [staffStudentsMap, setStaffStudentsMap] = useState({}); // { [staffId]: [ { tutoring, student } ] }
   
   // Modals
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -243,6 +246,29 @@ const SpecialEducationView = ({ role, currentUser }) => {
       .eq('is_active', true)
       .order('day_of_week');
     setStaffSchedules(data || []);
+  };
+
+  // Load students assigned to a staff member (via tutoring)
+  const loadStaffStudents = async (staffId) => {
+    const { data: tutoring } = await supabase
+      .from('special_ed_tutoring')
+      .select('*')
+      .eq('special_ed_staff_id', staffId)
+      .eq('is_active', true);
+    const rows = (tutoring || []).map(t => {
+      const specEd = specEdStudents.find(se => se.id === t.special_ed_student_id);
+      return { tutoring: t, specEd, student: specEd?.student || null };
+    });
+    setStaffStudentsMap(prev => ({ ...prev, [staffId]: rows }));
+  };
+
+  const toggleStaffDetail = async (staffId) => {
+    if (expandedStaffId === staffId) {
+      setExpandedStaffId(null);
+    } else {
+      setExpandedStaffId(staffId);
+      if (!staffStudentsMap[staffId]) await loadStaffStudents(staffId);
+    }
   };
 
   // Toggle student detail
@@ -832,8 +858,19 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
         {/* ===== STAFF TAB ===== */}
         <TabsContent value="staff" className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-4 flex-wrap">
             <h3 className="text-lg font-semibold">Special Education Staff</h3>
+            <div className="flex gap-2 items-center flex-1 min-w-[260px] max-w-md">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search staff by name, role, or specialization..."
+                  value={staffSearchQuery}
+                  onChange={(e) => setStaffSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
             <Button onClick={() => {
               setSelectedStaff(null);
               setStaffForm({ name: '', hebrew_name: '', role: 'resource_teacher', phone: '', email: '', specialization: '', certification: '', notes: '' });
@@ -844,48 +881,125 @@ const SpecialEducationView = ({ role, currentUser }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {specEdStaff.map(staff => (
-              <Card key={staff.id}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold">{staff.hebrew_name || staff.name}</h4>
-                      <Badge variant="outline">{STAFF_ROLES.find(r => r.value === staff.role)?.label || staff.role}</Badge>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setSelectedStaff(staff);
-                        setStaffForm({
-                          name: staff.name || '', hebrew_name: staff.hebrew_name || '', role: staff.role || 'other',
-                          phone: staff.phone || '', email: staff.email || '', specialization: staff.specialization || '',
-                          certification: staff.certification || '', notes: staff.notes || ''
-                        });
-                        setIsStaffModalOpen(true);
-                      }}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteStaff(staff.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {staff.phone && <p className="text-sm text-slate-500 mt-2">{staff.phone}</p>}
-                  {staff.email && <p className="text-sm text-slate-500">{staff.email}</p>}
-                  {staff.specialization && <p className="text-sm text-orange-600 mt-1">{staff.specialization}</p>}
-                  
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      setSelectedStaff(staff);
-                      await loadStaffSchedules(staff.id);
-                      setIsScheduleModalOpen(true);
-                    }}>
-                      <Clock className="h-3 w-3 mr-1" /> Schedule
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {specEdStaff
+              .filter(s => {
+                if (!staffSearchQuery) return true;
+                const q = staffSearchQuery.toLowerCase();
+                return (
+                  s.name?.toLowerCase().includes(q) ||
+                  s.hebrew_name?.toLowerCase().includes(q) ||
+                  s.role?.toLowerCase().includes(q) ||
+                  s.specialization?.toLowerCase().includes(q) ||
+                  s.email?.toLowerCase().includes(q) ||
+                  s.phone?.toLowerCase().includes(q) ||
+                  STAFF_ROLES.find(r => r.value === s.role)?.label?.toLowerCase().includes(q)
+                );
+              })
+              .map(staff => {
+                const isExpanded = expandedStaffId === staff.id;
+                const assigned = staffStudentsMap[staff.id] || [];
+                return (
+                  <Card key={staff.id} className={isExpanded ? 'md:col-span-2 lg:col-span-3 ring-2 ring-orange-300' : ''}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleStaffDetail(staff.id)}>
+                        <div>
+                          <h4 className="font-bold">{staff.hebrew_name || staff.name}</h4>
+                          <Badge variant="outline">{STAFF_ROLES.find(r => r.value === staff.role)?.label || staff.role}</Badge>
+                        </div>
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" onClick={() => toggleStaffDetail(staff.id)} title="Show students">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setSelectedStaff(staff);
+                            setStaffForm({
+                              name: staff.name || '', hebrew_name: staff.hebrew_name || '', role: staff.role || 'other',
+                              phone: staff.phone || '', email: staff.email || '', specialization: staff.specialization || '',
+                              certification: staff.certification || '', notes: staff.notes || ''
+                            });
+                            setIsStaffModalOpen(true);
+                          }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteStaff(staff.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {staff.phone && <p className="text-sm text-slate-500 mt-2">{staff.phone}</p>}
+                      {staff.email && <p className="text-sm text-slate-500">{staff.email}</p>}
+                      {staff.specialization && <p className="text-sm text-orange-600 mt-1">{staff.specialization}</p>}
+
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={async (e) => {
+                          e.stopPropagation();
+                          setSelectedStaff(staff);
+                          await loadStaffSchedules(staff.id);
+                          setIsScheduleModalOpen(true);
+                        }}>
+                          <Clock className="h-3 w-3 mr-1" /> Schedule
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); toggleStaffDetail(staff.id); }}>
+                          <Users className="h-3 w-3 mr-1" /> Students {staffStudentsMap[staff.id] ? `(${staffStudentsMap[staff.id].length})` : ''}
+                        </Button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-4 pt-4 border-t bg-slate-50 -mx-4 -mb-4 px-4 pb-4 rounded-b">
+                          <h5 className="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Assigned Students ({assigned.length})
+                          </h5>
+                          {assigned.length === 0 ? (
+                            <p className="text-sm text-slate-500 italic">No students currently assigned to this staff member.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {assigned.map(({ tutoring, specEd, student }) => {
+                                const displayName = student
+                                  ? (student.hebrew_name || `${student.first_name || ''} ${student.last_name || ''}`.trim())
+                                  : (tutoring.tutor_name || 'Unknown student');
+                                const className = student?.class?.name || '';
+                                const status = specEd ? STATUS_OPTIONS.find(o => o.value === specEd.status) : null;
+                                return (
+                                  <div
+                                    key={tutoring.id}
+                                    className="p-3 bg-white rounded border text-sm hover:bg-orange-50 cursor-pointer"
+                                    onClick={() => {
+                                      if (specEd) {
+                                        setActiveTab('students');
+                                        setExpandedStudentId(specEd.id);
+                                        loadStudentDetail(specEd.id);
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex justify-between items-start gap-2">
+                                      <div className="flex-1">
+                                        <p className="font-bold text-slate-800">{displayName}</p>
+                                        {className && <p className="text-xs text-slate-500">{className}</p>}
+                                      </div>
+                                      {status && <Badge className={`${status.color} text-xs`}>{status.label}</Badge>}
+                                    </div>
+                                    {(tutoring.subject || tutoring.schedule_days || tutoring.schedule_time) && (
+                                      <p className="text-xs text-orange-600 mt-1">
+                                        {tutoring.subject || ''}
+                                        {tutoring.subject && (tutoring.schedule_days || tutoring.schedule_time) ? ' | ' : ''}
+                                        {tutoring.schedule_days || ''} {tutoring.schedule_time || ''}
+                                      </p>
+                                    )}
+                                    {tutoring.frequency && (
+                                      <p className="text-xs text-slate-400">{tutoring.frequency}{tutoring.session_duration_minutes ? ` · ${tutoring.session_duration_minutes} min` : ''}</p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
           </div>
 
           {specEdStaff.length === 0 && (
