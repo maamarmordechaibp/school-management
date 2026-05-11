@@ -202,22 +202,35 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .eq('is_active', true)
           .maybeSingle();
         if (sedData) {
-          // Also fetch info sources and evaluations
-          const [sources, evals, tutoring] = await Promise.all([
+          // Also fetch info sources, evaluations, tutoring and session logs
+          const [sources, evals, tutoring, sessions] = await Promise.all([
             supabase.from('special_ed_info_sources').select('*').eq('special_ed_student_id', sedData.id).order('created_at', { ascending: false }),
             supabase.from('special_ed_evaluations').select('*').eq('special_ed_student_id', sedData.id).order('evaluation_date', { ascending: false }),
-            supabase.from('special_ed_tutoring').select('*, tutor:special_ed_staff(name, hebrew_name)').eq('special_ed_student_id', sedData.id).eq('is_active', true)
+            supabase.from('special_ed_tutoring').select('*').eq('special_ed_student_id', sedData.id).eq('is_active', true).order('created_at', { ascending: false }),
+            supabase.from('special_ed_session_logs').select('*, staff:special_ed_staff(name, hebrew_name, role)').eq('special_ed_student_id', sedData.id).order('session_date', { ascending: false }).limit(20)
           ]);
+
+          // Collect unique staff members assigned to this student (from session logs)
+          const staffMap = new Map();
+          (sessions.data || []).forEach(s => {
+            if (s.staff && s.special_ed_staff_id && !staffMap.has(s.special_ed_staff_id)) {
+              staffMap.set(s.special_ed_staff_id, s.staff);
+            }
+          });
+          const assignedStaff = Array.from(staffMap.values());
+
           setSpecialEdData({
             ...sedData,
             info_sources: sources.data || [],
             evaluations: evals.data || [],
-            tutoring: tutoring.data || []
+            tutoring: tutoring.data || [],
+            session_logs: sessions.data || [],
+            assigned_staff: assignedStaff
           });
         } else {
           setSpecialEdData(null);
         }
-      } catch (e) { console.log('special_ed tables not available yet'); }
+      } catch (e) { console.log('special_ed tables not available yet', e); }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load student profile' });
@@ -1961,32 +1974,81 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
         {/* Special Education Tab */}
         {specialEdData && (
-          <TabsContent value="special-ed" className="mt-6 space-y-6" dir="rtl">
+          <TabsContent value="special-ed" className="mt-6 space-y-6">
             <div>
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <HeartIcon size={20} className="text-pink-600" /> Special Education Information
               </h3>
               <div className="flex gap-2 mt-2 flex-wrap">
-                <Badge className="bg-blue-100 text-blue-800">Status: {specialEdData.status}</Badge>
-                {specialEdData.referral_reason && (
-                  <Badge variant="outline">Reason: {specialEdData.referral_reason}</Badge>
+                {specialEdData.status && (
+                  <Badge className="bg-blue-100 text-blue-800">Status: {specialEdData.status.replace(/_/g, ' ')}</Badge>
+                )}
+                {specialEdData.help_type && (
+                  <Badge className="bg-purple-100 text-purple-800">Help: {specialEdData.help_type}</Badge>
+                )}
+                {specialEdData.referral_date && (
+                  <Badge variant="outline">Referred: {new Date(specialEdData.referral_date).toLocaleDateString('he-IL')}</Badge>
                 )}
               </div>
             </div>
 
+            {/* Summary */}
+            <Card>
+              <CardHeader><CardTitle className="text-lg">Summary</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {specialEdData.referral_reason && (
+                  <p><span className="font-semibold">Referral reason:</span> {specialEdData.referral_reason}</p>
+                )}
+                {specialEdData.help_description && (
+                  <p><span className="font-semibold">Help description:</span> {specialEdData.help_description}</p>
+                )}
+                {specialEdData.current_plan && (
+                  <div className="bg-green-50 p-3 rounded border border-green-200">
+                    <p className="font-semibold mb-1">Current plan</p>
+                    <p className="whitespace-pre-wrap">{specialEdData.current_plan}</p>
+                  </div>
+                )}
+                {specialEdData.notes && (
+                  <p><span className="font-semibold">Notes:</span> {specialEdData.notes}</p>
+                )}
+                {!specialEdData.referral_reason && !specialEdData.help_description && !specialEdData.current_plan && !specialEdData.notes && (
+                  <p className="text-slate-500 italic">No summary information yet.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Assigned Staff */}
+            {specialEdData.assigned_staff?.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Assigned Staff / Mentors</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {specialEdData.assigned_staff.map((st, i) => (
+                      <div key={i} className="p-3 bg-indigo-50 rounded border border-indigo-200">
+                        <p className="font-semibold">{st.hebrew_name || st.name}</p>
+                        {st.role && <p className="text-xs text-slate-600">{st.role.replace(/_/g, ' ')}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Info Sources */}
             {specialEdData.info_sources?.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="text-lg">Information Sources</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">Information Sources ({specialEdData.info_sources.length})</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {specialEdData.info_sources.map(src => (
                     <div key={src.id} className="p-3 bg-slate-50 rounded border">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">{src.source_type}</Badge>
                         {src.source_name && <span className="font-medium text-sm">{src.source_name}</span>}
-                        <span className="text-xs text-slate-400">{new Date(src.created_at).toLocaleDateString('he-IL')}</span>
+                        <span className="text-xs text-slate-400 ml-auto">
+                          {(src.date_gathered || src.created_at) && new Date(src.date_gathered || src.created_at).toLocaleDateString('he-IL')}
+                        </span>
                       </div>
-                      <p className="text-sm">{src.content}</p>
+                      <p className="text-sm whitespace-pre-wrap">{src.content}</p>
                     </div>
                   ))}
                 </CardContent>
@@ -1996,22 +2058,21 @@ const StudentProfileView = ({ studentId, onBack }) => {
             {/* Evaluations */}
             {specialEdData.evaluations?.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="text-lg">Evaluations</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">Evaluations ({specialEdData.evaluations.length})</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   {specialEdData.evaluations.map(ev => (
-                    <div key={ev.id} className="p-3 border rounded">
-                      <div className="flex justify-between items-center mb-2">
-                        <Badge className={ev.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                          {ev.status}
-                        </Badge>
+                    <div key={ev.id} className="p-3 border rounded space-y-1 text-sm">
+                      <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
+                        {ev.evaluation_type && <Badge variant="outline">{ev.evaluation_type}</Badge>}
                         <span className="text-xs text-slate-400">
                           {ev.evaluation_date && new Date(ev.evaluation_date).toLocaleDateString('he-IL')}
                         </span>
                       </div>
-                      {ev.evaluator_name && <p className="text-sm"><span className="font-medium">Evaluator:</span> {ev.evaluator_name}</p>}
-                      {ev.results && <p className="text-sm mt-1"><span className="font-medium">Results:</span> {ev.results}</p>}
-                      {ev.recommendations && <p className="text-sm mt-1"><span className="font-medium">Recommendations:</span> {ev.recommendations}</p>}
-                      {ev.action_plan && <p className="text-sm mt-1"><span className="font-medium">Plan:</span> {ev.action_plan}</p>}
+                      {ev.evaluator_name && <p><span className="font-semibold">Evaluator:</span> {ev.evaluator_name}</p>}
+                      {ev.results && <div className="bg-blue-50 p-2 rounded"><span className="font-semibold">Results:</span> {ev.results}</div>}
+                      {ev.recommendations && <div className="bg-yellow-50 p-2 rounded"><span className="font-semibold">Recommendations:</span> {ev.recommendations}</div>}
+                      {ev.plan && <div className="bg-green-50 p-2 rounded"><span className="font-semibold">Plan:</span> {ev.plan}</div>}
+                      {ev.actual_actions && <div className="bg-purple-50 p-2 rounded"><span className="font-semibold">Actual actions:</span> {ev.actual_actions}</div>}
                     </div>
                   ))}
                 </CardContent>
@@ -2021,23 +2082,26 @@ const StudentProfileView = ({ studentId, onBack }) => {
             {/* Tutoring */}
             {specialEdData.tutoring?.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="text-lg">Private Tutoring</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">Private Tutoring ({specialEdData.tutoring.length})</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {specialEdData.tutoring.map(t => (
-                      <div key={t.id} className="p-3 bg-purple-50 rounded border border-purple-200">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">
-                              {t.tutor?.hebrew_name || t.tutor?.name || t.tutor_name}
-                            </p>
-                            <p className="text-sm text-slate-600">{t.subject}</p>
-                          </div>
-                          <div className="text-left text-sm">
-                            <p>{t.day_of_week} {t.start_time}–{t.end_time}</p>
-                          </div>
-                        </div>
-                        {t.notes && <p className="text-xs text-slate-500 mt-1">{t.notes}</p>}
+                      <div key={t.id} className="p-3 bg-purple-50 rounded border border-purple-200 text-sm">
+                        <p className="font-bold">{t.tutor_name}</p>
+                        {t.tutor_phone && <p className="text-slate-600">{t.tutor_phone}</p>}
+                        {t.subject && <p className="text-orange-700 font-medium">Subject: {t.subject}</p>}
+                        {(t.schedule_days || t.schedule_time) && (
+                          <p className="text-slate-700">{t.schedule_days || ''} {t.schedule_time || ''}</p>
+                        )}
+                        {(t.frequency || t.session_duration_minutes) && (
+                          <p className="text-xs text-slate-500">
+                            {t.frequency || ''}
+                            {t.frequency && t.session_duration_minutes ? ' · ' : ''}
+                            {t.session_duration_minutes ? `${t.session_duration_minutes} min` : ''}
+                          </p>
+                        )}
+                        {t.location && <p className="text-xs text-slate-500">📍 {t.location}</p>}
+                        {t.notes && <p className="text-xs text-slate-500 mt-1 italic">{t.notes}</p>}
                       </div>
                     ))}
                   </div>
@@ -2045,13 +2109,40 @@ const StudentProfileView = ({ studentId, onBack }) => {
               </Card>
             )}
 
-            {specialEdData.notes && (
+            {/* Session Logs */}
+            {specialEdData.session_logs?.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="text-lg">Notes</CardTitle></CardHeader>
-                <CardContent>
-                  <p>{specialEdData.notes}</p>
+                <CardHeader><CardTitle className="text-lg">Recent Sessions ({specialEdData.session_logs.length})</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {specialEdData.session_logs.map(s => (
+                    <div key={s.id} className="p-3 bg-white rounded border text-sm">
+                      <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
+                        <span className="font-semibold">
+                          {s.staff ? (s.staff.hebrew_name || s.staff.name) : 'Staff'}
+                          {s.staff?.role && <span className="text-xs text-slate-500 ml-2">({s.staff.role.replace(/_/g, ' ')})</span>}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {s.session_date && new Date(s.session_date).toLocaleDateString('he-IL')}
+                          {s.session_duration_minutes ? ` · ${s.session_duration_minutes} min` : ''}
+                        </span>
+                      </div>
+                      {s.topic && <p><span className="font-semibold">Topic:</span> {s.topic}</p>}
+                      {s.notes && <p className="text-slate-700 whitespace-pre-wrap">{s.notes}</p>}
+                      {s.progress_notes && <p className="text-xs text-green-700">Progress: {s.progress_notes}</p>}
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Empty state if nothing extra */}
+            {!specialEdData.info_sources?.length &&
+             !specialEdData.evaluations?.length &&
+             !specialEdData.tutoring?.length &&
+             !specialEdData.session_logs?.length && (
+              <div className="text-center py-6 text-slate-500 italic">
+                No detailed records yet. Go to the Special Education view to add info sources, evaluations, tutoring or session logs.
+              </div>
             )}
           </TabsContent>
         )}
