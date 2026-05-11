@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Trash2, Loader2, BookOpen, Edit, Users, User } from 'lucide-react';
+import { UserPlus, Trash2, Loader2, BookOpen, Edit, Users, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const TutorsView = ({ role, currentUser }) => {
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedTutorId, setExpandedTutorId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -303,6 +304,7 @@ const TutorsView = ({ role, currentUser }) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Tutor Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
@@ -311,8 +313,25 @@ const TutorsView = ({ role, currentUser }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tutors.map((u) => (
-                  <TableRow key={u.id}>
+                {tutors.map((u) => {
+                  const isExpanded = expandedTutorId === u.id;
+                  const activeAssignments = (u.tutor_assignments || []).filter(a => a.is_active && a.student);
+                  return (
+                  <React.Fragment key={u.id}>
+                  <TableRow>
+                    <TableCell>
+                      {activeAssignments.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setExpandedTutorId(isExpanded ? null : u.id)}
+                          title={isExpanded ? 'Hide students' : 'Show students'}
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium text-slate-800">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-sm font-medium">
@@ -329,7 +348,7 @@ const TutorsView = ({ role, currentUser }) => {
                       <Badge 
                         variant={u.student_count > 0 ? "default" : "secondary"}
                         className="cursor-pointer hover:opacity-80"
-                        onClick={() => openAssign(u)}
+                        onClick={() => setExpandedTutorId(isExpanded ? null : u.id)}
                       >
                         {u.student_count} students
                       </Badge>
@@ -346,10 +365,34 @@ const TutorsView = ({ role, currentUser }) => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isExpanded && (
+                    <TableRow className="bg-green-50/40">
+                      <TableCell colSpan={6}>
+                        <div className="py-2">
+                          <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Students assigned to {u.first_name} {u.last_name} ({activeAssignments.length})
+                          </p>
+                          {activeAssignments.length === 0 ? (
+                            <p className="text-sm text-slate-500 italic">No active assignments.</p>
+                          ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                              {activeAssignments.map(a => (
+                                <div key={a.id} className="p-2 bg-white rounded border text-sm">
+                                  <p className="font-medium">{a.student.first_name} {a.student.last_name}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
+                  );
+                })}
                 {tutors.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">No tutors found.</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">No tutors found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
