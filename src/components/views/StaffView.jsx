@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, Trash2, Loader2, Edit, Phone, Home, MapPin, Search, Download, Users, GraduationCap, Bus, Briefcase, BookOpen, UserCog, KeyRound } from 'lucide-react';
+import { UserPlus, Trash2, Loader2, Edit, Phone, Home, MapPin, Search, Download, Users, GraduationCap, Bus, Briefcase, BookOpen, UserCog, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const POSITION_OPTIONS = [
@@ -41,6 +41,8 @@ const TITLE_OPTIONS = [
 
 const StaffView = ({ role, currentUser }) => {
   const [staff, setStaff] = useState([]);
+  const [staffStudents, setStaffStudents] = useState({}); // { [staffId]: [students] }
+  const [expandedStaffId, setExpandedStaffId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -98,6 +100,37 @@ const StaffView = ({ role, currentUser }) => {
 
       if (error) throw error;
       setStaff(data || []);
+      // Build staff -> students map via classes.hebrew_staff_id / english_staff_id
+      try {
+        const { data: classesData } = await supabase
+          .from('classes')
+          .select('id, name, hebrew_staff_id, english_staff_id');
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, hebrew_name, class_id')
+          .eq('status', 'active');
+        const studentsByClass = {};
+        (studentsData || []).forEach(s => {
+          if (!s.class_id) return;
+          (studentsByClass[s.class_id] = studentsByClass[s.class_id] || []).push(s);
+        });
+        const map = {};
+        (classesData || []).forEach(c => {
+          const kids = studentsByClass[c.id] || [];
+          [c.hebrew_staff_id, c.english_staff_id].forEach(sid => {
+            if (!sid) return;
+            const seen = new Set((map[sid] || []).map(x => x.id));
+            map[sid] = map[sid] || [];
+            kids.forEach(k => {
+              if (!seen.has(k.id)) {
+                map[sid].push({ ...k, class_name: c.name });
+                seen.add(k.id);
+              }
+            });
+          });
+        });
+        setStaffStudents(map);
+      } catch (e) { console.log('classes/students map skipped:', e?.message); }
     } catch (error) {
       console.error('Error fetching staff:', error);
       toast({
@@ -460,10 +493,12 @@ const StaffView = ({ role, currentUser }) => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="font-semibold">Position</TableHead>
                   <TableHead className="font-semibold">Name</TableHead>
                   <TableHead className="font-semibold text-right" dir="rtl">Hebrew Name</TableHead>
                   <TableHead className="font-semibold">Class</TableHead>
+                  <TableHead className="font-semibold">Students</TableHead>
                   <TableHead className="font-semibold">Cell Phone</TableHead>
                   <TableHead className="font-semibold">Home Phone</TableHead>
                   <TableHead className="font-semibold">Address</TableHead>
@@ -471,8 +506,25 @@ const StaffView = ({ role, currentUser }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStaff.map((staffMember) => (
-                  <TableRow key={staffMember.id} className="hover:bg-slate-50">
+                {filteredStaff.map((staffMember) => {
+                  const kids = staffStudents[staffMember.id] || [];
+                  const isExpanded = expandedStaffId === staffMember.id;
+                  return (
+                  <React.Fragment key={staffMember.id}>
+                  <TableRow className="hover:bg-slate-50">
+                    <TableCell>
+                      {kids.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setExpandedStaffId(isExpanded ? null : staffMember.id)}
+                          title={isExpanded ? 'Hide students' : 'Show students'}
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {getPositionBadge(staffMember.position)}
                     </TableCell>
@@ -487,6 +539,19 @@ const StaffView = ({ role, currentUser }) => {
                         <Badge variant="outline" className="font-mono">
                           {staffMember.class_assignment}
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {kids.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedStaffId(isExpanded ? null : staffMember.id)}
+                          className="text-blue-600 hover:underline text-sm font-medium"
+                        >
+                          {kids.length} student{kids.length === 1 ? '' : 's'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -529,7 +594,28 @@ const StaffView = ({ role, currentUser }) => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isExpanded && (
+                    <TableRow className="bg-blue-50/40">
+                      <TableCell colSpan={10}>
+                        <div className="py-2">
+                          <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Students taught by {staffMember.title} {staffMember.full_name} ({kids.length})
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {kids.map(k => (
+                              <div key={k.id} className="p-2 bg-white rounded border text-sm">
+                                <p className="font-medium">{k.hebrew_name || `${k.first_name || ''} ${k.last_name || ''}`.trim()}</p>
+                                {k.class_name && <p className="text-xs text-slate-500">{k.class_name}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

@@ -13,7 +13,7 @@ import {
   Plus, CheckCircle2, Circle, Clock, Loader2, Trash2, Search, 
   AlertCircle, CalendarDays, User, Filter, ChevronDown, ChevronUp, 
   Mail, CheckSquare, ListTodo, ArrowUp, ArrowRight, ArrowDown,
-  Sun, Play, ExternalLink, Star, StarOff, Eye, RotateCcw
+  Sun, Play, ExternalLink, Star, StarOff, Eye, RotateCcw, Repeat
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
@@ -64,6 +64,9 @@ const TodoListView = ({ role, currentUser }) => {
     due_date: '',
     assigned_to: '',
     notes: '',
+    is_recurring: false,
+    recurrence_pattern: 'monthly',
+    recurrence_end_date: '',
   });
 
   // Email notification
@@ -164,6 +167,9 @@ const TodoListView = ({ role, currentUser }) => {
       due_date: '',
       assigned_to: currentUser?.id || '',
       notes: '',
+      is_recurring: false,
+      recurrence_pattern: 'monthly',
+      recurrence_end_date: '',
     });
     setIsModalOpen(true);
   };
@@ -180,6 +186,9 @@ const TodoListView = ({ role, currentUser }) => {
       due_date: todo.due_date || '',
       assigned_to: todo.assigned_to || '',
       notes: todo.notes || '',
+      is_recurring: !!todo.is_recurring,
+      recurrence_pattern: todo.recurrence_pattern || 'monthly',
+      recurrence_end_date: todo.recurrence_end_date || '',
     });
     setIsModalOpen(true);
   };
@@ -203,6 +212,9 @@ const TodoListView = ({ role, currentUser }) => {
         due_date: formData.due_date || null,
         assigned_to: formData.assigned_to || currentUser?.id,
         notes: formData.notes || null,
+        is_recurring: !!formData.is_recurring,
+        recurrence_pattern: formData.is_recurring ? formData.recurrence_pattern : null,
+        recurrence_end_date: formData.is_recurring && formData.recurrence_end_date ? formData.recurrence_end_date : null,
         updated_at: new Date().toISOString(),
       };
 
@@ -450,6 +462,11 @@ const TodoListView = ({ role, currentUser }) => {
             {todo.due_date && (
               <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>
                 <CalendarDays className="h-3 w-3" /> {todo.due_date}
+              </span>
+            )}
+            {todo.is_recurring && (
+              <span className="flex items-center gap-1 text-purple-600 font-medium" title={`Repeats ${todo.recurrence_pattern || ''}`}>
+                <Repeat className="h-3 w-3" /> {todo.recurrence_pattern || 'recurring'}
               </span>
             )}
             {todo.assigned_to && todo.assigned_to !== currentUser?.id && (
@@ -951,6 +968,54 @@ const TodoListView = ({ role, currentUser }) => {
                   placeholder="Internal notes..."
                   rows={2}
                 />
+              </div>
+
+              {/* Recurrence */}
+              <div className="border rounded-lg p-3 bg-purple-50/40 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={!!formData.is_recurring}
+                    onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
+                  />
+                  <span className="flex items-center gap-1 font-medium text-purple-800">
+                    <Repeat className="h-4 w-4" /> Repeat this task
+                  </span>
+                </label>
+                {formData.is_recurring && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">How often</Label>
+                      <Select
+                        value={formData.recurrence_pattern}
+                        onValueChange={(v) => setFormData({ ...formData, recurrence_pattern: v })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="bimonthly">Every 2 months</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Stop after (optional)</Label>
+                      <Input
+                        type="date"
+                        value={formData.recurrence_end_date}
+                        onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
+                      />
+                    </div>
+                    <p className="col-span-2 text-xs text-slate-500">
+                      When you mark this task complete, the system will automatically create the next one.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
