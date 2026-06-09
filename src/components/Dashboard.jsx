@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
+import GlobalSearch from '@/components/GlobalSearch';
 
 // Views
 import StudentsView from '@/components/views/StudentsView';
@@ -309,6 +310,7 @@ const Dashboard = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            <GlobalSearch />
             <div className="hidden md:block text-right">
               <p className="text-sm font-semibold text-slate-700">
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

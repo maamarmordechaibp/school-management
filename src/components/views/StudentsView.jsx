@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Upload, Filter, Grid, List, X, GraduationCap, AlertCircle, Phone, User, Bell } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Upload, Filter, Grid, List, X, GraduationCap, AlertCircle, Phone, User, Bell, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
+import { fetchAllRows } from '@/lib/fetchAll';
 import { useToast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import StudentModal from '@/components/modals/StudentModal';
@@ -20,6 +21,8 @@ const StudentsView = ({ role, currentUser }) => {
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 24;
   
   // View State
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
@@ -66,6 +69,7 @@ const StudentsView = ({ role, currentUser }) => {
 
   useEffect(() => {
     applyFilters();
+    setCurrentPage(1); // reset to first page whenever filters/data change
   }, [students, filters]);
 
   // Load grades and classes for filters - separate from student loading
@@ -100,31 +104,25 @@ const StudentsView = ({ role, currentUser }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load students with related data
-      // Use !inner to specify the class_id foreign key (not previous_class_id)
-      let query = supabase
-        .from('students')
-        .select(`
-          *,
-          class:classes!class_id(id, name, grade_id, grade:grades(id, name))
-        `);
-      
-      // Role based filtering
+      // Determine any role-based restriction (class IDs or student IDs) first,
+      // then build a fresh query each page so fetchAllRows can page past the
+      // 1000-row PostgREST cap without silently truncating the list.
+      let restrict = null; // { column: 'class_id'|'id', values: [...] }
+
       if (role === 'teacher' || role === 'teacher_hebrew' || role === 'teacher_english') {
         // Teachers see students in their assigned class
         const { data: teacherClasses } = await supabase
           .from('classes')
           .select('id')
           .or(`hebrew_teacher_id.eq.${currentUser?.id},english_teacher_id.eq.${currentUser?.id}`);
-        
+
         const classIds = teacherClasses?.map(c => c.id) || [];
-        if (classIds.length > 0) {
-          query = query.in('class_id', classIds);
-        } else {
+        if (classIds.length === 0) {
           setStudents([]);
           setLoading(false);
           return;
         }
+        restrict = { column: 'class_id', values: classIds };
       } else if (role === 'tutor') {
         // Tutors see only their assigned students
         const { data: tutorStudents } = await supabase
@@ -132,26 +130,34 @@ const StudentsView = ({ role, currentUser }) => {
           .select('student_id')
           .eq('tutor_id', currentUser?.id)
           .eq('is_active', true);
-        
+
         const studentIds = tutorStudents?.map(ts => ts.student_id) || [];
-        if (studentIds.length > 0) {
-          query = query.in('id', studentIds);
-        } else {
+        if (studentIds.length === 0) {
           setStudents([]);
           setLoading(false);
           return;
         }
+        restrict = { column: 'id', values: studentIds };
       }
 
-      const { data, error } = await query.order('last_name');
-      if (error) throw error;
-      
+      const data = await fetchAllRows(() => {
+        let q = supabase
+          .from('students')
+          .select(`
+            *,
+            class:classes!class_id(id, name, grade_id, grade:grades(id, name))
+          `)
+          .order('last_name');
+        if (restrict) q = q.in(restrict.column, restrict.values);
+        return q;
+      });
+
       // Try to load issues separately (table may not exist)
       let issuesByStudent = {};
       try {
-        const { data: issuesData } = await supabase
-          .from('student_issues')
-          .select('student_id, status');
+        const issuesData = await fetchAllRows(() =>
+          supabase.from('student_issues').select('student_id, status')
+        );
         if (issuesData) {
           issuesData.forEach(issue => {
             if (!issuesByStudent[issue.student_id]) {
@@ -272,6 +278,14 @@ const StudentsView = ({ role, currentUser }) => {
     }
     return student.first_name || student.last_name || 'Unnamed';
   };
+
+  // Pagination over the filtered result set
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedStudents = filteredStudents.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
 
   if (viewingProfileId) {
     return <StudentProfileView studentId={viewingProfileId} onBack={() => setViewingProfileId(null)} />;
@@ -398,7 +412,7 @@ const StudentsView = ({ role, currentUser }) => {
       {/* Content */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStudents.map((student) => (
+          {paginatedStudents.map((student) => (
             <div 
               key={student.id} 
               className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-6 border-2 ${selectedIds.includes(student.id) ? 'border-blue-500 bg-blue-50/10' : 'border-transparent'}`}
@@ -491,7 +505,7 @@ const StudentsView = ({ role, currentUser }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student) => (
+              {paginatedStudents.map((student) => (
                 <TableRow key={student.id} className={selectedIds.includes(student.id) ? 'bg-blue-50' : ''}>
                   <TableCell>
                     <input type="checkbox" checked={selectedIds.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} className="w-4 h-4 rounded" />
@@ -532,6 +546,36 @@ const StudentsView = ({ role, currentUser }) => {
               )}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredStudents.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border px-4 py-3">
+          <p className="text-sm text-slate-500">
+            Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredStudents.length)} of {filteredStudents.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+            >
+              <ChevronLeft size={16} className="mr-1" /> Prev
+            </Button>
+            <span className="text-sm font-medium text-slate-600 px-2">
+              Page {safePage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+            >
+              Next <ChevronRight size={16} className="ml-1" />
+            </Button>
+          </div>
         </div>
       )}
 
