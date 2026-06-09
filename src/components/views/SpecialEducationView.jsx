@@ -123,7 +123,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
   });
   
   const [tutoringForm, setTutoringForm] = useState({
-    tutor_name: '', tutor_phone: '', tutor_type: 'private_teacher',
+    special_ed_staff_id: '', tutor_name: '', tutor_phone: '', tutor_type: 'private_teacher',
     subject: '', schedule_days: '', schedule_time: '', location: '',
     frequency: 'weekly', session_duration_minutes: 45, notes: '',
     start_date: new Date().toISOString().split('T')[0]
@@ -371,13 +371,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
       return;
     }
     try {
+      const { special_ed_staff_id, ...rest } = tutoringForm;
       const { error } = await supabase.from('special_ed_tutoring').insert([{
         special_ed_student_id: selectedSpecEd.id,
-        ...tutoringForm
+        special_ed_staff_id: special_ed_staff_id || null,
+        ...rest
       }]);
       if (error) throw error;
       toast({ title: 'Added', description: 'Tutoring assignment saved' });
       setIsTutoringModalOpen(false);
+      // Invalidate cached staff->students list so the Staff tab reflects the new link
+      if (special_ed_staff_id) {
+        setStaffStudentsMap(prev => {
+          const next = { ...prev };
+          delete next[special_ed_staff_id];
+          return next;
+        });
+      }
       loadStudentDetail(selectedSpecEd.id);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -699,7 +709,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                         <Button size="sm" variant="outline" onClick={(e) => {
                           e.stopPropagation();
                           setSelectedSpecEd(specEd);
-                          setTutoringForm({ tutor_name: '', tutor_phone: '', tutor_type: 'private_teacher', subject: '', schedule_days: '', schedule_time: '', location: '', frequency: 'weekly', session_duration_minutes: 45, notes: '', start_date: new Date().toISOString().split('T')[0] });
+                          setTutoringForm({ special_ed_staff_id: '', tutor_name: '', tutor_phone: '', tutor_type: 'private_teacher', subject: '', schedule_days: '', schedule_time: '', location: '', frequency: 'weekly', session_duration_minutes: 45, notes: '', start_date: new Date().toISOString().split('T')[0] });
                           setIsTutoringModalOpen(true);
                         }}>
                           <BookOpen className="h-4 w-4 mr-1" /> Add Private Tutor
@@ -1234,6 +1244,34 @@ const SpecialEducationView = ({ role, currentUser }) => {
             <DialogTitle>Add Private Tutor / Therapist</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div>
+              <Label>Link to Special-Ed Staff Member (optional)</Label>
+              <Select
+                value={tutoringForm.special_ed_staff_id || 'none'}
+                onValueChange={(v) => {
+                  if (v === 'none') {
+                    setTutoringForm(prev => ({ ...prev, special_ed_staff_id: '' }));
+                  } else {
+                    const staff = specEdStaff.find(s => s.id === v);
+                    setTutoringForm(prev => ({
+                      ...prev,
+                      special_ed_staff_id: v,
+                      tutor_name: prev.tutor_name || staff?.name || '',
+                      tutor_phone: prev.tutor_phone || staff?.phone || ''
+                    }));
+                  }
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Private / external (not staff)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Private / external (not staff)</SelectItem>
+                  {specEdStaff.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}{s.role ? ` — ${s.role}` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Pick a staff member to make this student show up under them in the Staff tab.</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Name *</Label>
