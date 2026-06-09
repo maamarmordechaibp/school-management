@@ -16,7 +16,7 @@ import SendEmailModal from '@/components/modals/SendEmailModal';
 import {
   Plus, Search, Edit, Trash2, User, Users, Calendar, Clock,
   FileText, ClipboardList, BookOpen, UserCheck, AlertCircle,
-  ChevronDown, ChevronUp, Eye, Mail, RefreshCw, Loader2
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, Mail, RefreshCw, Loader2
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -151,9 +151,113 @@ const SpecialEducationView = ({ role, currentUser }) => {
     infoSources: [], evaluations: [], tutoring: [], sessionLogs: []
   });
 
+  // Monthly reports
+  const [reportMonth, setReportMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [isMonthlyReportModalOpen, setIsMonthlyReportModalOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [reportStudent, setReportStudent] = useState(null);
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportForm, setReportForm] = useState({
+    what_was_done: '', progress: '', challenges: '', goals_next_month: '', recommendations: ''
+  });
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'monthly') loadMonthlyReports(reportMonth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, reportMonth]);
+
+  const loadMonthlyReports = async (monthStr) => {
+    setMonthlyLoading(true);
+    try {
+      const firstDay = `${monthStr}-01`;
+      const { data, error } = await supabase
+        .from('special_ed_monthly_reports')
+        .select('*')
+        .eq('report_month', firstDay);
+      if (error) throw error;
+      setMonthlyReports(data || []);
+    } catch (e) {
+      console.error('Error loading monthly reports:', e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load monthly reports' });
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
+
+  const openMonthlyReport = (specEd) => {
+    const existing = monthlyReports.find(r => r.special_ed_student_id === specEd.id);
+    setReportStudent(specEd);
+    setSelectedReport(existing || null);
+    setReportForm({
+      what_was_done: existing?.what_was_done || '',
+      progress: existing?.progress || '',
+      challenges: existing?.challenges || '',
+      goals_next_month: existing?.goals_next_month || '',
+      recommendations: existing?.recommendations || ''
+    });
+    setIsMonthlyReportModalOpen(true);
+  };
+
+  const handleSaveMonthlyReport = async () => {
+    if (!reportStudent) return;
+    try {
+      const firstDay = `${reportMonth}-01`;
+      const payload = {
+        special_ed_student_id: reportStudent.id,
+        report_month: firstDay,
+        ...reportForm,
+        updated_at: new Date().toISOString()
+      };
+      let error;
+      if (selectedReport) {
+        ({ error } = await supabase.from('special_ed_monthly_reports').update(payload).eq('id', selectedReport.id));
+      } else {
+        ({ error } = await supabase
+          .from('special_ed_monthly_reports')
+          .upsert([{ ...payload, created_by: currentUser?.id, created_by_name: currentUser?.name || currentUser?.first_name }],
+            { onConflict: 'special_ed_student_id,report_month' }));
+      }
+      if (error) throw error;
+      toast({ title: 'Saved', description: 'Monthly report saved' });
+      setIsMonthlyReportModalOpen(false);
+      loadMonthlyReports(reportMonth);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  const handleDeleteMonthlyReport = async (id) => {
+    if (!id || !window.confirm('Delete this monthly report? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('special_ed_monthly_reports').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Monthly report deleted' });
+      loadMonthlyReports(reportMonth);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  const shiftReportMonth = (delta) => {
+    const [y, m] = reportMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    setReportMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const monthLabel = (() => {
+    const [y, m] = reportMonth.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  })();
+
 
   const loadData = async () => {
     setLoading(true);
@@ -603,9 +707,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="students">Students ({specEdStudents.length})</TabsTrigger>
           <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
+          <TabsTrigger value="monthly">Monthly Reports</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
@@ -1021,6 +1126,115 @@ const SpecialEducationView = ({ role, currentUser }) => {
         </TabsContent>
 
         {/* ===== OVERVIEW TAB ===== */}
+        {/* ===== MONTHLY REPORTS TAB ===== */}
+        <TabsContent value="monthly" className="space-y-4">
+          {/* Month selector */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => shiftReportMonth(-1)} title="Previous month">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-white min-w-[180px] justify-center">
+                <Calendar className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-slate-800">{monthLabel}</span>
+              </div>
+              <Button variant="outline" size="icon" onClick={() => shiftReportMonth(1)} title="Next month">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <input
+                type="month"
+                value={reportMonth}
+                onChange={(e) => e.target.value && setReportMonth(e.target.value)}
+                className="ml-2 h-9 px-2 border rounded-lg text-sm bg-white"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {monthlyReports.length} of {specEdStudents.length} reports completed
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input placeholder="Search student..." value={reportSearch} onChange={(e) => setReportSearch(e.target.value)} className="pl-10" />
+          </div>
+
+          {monthlyLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading reports...
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-card border border-border/70 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Summary</TableHead>
+                    <TableHead className="text-right">Report</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {specEdStudents
+                    .filter(se => {
+                      if (!reportSearch) return true;
+                      const q = reportSearch.toLowerCase();
+                      const s = se.student;
+                      return (
+                        s?.first_name?.toLowerCase().includes(q) ||
+                        s?.last_name?.toLowerCase().includes(q) ||
+                        s?.hebrew_name?.includes(reportSearch)
+                      );
+                    })
+                    .map(se => {
+                      const report = monthlyReports.find(r => r.special_ed_student_id === se.id);
+                      const name = se.student
+                        ? `${se.student.first_name || ''} ${se.student.last_name || ''}`.trim() || se.student.hebrew_name
+                        : 'Unknown student';
+                      return (
+                        <TableRow key={se.id}>
+                          <TableCell className="font-medium">
+                            {name}
+                            {se.student?.hebrew_name && (
+                              <span className="block text-xs text-slate-500 font-hebrew" dir="rtl">{se.student.hebrew_name}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-600">{se.student?.class?.name || '-'}</TableCell>
+                          <TableCell>
+                            {report
+                              ? <Badge variant="success">Completed</Badge>
+                              : <Badge variant="warning">Missing</Badge>}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-500 max-w-[280px] truncate">
+                            {report?.what_was_done || report?.progress || '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button size="sm" variant={report ? 'outline' : 'default'} onClick={() => openMonthlyReport(se)}>
+                                {report ? (<><Edit className="h-3.5 w-3.5 mr-1" /> Edit</>) : (<><Plus className="h-3.5 w-3.5 mr-1" /> Add</>)}
+                              </Button>
+                              {report && (
+                                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteMonthlyReport(report.id)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {specEdStudents.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-slate-500">No special-education students yet.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* By Status */}
@@ -1342,6 +1556,50 @@ const SpecialEducationView = ({ role, currentUser }) => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsTutoringModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveTutoring}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Monthly Report Modal */}
+      <Dialog open={isMonthlyReportModalOpen} onOpenChange={setIsMonthlyReportModalOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedReport ? 'Edit' : 'New'} Monthly Report — {monthLabel}
+            </DialogTitle>
+          </DialogHeader>
+          {reportStudent && (
+            <p className="text-sm text-muted-foreground -mt-2">
+              {reportStudent.student
+                ? `${reportStudent.student.first_name || ''} ${reportStudent.student.last_name || ''}`.trim() || reportStudent.student.hebrew_name
+                : 'Student'}
+            </p>
+          )}
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>What was worked on this month</Label>
+              <Textarea rows={3} value={reportForm.what_was_done} onChange={(e) => setReportForm({ ...reportForm, what_was_done: e.target.value })} placeholder="Activities, subjects, sessions..." />
+            </div>
+            <div>
+              <Label>Progress</Label>
+              <Textarea rows={3} value={reportForm.progress} onChange={(e) => setReportForm({ ...reportForm, progress: e.target.value })} placeholder="What progress did the student make?" />
+            </div>
+            <div>
+              <Label>Challenges / Concerns</Label>
+              <Textarea rows={2} value={reportForm.challenges} onChange={(e) => setReportForm({ ...reportForm, challenges: e.target.value })} placeholder="Difficulties or concerns this month" />
+            </div>
+            <div>
+              <Label>Goals for Next Month</Label>
+              <Textarea rows={2} value={reportForm.goals_next_month} onChange={(e) => setReportForm({ ...reportForm, goals_next_month: e.target.value })} placeholder="What to focus on next month" />
+            </div>
+            <div>
+              <Label>Recommendations / Notes</Label>
+              <Textarea rows={2} value={reportForm.recommendations} onChange={(e) => setReportForm({ ...reportForm, recommendations: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMonthlyReportModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveMonthlyReport}>Save Report</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
