@@ -16,15 +16,22 @@ const ReportsView = () => {
   const generateStudentReport = async () => {
     setLoading(true);
     try {
-      const { data: students } = await supabase.from('students').select('*');
+      const { data: students } = await supabase
+        .from('students')
+        .select('*, class:classes!class_id(name)');
       
       const doc = new jsPDF();
       doc.text("Student Report", 14, 15);
       
-      const tableData = students.map(s => [s.name, s.class, s.teacher, s.father_phone || 'N/A']);
+      const tableData = (students || []).map(s => [
+        `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.hebrew_name || 'N/A',
+        s.class?.name || 'N/A',
+        s.father_name || s.mother_name || 'N/A',
+        s.father_phone || s.mother_phone || 'N/A'
+      ]);
       
       doc.autoTable({
-        head: [['Name', 'Class', 'Teacher', 'Contact']],
+        head: [['Name', 'Class', 'Parent', 'Contact']],
         body: tableData,
         startY: 20
       });
@@ -44,17 +51,17 @@ const ReportsView = () => {
   const generateIssuesReport = async () => {
     setLoading(true);
     try {
-      const { data: issues } = await supabase.from('issues').select('*, students(name)');
+      const { data: issues } = await supabase.from('student_issues').select('*, students(first_name, last_name)');
       
       const doc = new jsPDF();
       doc.text("Issues Report", 14, 15);
       
-      const tableData = issues.map(i => [
+      const tableData = (issues || []).map(i => [
         i.title, 
-        i.students?.name, 
-        i.priority, 
+        i.students ? `${i.students.first_name || ''} ${i.students.last_name || ''}`.trim() : '', 
+        i.severity, 
         i.status, 
-        new Date(i.created_at).toLocaleDateString()
+        i.created_at ? new Date(i.created_at).toLocaleDateString() : ''
       ]);
       
       doc.autoTable({
@@ -107,7 +114,7 @@ const ReportsView = () => {
   const backupData = async () => {
     setLoading(true);
     try {
-      const tables = ['students', 'issues', 'grades', 'meetings', 'call_logs', 'teacher_remarks', 'attendance'];
+      const tables = ['students', 'student_issues', 'grades', 'meetings', 'call_logs', 'teacher_remarks', 'attendance'];
       const backup = {};
       
       for (const table of tables) {

@@ -1,2 +1,15 @@
 node_modules
 .vercel
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# Build output
+dist
+.wrangler
+
+# OS / editor
+.DS_Store

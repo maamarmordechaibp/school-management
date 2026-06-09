@@ -300,13 +300,14 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
         const newAmountPaid = (parseFloat(studentFee.amount_paid) || 0) + parseFloat(newPayment.amount);
         const newStatus = newAmountPaid >= parseFloat(studentFee.amount) ? 'paid' : 'partial';
         
-        await supabase
+        const { error: feeUpdateError } = await supabase
           .from('student_fees')
           .update({ 
             amount_paid: newAmountPaid,
             status: newStatus
           })
           .eq('id', newPayment.student_fee_id);
+        if (feeUpdateError) throw feeUpdateError;
       }
 
       toast({ title: 'Paid', description: 'Payment has been recorded' });

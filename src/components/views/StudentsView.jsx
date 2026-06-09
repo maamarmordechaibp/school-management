@@ -246,7 +246,12 @@ const StudentsView = ({ role, currentUser }) => {
       status: attendanceData.status,
       note: attendanceData.note
     }));
-    await supabase.from('attendance').insert(inserts);
+    const { error } = await supabase.from('attendance').insert(inserts);
+    if (error) {
+      console.error('Error marking attendance:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to mark attendance' });
+      return;
+    }
     toast({ title: 'Success', description: 'Attendance marked' });
     setIsAttendanceModalOpen(false);
     setSelectedIds([]);

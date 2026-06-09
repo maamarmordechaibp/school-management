@@ -53,8 +53,8 @@ const IssueModal = ({ isOpen, onClose, issue, students, onSuccess }) => {
     }
 
     const { error } = issue
-      ? await supabase.from('issues').update(formData).eq('id', issue.id)
-      : await supabase.from('issues').insert([formData]);
+      ? await supabase.from('student_issues').update(formData).eq('id', issue.id)
+      : await supabase.from('student_issues').insert([formData]);
 
     if (error) {
       toast({

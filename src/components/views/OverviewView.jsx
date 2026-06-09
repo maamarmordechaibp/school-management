@@ -23,7 +23,7 @@ const OverviewView = ({ role = 'principal' }) => {
     try {
       const [studentsRes, issuesRes, callsRes, meetingsRes] = await Promise.all([
         supabase.from('students').select('id', { count: 'exact' }),
-        supabase.from('issues').select('id', { count: 'exact' }).eq('status', 'open'),
+        supabase.from('student_issues').select('id', { count: 'exact' }).eq('status', 'open'),
         supabase.from('call_logs').select('id', { count: 'exact' }),
         supabase.from('meetings').select('meeting_date').eq('status', 'scheduled'),
       ]);

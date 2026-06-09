@@ -3,11 +3,16 @@
  * Handles email sending (Resend), logging (Supabase), and user creation during development.
  */
 
-const RESEND_API_KEY = 're_Ugkb4gWj_CEz1KbcZXE7UUYx1oAF2zd7A';
-const SUPABASE_URL = 'https://rfvgjyfrjawqpdpwicev.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdmdqeWZyamF3cXBkcHdpY2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMTM5OTUsImV4cCI6MjA4MDg4OTk5NX0.ORKsqnNyfOtU9T9u6YWmo4j1pldMAC_ZakMCRMCiVmo';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rfvgjyfrjawqpdpwicev.supabase.co';
+// Anon key is a public client key by design; safe to keep as a dev fallback.
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdmdqeWZyamF3cXBkcHdpY2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzMTM5OTUsImV4cCI6MjA4MDg4OTk5NX0.ORKsqnNyfOtU9T9u6YWmo4j1pldMAC_ZakMCRMCiVmo';
 // For dev, set SUPABASE_SERVICE_KEY env var, or it falls back to anon key (limited)
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+
+if (!RESEND_API_KEY) {
+  console.warn('[backend-api] RESEND_API_KEY env var is not set — email sending will fail in dev until you set it.');
+}
 
 async function parseBody(req) {
   let body = '';

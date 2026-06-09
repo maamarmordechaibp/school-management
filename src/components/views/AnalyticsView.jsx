@@ -26,15 +26,17 @@ const AnalyticsView = () => {
   const fetchData = async () => {
     try {
       // Issues Stats
-      const { data: issues } = await supabase.from('issues').select('status, priority');
+      const { data: issues } = await supabase.from('student_issues').select('status, severity');
       
-      const statusCount = issues.reduce((acc, curr) => {
+      const statusCount = (issues || []).reduce((acc, curr) => {
+        if (!curr.status) return acc;
         acc[curr.status] = (acc[curr.status] || 0) + 1;
         return acc;
       }, {});
       
-      const priorityCount = issues.reduce((acc, curr) => {
-        acc[curr.priority] = (acc[curr.priority] || 0) + 1;
+      const priorityCount = (issues || []).reduce((acc, curr) => {
+        if (!curr.severity) return acc;
+        acc[curr.severity] = (acc[curr.severity] || 0) + 1;
         return acc;
       }, {});
 
@@ -44,17 +46,21 @@ const AnalyticsView = () => {
         { name: 'Total Calls', value: calls?.length || 0 }
       ];
 
-      // Grades Sample
-      const { data: grades } = await supabase.from('grades').select('grade, subject');
-      // Simple aggregation: Count of each grade letter/number
-      const gradeDistribution = grades.reduce((acc, curr) => {
-        acc[curr.grade] = (acc[curr.grade] || 0) + 1;
+      // Grades Sample (group students by grade level)
+      const { data: grades } = await supabase
+        .from('students')
+        .select('grade:classes!class_id(grade:grades(name))');
+      const gradeDistribution = (grades || []).reduce((acc, curr) => {
+        const gradeName = curr?.grade?.grade?.name;
+        if (!gradeName) return acc;
+        acc[gradeName] = (acc[gradeName] || 0) + 1;
         return acc;
       }, {});
 
       // Attendance Stats
       const { data: attendance } = await supabase.from('attendance').select('status');
-      const attendanceCount = attendance.reduce((acc, curr) => {
+      const attendanceCount = (attendance || []).reduce((acc, curr) => {
+        if (!curr.status) return acc;
         acc[curr.status] = (acc[curr.status] || 0) + 1;
         return acc;
       }, {});

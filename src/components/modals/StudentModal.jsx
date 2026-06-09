@@ -163,6 +163,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
         emergency_phone: formData.emergency_phone || null,
         notes: formData.notes || null,
         is_active: formData.is_active,
+        // Keep the canonical `status` column in sync with the is_active toggle so the
+        // student remains selectable in pickers/search (which filter on status='active').
+        status: formData.is_active ? 'active' : 'inactive',
         notify_on_updates: formData.notify_on_updates,
         notification_emails: formData.notification_emails
           ? formData.notification_emails.split(',').map(e => e.trim()).filter(Boolean)
