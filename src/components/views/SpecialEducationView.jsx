@@ -352,14 +352,30 @@ const SpecialEducationView = ({ role, currentUser }) => {
     setStaffSchedules(data || []);
   };
 
-  // Load students assigned to a staff member (via tutoring)
+  // Load students assigned to a staff member (via tutoring).
+  // Matches either the explicit link (special_ed_staff_id) OR a tutor_name
+  // that equals the staff member's name / hebrew_name, so existing rows that
+  // pre-date the link column still show up.
   const loadStaffStudents = async (staffId) => {
-    const { data: tutoring } = await supabase
+    const staff = specEdStaff.find(s => s.id === staffId);
+    const norm = (v) => (v || '').toString().trim().toLowerCase();
+    const staffNames = [norm(staff?.name), norm(staff?.hebrew_name)].filter(Boolean);
+
+    const { data: tutoring, error } = await supabase
       .from('special_ed_tutoring')
       .select('*')
-      .eq('special_ed_staff_id', staffId)
       .eq('is_active', true);
-    const rows = (tutoring || []).map(t => {
+    if (error) {
+      console.error('Error loading staff students:', error);
+      setStaffStudentsMap(prev => ({ ...prev, [staffId]: [] }));
+      return;
+    }
+
+    const matched = (tutoring || []).filter(t =>
+      t.special_ed_staff_id === staffId ||
+      (staffNames.length > 0 && staffNames.includes(norm(t.tutor_name)))
+    );
+    const rows = matched.map(t => {
       const specEd = specEdStudents.find(se => se.id === t.special_ed_student_id);
       return { tutoring: t, specEd, student: specEd?.student || null };
     });
@@ -476,11 +492,22 @@ const SpecialEducationView = ({ role, currentUser }) => {
     }
     try {
       const { special_ed_staff_id, ...rest } = tutoringForm;
-      const { error } = await supabase.from('special_ed_tutoring').insert([{
+      // If a staff member was picked, make sure tutor_name matches their name so
+      // the Staff tab links the student even if the link column isn't present yet.
+      const staff = special_ed_staff_id ? specEdStaff.find(s => s.id === special_ed_staff_id) : null;
+      const baseRow = {
         special_ed_student_id: selectedSpecEd.id,
-        special_ed_staff_id: special_ed_staff_id || null,
-        ...rest
+        ...rest,
+        tutor_name: rest.tutor_name || staff?.name || staff?.hebrew_name || ''
+      };
+      let { error } = await supabase.from('special_ed_tutoring').insert([{
+        ...baseRow,
+        special_ed_staff_id: special_ed_staff_id || null
       }]);
+      // Fallback if the link column hasn't been added to the DB yet (migration 033).
+      if (error && /special_ed_staff_id/.test(error.message || '')) {
+        ({ error } = await supabase.from('special_ed_tutoring').insert([baseRow]));
+      }
       if (error) throw error;
       toast({ title: 'Added', description: 'Tutoring assignment saved' });
       setIsTutoringModalOpen(false);
