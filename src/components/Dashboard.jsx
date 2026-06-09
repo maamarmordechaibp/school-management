@@ -38,6 +38,7 @@ import PaymentsView from '@/components/views/PaymentsView';
 import FinancialReportsView from '@/components/views/FinancialReportsView';
 import SpecialEducationView from '@/components/views/SpecialEducationView';
 import ClassDetailView from '@/components/views/ClassDetailView';
+import ReportCardsView from '@/components/views/ReportCardsView';
 import LateTrackingView from '@/components/views/LateTrackingView';
 import BusChangesView from '@/components/views/BusChangesView';
 import RemindersView from '@/components/views/RemindersView';
@@ -94,6 +95,7 @@ const Dashboard = () => {
     { id: 'grades', label: 'Grades', icon: Layers, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
     { id: 'classes', label: 'Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
     { id: 'class-detail', label: 'Class Detail', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
+    { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
     
     // Issues & Communication
     { id: 'issues', label: 'Issues', icon: AlertTriangle, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
@@ -155,6 +157,7 @@ const Dashboard = () => {
       case 'settings': return <SettingsView {...viewProps} />;
       case 'special-ed': return <SpecialEducationView {...viewProps} />;
       case 'class-detail': return <ClassDetailView {...viewProps} />;
+      case 'report-cards': return <ReportCardsView {...viewProps} />;
       case 'late-tracking': return <LateTrackingView {...viewProps} />;
       case 'bus-changes': return <BusChangesView {...viewProps} />;
       case 'reminders': return <RemindersView {...viewProps} />;
