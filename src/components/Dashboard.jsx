@@ -47,7 +47,9 @@ const Dashboard = () => {
   const { t } = useLanguage();
   const { user, profile, signOut, loading } = useAuth();
   const [activeView, setActiveView] = useState('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  );
 
   const userRole = profile?.role || 'teacher'; 
 
@@ -84,43 +86,45 @@ const Dashboard = () => {
   // All menu items
   const menuItems = [
     // Main Sections
-    { id: 'overview', label: 'Dashboard', icon: Layout, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
-    { id: 'todos', label: 'To-Do List', icon: CheckSquare, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
+    { id: 'overview', label: 'Dashboard', icon: Layout, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
+    { id: 'todos', label: 'To-Do List', icon: CheckSquare, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
     
     // Students & Classes
-    { id: 'students', label: 'Students', icon: Users, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
-    { id: 'grades', label: 'Grades', icon: Layers, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
-    { id: 'classes', label: 'Classes', icon: School, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
-    { id: 'class-detail', label: 'Class Detail', icon: BookOpen, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
+    { id: 'students', label: 'Students', icon: Users, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
+    { id: 'grades', label: 'Grades', icon: Layers, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
+    { id: 'classes', label: 'Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
+    { id: 'class-detail', label: 'Class Detail', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
     
     // Issues & Communication
-    { id: 'issues', label: 'Issues', icon: AlertTriangle, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
-    { id: 'calls', label: 'Phone Calls', icon: Phone, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
-    { id: 'meetings', label: 'Meetings', icon: Calendar, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
-    { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
-    { id: 'email-templates', label: 'Email Templates', icon: Mail, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Edit reusable email templates' },
+    { id: 'issues', label: 'Issues', icon: AlertTriangle, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
+    { id: 'calls', label: 'Phone Calls', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
+    { id: 'meetings', label: 'Meetings', icon: Calendar, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
+    { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
+    { id: 'email-templates', label: 'Email Templates', icon: Mail, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Edit reusable email templates' },
     
     // Staff (admin only)
-    { id: 'staff', label: 'Staff Directory', icon: Contact, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
-    { id: 'users', label: 'User Management', icon: Shield, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
+    { id: 'staff', label: 'Staff Directory', icon: Contact, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
+    { id: 'users', label: 'User Management', icon: Shield, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
     
     // Special Ed & Assistant Principal
-    { id: 'special-ed', label: 'Special Education', icon: Heart, roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
-    { id: 'late-tracking', label: 'Late Tracking', icon: Clock, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
-    { id: 'bus-changes', label: 'Bus Changes', icon: Bus, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
-    { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
+    { id: 'special-ed', label: 'Special Education', icon: Heart, group: 'Operations', roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
+    { id: 'late-tracking', label: 'Late Tracking', icon: Clock, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
+    { id: 'bus-changes', label: 'Bus Changes', icon: Bus, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
+    { id: 'reminders', label: 'Reminders', icon: Bell, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
     
     // Financial - Books & Fees
-    { id: 'books', label: 'Books', icon: BookMarked, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
-    { id: 'fees', label: 'Fees & Trips', icon: DollarSign, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage fees' },
-    { id: 'payments', label: 'Payments', icon: Receipt, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Record payments' },
-    { id: 'financial-reports', label: 'Financial Reports', icon: FileBarChart, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Payment reports' },
+    { id: 'books', label: 'Books', icon: BookMarked, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
+    { id: 'fees', label: 'Fees & Trips', icon: DollarSign, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage fees' },
+    { id: 'payments', label: 'Payments', icon: Receipt, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Record payments' },
+    { id: 'financial-reports', label: 'Financial Reports', icon: FileBarChart, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Payment reports' },
     
     // Reports & Settings
-    { id: 'reports', label: 'Reports', icon: BarChart2, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'General reports' },
-    { id: 'settings', label: 'Settings', icon: Settings, roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'System settings' },
+    { id: 'reports', label: 'Reports', icon: BarChart2, group: 'System', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'General reports' },
+    { id: 'settings', label: 'Settings', icon: Settings, group: 'System', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'System settings' },
   ];
+
+  const MENU_GROUP_ORDER = ['Main', 'Students & Classes', 'Communication', 'Staff & Access', 'Operations', 'Finance', 'System'];
 
   const renderView = () => {
     const viewProps = { role: userRole, currentUser: profile };
@@ -195,7 +199,20 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden" dir="ltr">
+    <div className="flex h-screen overflow-hidden app-canvas" dir="ltr">
+      {/* Mobile backdrop */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-sm lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {sidebarOpen && (
@@ -203,119 +220,133 @@ const Dashboard = () => {
             initial={{ x: -280 }}
             animate={{ x: 0 }}
             exit={{ x: -280 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-lg z-20"
+            transition={{ duration: 0.28, ease: 'easeInOut' }}
+            className="fixed lg:relative inset-y-0 left-0 w-[270px] bg-white border-r border-slate-200/80 flex flex-col z-40 shadow-float lg:shadow-none"
           >
-            <div className="p-5 border-b border-slate-200 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white relative overflow-hidden">
-              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-              <div className="absolute -bottom-12 -left-8 w-28 h-28 rounded-full bg-amber-300/15 blur-2xl pointer-events-none" />
-              <div className="relative flex items-center gap-3 mb-4">
-                <img
-                  src={SCHOOL_LOGO_URL}
-                  alt=""
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  className="h-12 w-12 rounded-full bg-white p-0.5 shadow-lg ring-2 ring-white/40 flex-shrink-0"
-                />
-                <div className="min-w-0" dir="rtl">
-                  <h1 className="text-[13px] font-bold leading-tight truncate" title={SCHOOL_NAME_YI}>
-                    {SCHOOL_NAME_YI}
-                  </h1>
-                  <p className="text-[10px] text-blue-100 mt-0.5 truncate">{SCHOOL_SUBTITLE_YI}</p>
-                </div>
-              </div>
-              <div className="relative flex items-center gap-2 mt-2 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/15">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-blue-900 font-bold text-sm shadow-md">
-                  {profile?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{profile?.name || 'User'}</p>
-                  <p className="text-[10px] text-blue-100 capitalize">{userRole?.replace(/_/g, ' ')}</p>
-                </div>
+            {/* Brand header */}
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center gap-3">
+              <img
+                src={SCHOOL_LOGO_URL}
+                alt=""
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                className="h-11 w-11 rounded-xl bg-white p-0.5 shadow-card ring-1 ring-slate-200 flex-shrink-0"
+              />
+              <div className="min-w-0" dir="rtl">
+                <h1 className="text-[13px] font-bold leading-tight truncate text-slate-800 font-hebrew" title={SCHOOL_NAME_YI}>
+                  {SCHOOL_NAME_YI}
+                </h1>
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate font-hebrew">{SCHOOL_SUBTITLE_YI}</p>
               </div>
             </div>
-            
-            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-              {allowedMenuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeView === item.id;
+
+            <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+              {MENU_GROUP_ORDER.map((groupName) => {
+                const groupItems = allowedMenuItems.filter((i) => i.group === groupName);
+                if (groupItems.length === 0) return null;
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveView(item.id)}
-                    className={`w-full group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-200'
-                        : 'text-slate-700 hover:bg-slate-100 hover:shadow-sm'
-                    }`}
-                  >
-                    <Icon size={22} className={isActive ? '' : 'text-slate-500 group-hover:text-slate-700'} />
-                    <div className="flex-1 text-left">
-                      <div className={`font-semibold text-sm ${isActive ? 'text-white' : 'text-slate-800'}`}>
-                        {item.label}
-                      </div>
-                      <div className={`text-xs ${isActive ? 'text-blue-100' : 'text-slate-500'}`}>
-                        {item.description}
-                      </div>
+                  <div key={groupName}>
+                    <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      {groupName}
+                    </p>
+                    <div className="space-y-0.5">
+                      {groupItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeView === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setActiveView(item.id);
+                              if (window.innerWidth < 1024) setSidebarOpen(false);
+                            }}
+                            title={item.description}
+                            className={`w-full group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+                              isActive
+                                ? 'bg-primary/10 text-primary font-semibold'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            {isActive && (
+                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-primary" />
+                            )}
+                            <Icon
+                              size={18}
+                              className={isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </nav>
 
-            <div className="p-3 border-t bg-slate-50 space-y-1">
-               {(userRole === 'admin' || userRole === 'principal') && (
-                 <Button 
-                   variant="ghost" 
-                   className="w-full justify-start text-blue-600 hover:bg-blue-50 rounded-xl text-sm" 
-                   onClick={() => setIsMenuSettingsOpen(true)}
-                 >
-                    <Settings className="ml-2 h-4 w-4" />
-                    <span>Menu Settings</span>
-                 </Button>
-               )}
-               <Button 
-                 variant="ghost" 
-                 className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl" 
-                 onClick={signOut}
-               >
-                  <LogOut className="ml-2 h-5 w-5" />
-                  <span className="font-semibold">Log Out</span>
-               </Button>
+            {/* User + actions */}
+            <div className="p-3 border-t border-slate-100 space-y-1">
+              <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-indigo-700 flex items-center justify-center text-white font-semibold text-sm shadow-sm flex-shrink-0">
+                  {profile?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{profile?.name || 'User'}</p>
+                  <p className="text-[11px] text-slate-400 capitalize truncate">{userRole?.replace(/_/g, ' ')}</p>
+                </div>
+              </div>
+              {(userRole === 'admin' || userRole === 'principal') && (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-slate-600 hover:bg-slate-100 rounded-lg text-sm h-9"
+                  onClick={() => setIsMenuSettingsOpen(true)}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Menu Settings</span>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg text-sm h-9"
+                onClick={signOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span className="font-semibold">Log Out</span>
+              </Button>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header */}
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
-          <div className="flex items-center gap-4">
+        <header className="surface-glass border-b border-slate-200/70 px-4 md:px-6 py-3 flex items-center justify-between z-20 sticky top-0">
+          <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hover:bg-slate-100 rounded-xl"
+              className="hover:bg-slate-100 rounded-lg flex-shrink-0"
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </Button>
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                 {menuItems.find(i => i.id === activeView)?.label || 'Dashboard'}
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 truncate leading-tight">
+                {menuItems.find(i => i.id === activeView)?.label || 'Dashboard'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400 truncate hidden sm:block">
                 {menuItems.find(i => i.id === activeView)?.description}
               </p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-3 flex-shrink-0">
             <GlobalSearch />
-            <div className="hidden md:block text-right">
+            <div className="hidden md:flex flex-col items-end pl-3 border-l border-slate-200">
               <p className="text-sm font-semibold text-slate-700">
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
               </p>
             </div>
@@ -323,14 +354,14 @@ const Dashboard = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+        <main className="flex-1 overflow-auto p-4 md:p-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25 }}
               className="max-w-7xl mx-auto"
             >
               {renderView()}

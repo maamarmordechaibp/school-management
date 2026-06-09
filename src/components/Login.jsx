@@ -112,9 +112,9 @@ const Login = () => {
           <p className="text-sm text-blue-200 mt-1">{SCHOOL_SUBTITLE_YI}</p>
         </div>
 
-        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-md">
+        <Card className="shadow-float border-0 bg-white/95 backdrop-blur-xl rounded-2xl">
           <CardHeader className="space-y-1 text-center pb-4">
-            <div className="mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-2xl w-14 h-14 flex items-center justify-center mb-3 shadow-lg">
+            <div className="mx-auto bg-gradient-to-br from-primary to-indigo-700 p-3 rounded-2xl w-14 h-14 flex items-center justify-center mb-3 shadow-lg shadow-primary/30">
               <Lock className="w-7 h-7 text-white" />
             </div>
             <CardTitle className="text-xl font-bold text-slate-800">Welcome Back</CardTitle>
@@ -171,7 +171,7 @@ const Login = () => {
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               <Button
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30 transition-all"
+                className="w-full bg-gradient-to-r from-primary to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-lg shadow-primary/30 transition-all"
                 type="submit"
                 disabled={loading}
               >

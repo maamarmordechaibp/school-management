@@ -294,7 +294,7 @@ const StudentsView = ({ role, currentUser }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -304,8 +304,8 @@ const StudentsView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Students</h2>
-          <p className="text-slate-600 mt-1">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Students</h2>
+          <p className="text-muted-foreground mt-1">
             {role === 'teacher' || role === 'teacher_hebrew' || role === 'teacher_english' ? 'Students in your classes' : 
              role === 'tutor' ? 'Your assigned students' : 
              `${students.length} students registered`}
@@ -318,15 +318,15 @@ const StudentsView = ({ role, currentUser }) => {
             </Button>
           )}
           {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher', 'teacher_hebrew', 'teacher_english'].includes(role) && (
-            <Button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }} className="bg-gradient-to-r from-blue-500 to-blue-600">
-              <Plus size={20} className="mr-2" /> Add Student
+            <Button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }}>
+              <Plus size={18} className="mr-2" /> Add Student
             </Button>
           )}
         </div>
       </div>
 
       {/* Toolbar & Filters */}
-      <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
+      <div className="bg-white rounded-xl shadow-card border border-border/70 p-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between">
           <div className="flex-1 flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -336,7 +336,7 @@ const StudentsView = ({ role, currentUser }) => {
                 placeholder="Search students..."
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full h-10 pl-9 pr-4 border border-input rounded-lg bg-background shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary text-sm transition-all"
               />
             </div>
             
@@ -377,16 +377,16 @@ const StudentsView = ({ role, currentUser }) => {
           </div>
 
           <div className="flex items-center gap-2 border-l pl-4">
-            <div className="flex bg-slate-100 rounded-lg p-1">
+            <div className="flex bg-muted rounded-lg p-1">
               <button 
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <Grid size={18} />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 <List size={18} />
               </button>
@@ -396,12 +396,12 @@ const StudentsView = ({ role, currentUser }) => {
          
         {/* Bulk Actions Bar */}
         {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between bg-blue-50 p-2 rounded-md border border-blue-100 animate-in slide-in-from-top-2">
-            <span className="text-sm font-medium text-blue-800 ml-2">
+          <div className="flex items-center justify-between bg-primary/5 p-2 rounded-lg border border-primary/15 animate-in slide-in-from-top-2">
+            <span className="text-sm font-medium text-primary ml-2">
               {selectedIds.length} students selected
             </span>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="bg-white text-blue-700 hover:bg-blue-50 border-blue-200" onClick={() => setIsAttendanceModalOpen(true)}>
+              <Button size="sm" variant="outline" onClick={() => setIsAttendanceModalOpen(true)}>
                 <CheckSquare size={16} className="mr-2" /> Mark Attendance
               </Button>
             </div>
@@ -411,11 +411,11 @@ const StudentsView = ({ role, currentUser }) => {
 
       {/* Content */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {paginatedStudents.map((student) => (
             <div 
               key={student.id} 
-              className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-6 border-2 ${selectedIds.includes(student.id) ? 'border-blue-500 bg-blue-50/10' : 'border-transparent'}`}
+              className={`bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 p-5 border ${selectedIds.includes(student.id) ? 'border-primary ring-1 ring-primary/30' : 'border-border/70'}`}
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-start gap-3">
@@ -426,19 +426,19 @@ const StudentsView = ({ role, currentUser }) => {
                     className="mt-1 w-4 h-4 rounded border-slate-300" 
                   />
                   <div className="cursor-pointer group" onClick={() => setViewingProfileId(student.id)}>
-                    <h3 className="text-xl font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                    <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors">
                       {getStudentDisplayName(student)}
                     </h3>
                     {student.hebrew_name && (
-                      <p className="text-sm text-slate-500" dir="rtl">{student.hebrew_name}</p>
+                      <p className="text-sm text-slate-500 font-hebrew" dir="rtl">{student.hebrew_name}</p>
                     )}
                     <div className="flex gap-2 mt-1">
                       <Badge variant="secondary" className="text-xs">{student.class?.name || 'No Class'}</Badge>
                       {student.open_issues_count > 0 && (
-                        <Badge variant="destructive" className="text-xs">{student.open_issues_count} Issues</Badge>
+                        <Badge variant="warning" className="text-xs">{student.open_issues_count} Issues</Badge>
                       )}
                       {student.notify_on_updates && (
-                        <Badge className="bg-blue-100 text-blue-700 text-xs"><Bell className="h-3 w-3 mr-0.5" />Auto-Email</Badge>
+                        <Badge variant="default" className="text-xs"><Bell className="h-3 w-3 mr-0.5" />Auto-Email</Badge>
                       )}
                     </div>
                   </div>
@@ -488,7 +488,7 @@ const StudentsView = ({ role, currentUser }) => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-white rounded-xl shadow-card border border-border/70 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -506,11 +506,11 @@ const StudentsView = ({ role, currentUser }) => {
             </TableHeader>
             <TableBody>
               {paginatedStudents.map((student) => (
-                <TableRow key={student.id} className={selectedIds.includes(student.id) ? 'bg-blue-50' : ''}>
+                <TableRow key={student.id} className={selectedIds.includes(student.id) ? 'bg-primary/5' : ''}>
                   <TableCell>
                     <input type="checkbox" checked={selectedIds.includes(student.id)} onChange={() => toggleSelectStudent(student.id)} className="w-4 h-4 rounded" />
                   </TableCell>
-                  <TableCell className="font-medium cursor-pointer hover:text-blue-600" onClick={() => setViewingProfileId(student.id)}>
+                  <TableCell className="font-medium cursor-pointer hover:text-primary" onClick={() => setViewingProfileId(student.id)}>
                     {getStudentDisplayName(student)}
                   </TableCell>
                   <TableCell dir="rtl" className="text-slate-600">{student.hebrew_name || '-'}</TableCell>
@@ -551,8 +551,8 @@ const StudentsView = ({ role, currentUser }) => {
 
       {/* Pagination */}
       {filteredStudents.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border px-4 py-3">
-          <p className="text-sm text-slate-500">
+        <div className="flex items-center justify-between bg-white rounded-xl shadow-card border border-border/70 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
             Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredStudents.length)} of {filteredStudents.length}
           </p>
           <div className="flex items-center gap-2">
