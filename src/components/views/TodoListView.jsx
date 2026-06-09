@@ -126,7 +126,7 @@ const TodoListView = ({ role, currentUser }) => {
     try {
       const { data, error } = await supabase
         .from('students')
-        .select('id, first_name, last_name, hebrew_name, father_name, class:classes(name)')
+        .select('id, first_name, last_name, hebrew_name, father_name, class:classes!class_id(name)')
         .order('last_name');
       if (error) throw error;
       setStudents(data || []);

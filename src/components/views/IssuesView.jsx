@@ -98,7 +98,7 @@ const IssuesView = ({ role, currentUser }) => {
       // Load students
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
-        .select('id, first_name, last_name, hebrew_name, father_name, class:classes(name)')
+        .select('id, first_name, last_name, hebrew_name, father_name, class:classes!class_id(name)')
         .eq('status', 'active')
         .order('last_name');
       if (studentsError) throw studentsError;

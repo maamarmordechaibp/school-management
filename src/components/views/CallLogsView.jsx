@@ -58,7 +58,7 @@ const CallLogsView = ({ role, currentUser }) => {
   const loadStudents = async () => {
     const { data } = await supabase
       .from('students')
-      .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, class:classes(name)')
+      .select('id, first_name, last_name, hebrew_name, father_name, father_phone, mother_name, mother_phone, class:classes!class_id(name)')
       .eq('status', 'active')
       .order('last_name');
     setStudents(data || []);

@@ -52,7 +52,7 @@ const AnnouncementsView = () => {
   const computeRecipients = async () => {
     let query = supabase
       .from('students')
-      .select('id, first_name, last_name, hebrew_name, father_name, father_email, mother_name, mother_email, class_id, class:classes(id, name, grade_id)');
+      .select('id, first_name, last_name, hebrew_name, father_name, father_email, mother_name, mother_email, class_id, class:classes!class_id(id, name, grade_id)');
 
     if (audience === 'class' && audienceId) {
       query = query.eq('class_id', audienceId);
