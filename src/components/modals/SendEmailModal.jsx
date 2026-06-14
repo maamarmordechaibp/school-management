@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Mail, Plus, X, Loader2 } from 'lucide-react';
 
-const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = '', currentUser, relatedType, relatedId }) => {
+const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = '', defaultTo = '', currentUser, relatedType, relatedId }) => {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState([]);
@@ -24,13 +24,13 @@ const SendEmailModal = ({ isOpen, onClose, defaultSubject = '', defaultBody = ''
   React.useEffect(() => {
     if (isOpen) {
       setFormData({
-        recipients: [''],
+        recipients: defaultTo ? [defaultTo] : [''],
         subject: defaultSubject || '',
         body: defaultBody || ''
       });
       setSelectedTemplateId('');
     }
-  }, [isOpen, defaultSubject, defaultBody]);
+  }, [isOpen, defaultSubject, defaultBody, defaultTo]);
 
   // Load templates once on open
   useEffect(() => {

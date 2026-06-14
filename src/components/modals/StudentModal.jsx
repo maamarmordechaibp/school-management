@@ -38,6 +38,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
   const [selectedTutors, setSelectedTutors] = useState([]);
   const [classesList, setClassesList] = useState([]);
   const [tutorsList, setTutorsList] = useState([]);
+  const [needsEval, setNeedsEval] = useState(false);
+  const [evalReason, setEvalReason] = useState('');
+  const [evalPriority, setEvalPriority] = useState('normal');
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +71,9 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
         resetForm();
         setSelectedTutors([]);
       }
+      setNeedsEval(false);
+      setEvalReason('');
+      setEvalPriority('normal');
     }
   }, [student, isOpen]);
 
@@ -201,6 +207,20 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
           await supabase
             .from('tutor_assignments')
             .upsert(insert, { onConflict: 'student_id,tutor_id' });
+        }
+      }
+
+      // If flagged, create a pending Special-Ed evaluation request for this student
+      if (needsEval && studentId) {
+        const { error: evalError } = await supabase.from('special_ed_evaluation_requests').insert([{
+          student_id: studentId,
+          reason: evalReason || null,
+          priority: evalPriority || 'normal',
+          status: 'pending'
+        }]);
+        if (evalError) {
+          console.error('Error creating evaluation request:', evalError);
+          toast({ variant: 'destructive', title: 'Evaluation request failed', description: evalError.message });
         }
       }
 
@@ -441,6 +461,53 @@ const StudentModal = ({ isOpen, onClose, student, onSuccess }) => {
               rows={3}
             />
           </div>
+
+          {/* Special Education Evaluation */}
+          {!student && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-slate-700 border-b pb-2">Special Education</h3>
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <input
+                  type="checkbox"
+                  id="needs_special_ed_eval"
+                  checked={needsEval}
+                  onChange={(e) => setNeedsEval(e.target.checked)}
+                  className="rounded border-slate-300 h-4 w-4 mt-0.5"
+                />
+                <Label htmlFor="needs_special_ed_eval" className="cursor-pointer text-sm">
+                  <span className="font-medium">This child needs a special education evaluation</span>
+                  <span className="block text-xs text-slate-500">Adds a pending request to the Special Education → Evaluations queue.</span>
+                </Label>
+              </div>
+              {needsEval && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="eval_reason">Reason / Concern</Label>
+                    <Input
+                      id="eval_reason"
+                      value={evalReason}
+                      onChange={(e) => setEvalReason(e.target.value)}
+                      placeholder="Why does this child need to be evaluated?"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="eval_priority">Priority</Label>
+                    <Select value={evalPriority} onValueChange={setEvalPriority}>
+                      <SelectTrigger id="eval_priority">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

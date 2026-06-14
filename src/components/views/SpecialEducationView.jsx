@@ -68,6 +68,21 @@ const STAFF_ROLES = [
   { value: 'other', label: 'Other' },
 ];
 
+const EVAL_REQUEST_STATUS = [
+  { value: 'pending', label: 'Pending', color: 'bg-amber-100 text-amber-800' },
+  { value: 'assigned', label: 'Assigned', color: 'bg-blue-100 text-blue-800' },
+  { value: 'in_progress', label: 'In Progress', color: 'bg-indigo-100 text-indigo-800' },
+  { value: 'completed', label: 'Completed', color: 'bg-green-100 text-green-800' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-gray-100 text-gray-800' },
+];
+
+const EVAL_PRIORITIES = [
+  { value: 'low', label: 'Low', color: 'bg-slate-100 text-slate-700' },
+  { value: 'normal', label: 'Normal', color: 'bg-sky-100 text-sky-700' },
+  { value: 'high', label: 'High', color: 'bg-orange-100 text-orange-800' },
+  { value: 'urgent', label: 'Urgent', color: 'bg-red-100 text-red-800' },
+];
+
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'];
 
 const SpecialEducationView = ({ role, currentUser }) => {
@@ -80,6 +95,9 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const [allStudents, setAllStudents] = useState([]);
   const [specEdStaff, setSpecEdStaff] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [evalRequests, setEvalRequests] = useState([]);
+  const [evalRequestSearch, setEvalRequestSearch] = useState('');
+  const [evalRequestStatusFilter, setEvalRequestStatusFilter] = useState('open');
   
   // Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,13 +122,18 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const [selectedSpecEd, setSelectedSpecEd] = useState(null);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [expandedStudentId, setExpandedStudentId] = useState(null);
+  const [selectedEvalRequest, setSelectedEvalRequest] = useState(null);
+
+  // "Needs evaluation" flag shown in the Add-to-Special-Ed modal
+  const [needsEval, setNeedsEval] = useState(false);
+  const [evalReqPriority, setEvalReqPriority] = useState('normal');
   
   // Form data
   const [studentForm, setStudentForm] = useState({
     student_id: '', status: 'monitoring', referral_reason: '', help_type: '',
     help_description: '', current_plan: '', referral_date: new Date().toISOString().split('T')[0]
   });
-  
+
   const [infoForm, setInfoForm] = useState({
     source_type: 'teacher', source_name: '', content: '',
     date_gathered: new Date().toISOString().split('T')[0]
@@ -312,6 +335,9 @@ const SpecialEducationView = ({ role, currentUser }) => {
         .order('name');
       setClasses(classesData || []);
 
+      // Load evaluation requests (the "needs evaluation" pending queue)
+      await loadEvalRequests();
+
     } catch (error) {
       console.error('Error loading data:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data' });
@@ -319,6 +345,103 @@ const SpecialEducationView = ({ role, currentUser }) => {
       setLoading(false);
     }
   };
+
+  // Load the "needs evaluation" queue (pending evaluation requests)
+  const loadEvalRequests = async () => {
+    const { data, error } = await supabase
+      .from('special_ed_evaluation_requests')
+      .select(`
+        *,
+        student:students(id, first_name, last_name, hebrew_name,
+          class:classes!class_id(name)
+        ),
+        assigned_staff:special_ed_staff!assigned_staff_id(id, name, hebrew_name, email, role)
+      `)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error loading evaluation requests:', error);
+      return;
+    }
+    setEvalRequests(data || []);
+  };
+
+  // Create a pending evaluation request for a student
+  const createEvalRequest = async ({ studentId, specEdStudentId = null, reason = '', priority = 'normal', evaluationType = null }) => {
+    const { error } = await supabase.from('special_ed_evaluation_requests').insert([{
+      student_id: studentId,
+      special_ed_student_id: specEdStudentId,
+      reason: reason || null,
+      evaluation_type: evaluationType,
+      priority: priority || 'normal',
+      status: 'pending',
+      requested_by: currentUser?.id || null,
+      requested_by_name: currentUser?.name || currentUser?.first_name || null
+    }]);
+    if (error) throw error;
+  };
+
+  // Assign an evaluation request to a special-ed staff member (and offer to email them)
+  const handleAssignEvalRequest = async (req, staffId) => {
+    try {
+      const { error } = await supabase
+        .from('special_ed_evaluation_requests')
+        .update({
+          assigned_staff_id: staffId,
+          status: 'assigned',
+          assigned_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', req.id);
+      if (error) throw error;
+
+      const staff = specEdStaff.find(s => s.id === staffId);
+      toast({ title: 'Assigned', description: `Evaluation assigned to ${staff?.name || 'staff member'}` });
+      await loadEvalRequests();
+
+      // Offer to email the assigned staff member
+      const studentName = req.student?.hebrew_name || `${req.student?.first_name || ''} ${req.student?.last_name || ''}`.trim();
+      setEmailContext({
+        subject: `Evaluation Request - ${studentName}`,
+        body: `You have been assigned to evaluate ${studentName}${req.student?.class?.name ? ` (${req.student.class.name})` : ''}.\n\n${req.reason ? `Reason: ${req.reason}\n` : ''}${req.priority ? `Priority: ${EVAL_PRIORITIES.find(p => p.value === req.priority)?.label || req.priority}\n` : ''}\nPlease follow up and record the evaluation results in the Special Education system.`,
+        to: staff?.email || ''
+      });
+      setIsEmailModalOpen(true);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  // Change the status of an evaluation request
+  const handleUpdateEvalRequestStatus = async (reqId, status) => {
+    try {
+      const patch = { status, updated_at: new Date().toISOString() };
+      if (status === 'completed') patch.completed_at = new Date().toISOString();
+      const { error } = await supabase.from('special_ed_evaluation_requests').update(patch).eq('id', reqId);
+      if (error) throw error;
+      toast({ title: 'Updated', description: 'Evaluation request updated' });
+      await loadEvalRequests();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  // Delete (soft) an evaluation request
+  const handleDeleteEvalRequest = async (reqId) => {
+    if (!window.confirm('Remove this evaluation request?')) return;
+    try {
+      const { error } = await supabase
+        .from('special_ed_evaluation_requests')
+        .update({ is_active: false })
+        .eq('id', reqId);
+      if (error) throw error;
+      toast({ title: 'Removed', description: 'Evaluation request removed' });
+      await loadEvalRequests();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
 
   // Load detail data for expanded student
   const loadStudentDetail = async (specEdId) => {
@@ -424,10 +547,33 @@ const SpecialEducationView = ({ role, currentUser }) => {
         if (error) throw error;
         toast({ title: 'Updated', description: 'Student record updated' });
       } else {
-        const { error } = await supabase.from('special_ed_students').insert([payload]);
+        const { data: inserted, error } = await supabase
+          .from('special_ed_students')
+          .insert([payload])
+          .select()
+          .single();
         if (error) throw error;
         toast({ title: 'Added', description: 'Student added to special education' });
+
+        // If flagged, drop a pending evaluation request into the Evaluations queue
+        if (needsEval) {
+          try {
+            await createEvalRequest({
+              studentId: studentForm.student_id,
+              specEdStudentId: inserted?.id || null,
+              reason: studentForm.referral_reason,
+              priority: evalReqPriority,
+              evaluationType: studentForm.help_type || null
+            });
+            toast({ title: 'Evaluation Requested', description: 'Added to the pending evaluation queue' });
+          } catch (reqErr) {
+            console.error('Error creating evaluation request:', reqErr);
+            toast({ variant: 'destructive', title: 'Evaluation request failed', description: reqErr.message });
+          }
+        }
       }
+      setNeedsEval(false);
+      setEvalReqPriority('normal');
       setIsStudentModalOpen(false);
       loadData();
     } catch (error) {
@@ -697,6 +843,8 @@ const SpecialEducationView = ({ role, currentUser }) => {
           <Button onClick={() => {
             setSelectedSpecEd(null);
             setStudentForm({ student_id: '', status: 'monitoring', referral_reason: '', help_type: '', help_description: '', current_plan: '', referral_date: new Date().toISOString().split('T')[0] });
+            setNeedsEval(false);
+            setEvalReqPriority('normal');
             setIsStudentModalOpen(true);
           }} className="bg-orange-600 hover:bg-orange-700">
             <Plus className="h-4 w-4 mr-2" /> Add Student
@@ -734,8 +882,9 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="students">Students ({specEdStudents.length})</TabsTrigger>
+          <TabsTrigger value="evaluations">Evaluations ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length})</TabsTrigger>
           <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
           <TabsTrigger value="monthly">Monthly Reports</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -818,6 +967,8 @@ const SpecialEducationView = ({ role, currentUser }) => {
                             current_plan: specEd.current_plan || '',
                             referral_date: specEd.referral_date || ''
                           });
+                          setNeedsEval(false);
+                          setEvalReqPriority('normal');
                           setIsStudentModalOpen(true);
                         }}>
                           <Edit className="h-4 w-4 mr-1" /> Edit Status
@@ -993,6 +1144,152 @@ const SpecialEducationView = ({ role, currentUser }) => {
               <div className="text-center py-12 text-slate-500">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No students found</p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ===== EVALUATIONS (NEEDS-EVALUATION QUEUE) TAB ===== */}
+        <TabsContent value="evaluations" className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search student..." value={evalRequestSearch} onChange={(e) => setEvalRequestSearch(e.target.value)} className="pl-10" />
+            </div>
+            <Select value={evalRequestStatusFilter} onValueChange={setEvalRequestStatusFilter}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open (not done)</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                {EVAL_REQUEST_STATUS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            {evalRequests
+              .filter(req => {
+                const name = `${req.student?.first_name || ''} ${req.student?.last_name || ''} ${req.student?.hebrew_name || ''}`.toLowerCase();
+                const matchesSearch = !evalRequestSearch || name.includes(evalRequestSearch.toLowerCase());
+                const matchesStatus =
+                  evalRequestStatusFilter === 'all' ? true :
+                  evalRequestStatusFilter === 'open' ? (req.status !== 'completed' && req.status !== 'cancelled') :
+                  req.status === evalRequestStatusFilter;
+                return matchesSearch && matchesStatus;
+              })
+              .map(req => {
+                const status = EVAL_REQUEST_STATUS.find(s => s.value === req.status);
+                const priority = EVAL_PRIORITIES.find(p => p.value === req.priority);
+                const studentName = req.student?.hebrew_name || `${req.student?.first_name || ''} ${req.student?.last_name || ''}`.trim() || 'Unknown student';
+                return (
+                  <Card key={req.id}>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                            {studentName.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-slate-800">{studentName}</h3>
+                            <p className="text-sm text-slate-500">
+                              {req.student?.class?.name || 'No Class'}
+                              {req.requested_by_name ? ` | Requested by ${req.requested_by_name}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {priority && <Badge className={priority.color}>{priority.label}</Badge>}
+                          {status && <Badge className={status.color}>{status.label}</Badge>}
+                          {req.created_at && (
+                            <span className="text-xs text-slate-400">{new Date(req.created_at).toLocaleDateString('he-IL')}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {req.reason && (
+                        <p className="text-sm text-amber-700 bg-amber-50 p-2 rounded mt-3">
+                          <strong>Reason:</strong> {req.reason}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4 text-slate-400" />
+                          <Select
+                            value={req.assigned_staff_id || 'none'}
+                            onValueChange={(v) => { if (v !== 'none') handleAssignEvalRequest(req, v); }}
+                          >
+                            <SelectTrigger className="w-[220px] h-9">
+                              <SelectValue placeholder="Assign to staff..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Unassigned</SelectItem>
+                              {specEdStaff.map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}{s.role ? ` — ${STAFF_ROLES.find(r => r.value === s.role)?.label || s.role}` : ''}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {req.assigned_staff && (
+                          <Button size="sm" variant="outline" onClick={() => {
+                            const name = req.student?.hebrew_name || `${req.student?.first_name || ''} ${req.student?.last_name || ''}`.trim();
+                            setEmailContext({
+                              subject: `Evaluation Request - ${name}`,
+                              body: `Reminder regarding the evaluation for ${name}${req.student?.class?.name ? ` (${req.student.class.name})` : ''}.\n\n${req.reason ? `Reason: ${req.reason}\n` : ''}Please record the evaluation results in the Special Education system.`,
+                              to: req.assigned_staff?.email || ''
+                            });
+                            setIsEmailModalOpen(true);
+                          }}>
+                            <Mail className="h-4 w-4 mr-1" /> Email
+                          </Button>
+                        )}
+
+                        {req.status !== 'in_progress' && req.status !== 'completed' && req.status !== 'cancelled' && (
+                          <Button size="sm" variant="outline" onClick={() => handleUpdateEvalRequestStatus(req.id, 'in_progress')}>
+                            Mark In Progress
+                          </Button>
+                        )}
+                        {req.status !== 'completed' && (
+                          <Button size="sm" variant="outline" className="text-green-700 border-green-200 hover:bg-green-50"
+                            onClick={() => handleUpdateEvalRequestStatus(req.id, 'completed')}>
+                            Mark Completed
+                          </Button>
+                        )}
+                        {req.status !== 'cancelled' && req.status !== 'completed' && (
+                          <Button size="sm" variant="outline" className="text-slate-600"
+                            onClick={() => handleUpdateEvalRequestStatus(req.id, 'cancelled')}>
+                            Cancel
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto"
+                          onClick={() => handleDeleteEvalRequest(req.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {req.assigned_staff && (
+                        <p className="text-xs text-slate-500 mt-2">
+                          Assigned to <strong>{req.assigned_staff.name}</strong>
+                          {req.assigned_at ? ` on ${new Date(req.assigned_at).toLocaleDateString('he-IL')}` : ''}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+            {evalRequests.filter(req => {
+              const matchesStatus =
+                evalRequestStatusFilter === 'all' ? true :
+                evalRequestStatusFilter === 'open' ? (req.status !== 'completed' && req.status !== 'cancelled') :
+                req.status === evalRequestStatusFilter;
+              return matchesStatus;
+            }).length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No evaluation requests</p>
+                <p className="text-xs mt-1">Flag a child as "needs evaluation" when adding them to see it here.</p>
               </div>
             )}
           </div>
@@ -1382,6 +1679,35 @@ const SpecialEducationView = ({ role, currentUser }) => {
               <Label>Plan</Label>
               <Textarea value={studentForm.current_plan} onChange={(e) => setStudentForm({ ...studentForm, current_plan: e.target.value })} rows={2} />
             </div>
+
+            {!selectedSpecEd && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="needs_evaluation"
+                    checked={needsEval}
+                    onChange={(e) => setNeedsEval(e.target.checked)}
+                    className="rounded border-slate-300 h-4 w-4 mt-0.5"
+                  />
+                  <Label htmlFor="needs_evaluation" className="cursor-pointer text-sm">
+                    <span className="font-medium">This child needs an evaluation</span>
+                    <span className="block text-xs text-slate-500">Adds a pending request to the Evaluations queue so it can be assigned to a staff member.</span>
+                  </Label>
+                </div>
+                {needsEval && (
+                  <div>
+                    <Label className="text-xs">Priority</Label>
+                    <Select value={evalReqPriority} onValueChange={setEvalReqPriority}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EVAL_PRIORITIES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsStudentModalOpen(false)}>Cancel</Button>
@@ -1826,6 +2152,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
         onClose={() => setIsEmailModalOpen(false)}
         defaultSubject={emailContext.subject}
         defaultBody={emailContext.body}
+        defaultTo={emailContext.to}
         currentUser={currentUser}
       />
     </div>
