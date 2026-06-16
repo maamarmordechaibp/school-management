@@ -28,6 +28,7 @@ const ACTION_TYPES = [
   { value: 'extension', label: 'Ring an extension (person)' },
   { value: 'submenu', label: 'Open a submenu' },
   { value: 'message', label: 'Play a message' },
+  { value: 'recordings', label: 'Play recent broadcast recordings (7 days)' },
   { value: 'voicemail', label: 'Send to voicemail' },
   { value: 'forward', label: 'Forward to a phone number' },
   { value: 'hangup', label: 'Hang up' },
@@ -774,6 +775,7 @@ const describeOption = (o, exts, menus) => {
       return m ? `Opens submenu “${m.name}”` : 'No submenu selected';
     }
     case 'message': return `Plays a message`;
+    case 'recordings': return `Plays the last 7 days of broadcast recordings`;
     case 'voicemail': return `Sends to voicemail`;
     case 'forward': return `Forwards to ${o.forward_number || '—'}`;
     case 'hangup': return `Ends the call`;

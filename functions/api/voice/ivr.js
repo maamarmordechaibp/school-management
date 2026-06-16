@@ -7,6 +7,7 @@
  *   submenu   → render the nested menu (unlimited depth)
  *   message   → play a message, then return to the same menu
  *   voicemail → /api/voice/voicemail
+ *   recordings→ /api/voice/recordings (last 7 days of broadcast recordings)
  *   forward   → dial an arbitrary number
  *   hangup    → end the call
  *
@@ -81,6 +82,12 @@ export async function onRequestPost(context) {
       const ext = option.target_extension_id ? `?ext=${encodeURIComponent(option.target_extension_id)}` : '';
       const vm = `${baseUrl}/api/voice/voicemail${ext}`;
       return laml(`<Redirect method="POST">${escapeXml(vm)}</Redirect>`);
+    }
+
+    case 'recordings': {
+      // Play back the broadcast (mass-call) recordings from the last 7 days.
+      const rec = `${baseUrl}/api/voice/recordings?i=0`;
+      return laml(`<Redirect method="POST">${escapeXml(rec)}</Redirect>`);
     }
 
     case 'hangup':
