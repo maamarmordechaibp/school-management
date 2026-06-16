@@ -34,6 +34,30 @@ async function sbGet(env, path) {
   return resp.json().catch(() => []);
 }
 
+// Call the digits-normalized resolver (migration 038). This is the reliable
+// path — it strips punctuation from BOTH the caller ID and the stored numbers
+// so "(845)376-2437" matches "+18453762437". Returns null on any failure so
+// the caller can fall back to the legacy ilike scan.
+async function sbResolveRpc(env, callerNumber) {
+  const SUPABASE_URL = env.SUPABASE_URL || 'https://rfvgjyfrjawqpdpwicev.supabase.co';
+  const SERVICE_KEY = env.SUPABASE_SERVICE_KEY || env.SUPABASE_ANON_KEY;
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/resolve_inbound_caller`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_KEY,
+        'Authorization': `Bearer ${SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_number: callerNumber }),
+    });
+    if (!resp.ok) return null;
+    return resp.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
 function studentDisplay(s) {
   return (
     [s.first_name, s.last_name].filter(Boolean).join(' ').trim() ||
@@ -52,6 +76,22 @@ export async function resolveCaller(env, callerNumber) {
   const tail = last10(callerNumber);
   const empty = { type: 'unknown', name: null, matchedId: null, studentIds: [], detail: {} };
   if (!tail) return empty;
+
+  // Preferred path: digits-normalized DB resolver (migration 038). Handles all
+  // stored phone formats correctly. Falls through to the legacy ilike scan only
+  // if the function isn't deployed yet or returns nothing usable.
+  const rpc = await sbResolveRpc(env, callerNumber);
+  if (rpc && rpc.type && rpc.type !== 'unknown') {
+    const studentIds = Array.isArray(rpc.student_ids) ? rpc.student_ids : [];
+    const students = Array.isArray(rpc.students) ? rpc.students : [];
+    return {
+      type: rpc.type,
+      name: rpc.name || (rpc.type === 'parent' ? 'Parent' : rpc.type),
+      matchedId: rpc.matched_id || (studentIds.length ? studentIds[0] : null),
+      studentIds,
+      detail: { students },
+    };
+  }
 
   // PostgREST: match on the last 10 digits using LIKE. We store numbers in many
   // formats, so compare on a stripped suffix via `like.*<tail>`. To keep it
