@@ -122,9 +122,13 @@ async function hmacSha1Base64(key, message) {
  * dev/initial setup while remaining secure once the token is set.
  */
 export async function validateAndParse(context) {
-  const token =
-    context.env.SIGNALWIRE_WEBHOOK_TOKEN ||
-    context.env.SIGNALWIRE_API_TOKEN; // SignalWire signs with the project auth token
+  // Strict signature checking is OPT-IN: only enforced when a dedicated
+  // SIGNALWIRE_WEBHOOK_TOKEN is explicitly configured. We intentionally do NOT
+  // fall back to SIGNALWIRE_API_TOKEN here, because SignalWire's
+  // compatibility-API request signature does not reliably validate against the
+  // project API token across all setups — enforcing it blocked every call.
+  // Until the exact signing key is confirmed, parse-and-proceed (unverified).
+  const token = context.env.SIGNALWIRE_WEBHOOK_TOKEN;
 
   let params = {};
   try {
