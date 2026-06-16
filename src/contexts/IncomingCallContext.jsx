@@ -13,6 +13,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PhoneIncoming, User, Users, X, GraduationCap } from 'lucide-react';
@@ -23,8 +24,13 @@ export const useIncomingCall = () => useContext(IncomingCallContext) || {};
 export const IncomingCallProvider = ({ children }) => {
   const { profile } = useAuth();
   const { open: openStudent } = useStudentProfile();
+  const { toast } = useToast();
   const [call, setCall] = useState(null);
   const [students, setStudents] = useState([]);
+
+  // Remember which (call, student) pairs we've already logged so claiming a
+  // call never creates duplicate call_logs rows.
+  const loggedPairs = useRef(new Set());
 
   const dismiss = useCallback(() => {
     setCall(null);
@@ -137,7 +143,48 @@ export const IncomingCallProvider = ({ children }) => {
     };
   }, [profile?.id, presentCall]);
 
-  const handleOpenStudent = (id) => {
+  const handleOpenStudent = async (id) => {
+    // Claiming an incoming call to a student: auto-create a student-linked
+    // call_logs entry so staff can add follow-ups and mark it handled.
+    if (call && profile?.id) {
+      const pairKey = `${call.id}:${id}`;
+      if (!loggedPairs.current.has(pairKey)) {
+        loggedPairs.current.add(pairKey);
+        const student = students.find((s) => s.id === id);
+        try {
+          const { error } = await supabase.from('call_logs').insert([
+            {
+              student_id: id,
+              logged_by: profile.id,
+              call_type: 'incoming',
+              direction: 'incoming',
+              contact_type: call.matched_type || 'parent',
+              contact_person: call.matched_name || call.caller_number || 'Unknown caller',
+              phone_number: call.caller_number || null,
+              purpose: 'Incoming phone call',
+              notes: `Auto-logged from incoming call${
+                call.caller_number ? ` from ${call.caller_number}` : ''
+              }.`,
+              follow_up_needed: false,
+              call_date: call.created_at || new Date().toISOString(),
+            },
+          ]);
+          if (error) throw error;
+          toast({
+            title: 'Call logged',
+            description: `Saved to ${student?.name || 'student'}'s call log — add a follow-up if needed.`,
+          });
+        } catch (e) {
+          // Don't block opening the profile if logging fails.
+          loggedPairs.current.delete(pairKey);
+          toast({
+            variant: 'destructive',
+            title: 'Could not log call',
+            description: e.message,
+          });
+        }
+      }
+    }
     openStudent(id);
     dismiss();
   };
