@@ -9,11 +9,11 @@
  *   - tutor                  → open the tutor's client list
  *   - staff / unknown        → show the caller info
  */
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PhoneIncoming, User, Users, X, GraduationCap } from 'lucide-react';
 
@@ -53,9 +53,28 @@ export const IncomingCallProvider = ({ children }) => {
     );
   }, []);
 
+  // Track call ids we've already shown so Realtime and the polling fallback
+  // never pop the same call twice (and a dismissed call never re-pops).
+  const seenIds = useRef(new Set());
+
+  const presentCall = useCallback(
+    (row) => {
+      if (!row || row.status !== 'ringing') return;
+      if (seenIds.current.has(row.id)) return;
+      seenIds.current.add(row.id);
+      setCall(row);
+      loadStudents(row.matched_student_ids || []);
+    },
+    [loadStudents]
+  );
+
   useEffect(() => {
     if (!profile?.id) return undefined;
 
+    let active = true;
+    let pollTimer;
+
+    // --- Primary: Supabase Realtime (instant screen-pop) ---
     const channel = supabase
       .channel(`inbound-calls-${profile.id}`)
       .on(
@@ -67,18 +86,56 @@ export const IncomingCallProvider = ({ children }) => {
           filter: `target_user_id=eq.${profile.id}`,
         },
         (payload) => {
-          const row = payload.new;
-          if (!row || row.status !== 'ringing') return;
-          setCall(row);
-          loadStudents(row.matched_student_ids || []);
+          console.log('[IncomingCall] realtime INSERT', payload.new?.id, payload.new?.status);
+          presentCall(payload.new);
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        // SUBSCRIBED | CHANNEL_ERROR | TIMED_OUT | CLOSED
+        console.log('[IncomingCall] channel status:', status, err || '');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(
+            '[IncomingCall] Realtime WebSocket unavailable (often blocked on filtered/proxy networks). ' +
+              'Screen-pop will use the polling fallback instead.'
+          );
+        }
+      });
+
+    // --- Fallback: short-interval polling ---
+    // Works even when the wss:// Realtime socket is blocked by a network filter
+    // or proxy. Looks for a recent ringing call targeted at this user. The
+    // seenIds guard means this and Realtime can run together without dupes.
+    const poll = async () => {
+      if (!active) return;
+      try {
+        const since = new Date(Date.now() - 90 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('inbound_calls')
+          .select('*')
+          .eq('target_user_id', profile.id)
+          .eq('status', 'ringing')
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (error) {
+          console.warn('[IncomingCall] poll error:', error.message);
+        } else if (data && data[0]) {
+          presentCall(data[0]);
+        }
+      } catch (e) {
+        console.warn('[IncomingCall] poll exception:', e?.message);
+      } finally {
+        if (active) pollTimer = setTimeout(poll, 4000);
+      }
+    };
+    poll();
 
     return () => {
+      active = false;
+      if (pollTimer) clearTimeout(pollTimer);
       supabase.removeChannel(channel);
     };
-  }, [profile?.id, loadStudents]);
+  }, [profile?.id, presentCall]);
 
   const handleOpenStudent = (id) => {
     openStudent(id);
@@ -91,6 +148,7 @@ export const IncomingCallProvider = ({ children }) => {
 
       <Dialog open={!!call} onOpenChange={(o) => !o && dismiss()}>
         <DialogContent className="max-w-md p-0 overflow-hidden" dir="ltr">
+          <DialogTitle className="sr-only">Incoming call</DialogTitle>
           {call && (
             <div>
               <div className="bg-emerald-600 text-white px-5 py-4 flex items-center gap-3">

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import StudentProfileView from '@/components/views/StudentProfileView';
@@ -34,6 +34,7 @@ export const StudentProfileProvider = ({ children }) => {
           className="max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh] p-0 overflow-hidden flex flex-col"
           dir="ltr"
         >
+          <DialogTitle className="sr-only">Student profile</DialogTitle>
           <div className="flex items-center justify-end px-3 py-2 border-b bg-slate-50 shrink-0">
             <Button variant="ghost" size="sm" onClick={close}>
               <X className="h-4 w-4 mr-1" /> Close
