@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { StudentProfileProvider } from '@/contexts/StudentProfileContext';
+import { IncomingCallProvider } from '@/contexts/IncomingCallContext';
 import { Toaster } from '@/components/ui/toaster';
 import Dashboard from '@/components/Dashboard';
 import Login from '@/components/Login';
@@ -41,9 +42,11 @@ function App() {
             <meta name="description" content={`${SCHOOL_NAME_EN} — student management system.`} />
             <link rel="icon" type="image/png" href={SCHOOL_FAVICON_URL} />
           </Helmet>
-          <div className="min-h-screen bg-slate-50 font-sans" dir="ltr">
-            <AppContent />
-          </div>
+          <IncomingCallProvider>
+            <div className="min-h-screen bg-slate-50 font-sans" dir="ltr">
+              <AppContent />
+            </div>
+          </IncomingCallProvider>
           <Toaster />
         </StudentProfileProvider>
       </LanguageProvider>

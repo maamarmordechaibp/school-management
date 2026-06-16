@@ -43,6 +43,7 @@ import LateTrackingView from '@/components/views/LateTrackingView';
 import BusChangesView from '@/components/views/BusChangesView';
 import RemindersView from '@/components/views/RemindersView';
 import TodoListView from '@/components/views/TodoListView';
+import PhoneSystemView from '@/components/views/PhoneSystemView';
 
 const Dashboard = () => {
   const { t } = useLanguage();
@@ -103,6 +104,7 @@ const Dashboard = () => {
     { id: 'meetings', label: 'Meetings', icon: Calendar, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
     { id: 'announcements', label: 'Announcements', icon: Megaphone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
     { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
+    { id: 'phone-system', label: 'Phone System', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Extensions, IVR & voicemail' },
     { id: 'email-templates', label: 'Email Templates', icon: Mail, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Edit reusable email templates' },
     
     // Staff (admin only)
@@ -150,6 +152,7 @@ const Dashboard = () => {
       case 'email-templates': return <EmailTemplatesView {...viewProps} />;
       case 'announcements': return <AnnouncementsView {...viewProps} />;
       case 'mass-call': return <MassCallView {...viewProps} />;
+      case 'phone-system': return <PhoneSystemView {...viewProps} />;
       case 'timeslots': return <TimeSlotsView {...viewProps} />;
       case 'bulkschedule': return <BulkScheduleView {...viewProps} />;
       case 'reports': return <ReportsView {...viewProps} />;

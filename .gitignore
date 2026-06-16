@@ -11,5 +11,8 @@ node_modules
 dist
 .wrangler
 
+# Separate experimental project — contains its own secrets, never commit
+assistance/
+
 # OS / editor
 .DS_Store
