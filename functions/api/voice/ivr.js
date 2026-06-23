@@ -38,6 +38,12 @@ export async function onRequestPost(context) {
 
   const option = loaded.options.find((o) => o.digit === digit);
   if (!option) {
+    // Global callback shortcut on the root menu: if key 9 is not explicitly
+    // configured, pressing 9 plays recent broadcast recordings.
+    if (loaded.menu?.is_root && digit === '9') {
+      const rec = `${baseUrl}/api/voice/recordings?i=0`;
+      return laml(`<Redirect method="POST">${escapeXml(rec)}</Redirect>`);
+    }
     // Invalid choice → re-prompt (renderMenu enforces retry cap).
     return renderMenu(loaded, { baseUrl, attempt });
   }

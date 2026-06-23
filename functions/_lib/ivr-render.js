@@ -37,9 +37,16 @@ export function renderMenu({ menu, options }, { baseUrl, attempt = 1 }) {
     language: menu.greeting_language,
   });
 
+  const callbackHint = menu.is_root
+    ? `<Say voice="${escapeXml(menu.greeting_voice)}" language="${escapeXml(menu.greeting_language)}">` +
+        `To hear recent school messages, press 9.` +
+      `</Say>`
+    : '';
+
   const gather =
     `<Gather numDigits="1" timeout="${menu.timeout_sec || 6}" action="${escapeXml(action)}" method="POST">` +
       greeting +
+      callbackHint +
     `</Gather>`;
 
   // If the caller does nothing, retry up to invalid_retries, else hang up.
