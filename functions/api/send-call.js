@@ -55,6 +55,18 @@ function normalizeSpaceHost(raw) {
   return v.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 }
 
+async function readProviderError(resp) {
+  const text = await resp.text().catch(() => '');
+  if (!text) return `HTTP ${resp.status}`;
+  try {
+    const data = JSON.parse(text);
+    return data?.message || data?.error_message || data?.error || `HTTP ${resp.status}`;
+  } catch {
+    const clean = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return clean || `HTTP ${resp.status}`;
+  }
+}
+
 export async function onRequestPost(context) {
   const headers = { 'Content-Type': 'application/json' };
 
@@ -70,6 +82,14 @@ export async function onRequestPost(context) {
   if (!PROJECT_ID || !API_TOKEN || !SPACE_HOST || !FROM_NUMBER) {
     return new Response(
       JSON.stringify({ error: 'SignalWire credentials not configured (SIGNALWIRE_PROJECT_ID / API_TOKEN / SPACE_URL / FROM_NUMBER required).' }),
+      { status: 500, headers }
+    );
+  }
+
+  const FROM_E164 = toE164(FROM_NUMBER);
+  if (!FROM_E164) {
+    return new Response(
+      JSON.stringify({ error: 'SIGNALWIRE_FROM_NUMBER is invalid. Use E.164 like +18455551234.' }),
       { status: 500, headers }
     );
   }
@@ -152,7 +172,7 @@ export async function onRequestPost(context) {
     try {
       const params = new URLSearchParams();
       params.set('To', e164);
-      params.set('From', FROM_NUMBER);
+      params.set('From', FROM_E164);
       params.set('Twiml', twiml);
 
       const resp = await fetch(callsUrl, {
@@ -164,9 +184,13 @@ export async function onRequestPost(context) {
         body: params.toString(),
       });
 
-      const data = await resp.json().catch(() => ({}));
+      let data = {};
+      if (resp.ok) {
+        data = await resp.json().catch(() => ({}));
+      }
       if (!resp.ok) {
-        results.push({ to: e164, status: 'failed', error: data?.message || data?.error_message || `HTTP ${resp.status}` });
+        const providerError = await readProviderError(resp);
+        results.push({ to: e164, status: 'failed', error: providerError });
         failCount++;
       } else {
         results.push({ to: e164, status: 'queued', sid: data.sid });
@@ -191,7 +215,7 @@ export async function onRequestPost(context) {
             provider: 'signalwire',
             provider_sid: data?.sid || null,
             status: resp.ok ? 'queued' : 'failed',
-            error: resp.ok ? null : (data?.message || data?.error_message || `HTTP ${resp.status}`),
+            error: resp.ok ? null : (results[results.length - 1]?.error || `HTTP ${resp.status}`),
             related_type: relatedType || null,
             related_id: relatedId || null,
             sent_by: sentBy || user.id,
