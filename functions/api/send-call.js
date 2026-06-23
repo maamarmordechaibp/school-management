@@ -48,6 +48,13 @@ function toE164(raw) {
   return null;
 }
 
+// Accept either "space.signalwire.com" or "https://space.signalwire.com".
+function normalizeSpaceHost(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  return v.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
 export async function onRequestPost(context) {
   const headers = { 'Content-Type': 'application/json' };
 
@@ -58,7 +65,9 @@ export async function onRequestPost(context) {
   const SUPABASE_URL = context.env.SUPABASE_URL || 'https://rfvgjyfrjawqpdpwicev.supabase.co';
   const SUPABASE_SERVICE_KEY = context.env.SUPABASE_SERVICE_KEY || context.env.SUPABASE_ANON_KEY;
 
-  if (!PROJECT_ID || !API_TOKEN || !SPACE_URL || !FROM_NUMBER) {
+  const SPACE_HOST = normalizeSpaceHost(SPACE_URL);
+
+  if (!PROJECT_ID || !API_TOKEN || !SPACE_HOST || !FROM_NUMBER) {
     return new Response(
       JSON.stringify({ error: 'SignalWire credentials not configured (SIGNALWIRE_PROJECT_ID / API_TOKEN / SPACE_URL / FROM_NUMBER required).' }),
       { status: 500, headers }
@@ -125,7 +134,7 @@ export async function onRequestPost(context) {
       speakOrPlay +
     `</Response>`;
 
-  const callsUrl = `https://${SPACE_URL}/api/laml/2010-04-01/Accounts/${PROJECT_ID}/Calls.json`;
+  const callsUrl = `https://${SPACE_HOST}/api/laml/2010-04-01/Accounts/${PROJECT_ID}/Calls.json`;
   const basicAuth = 'Basic ' + btoa(`${PROJECT_ID}:${API_TOKEN}`);
 
   const results = [];

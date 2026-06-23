@@ -38,6 +38,13 @@ function toE164(raw) {
   return null;
 }
 
+// Accept either "space.signalwire.com" or "https://space.signalwire.com".
+function normalizeSpaceHost(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  return v.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
 // HMAC-SHA256 sign helper
 async function sign(secret, data) {
   const key = await crypto.subtle.importKey(
@@ -57,7 +64,9 @@ export async function onRequestPost(context) {
   const FROM_NUMBER = context.env.SIGNALWIRE_FROM_NUMBER;
   const WEBHOOK_SECRET = context.env.RECORDING_WEBHOOK_SECRET;
 
-  if (!PROJECT_ID || !API_TOKEN || !SPACE_URL || !FROM_NUMBER) {
+  const SPACE_HOST = normalizeSpaceHost(SPACE_URL);
+
+  if (!PROJECT_ID || !API_TOKEN || !SPACE_HOST || !FROM_NUMBER) {
     return new Response(JSON.stringify({ error: 'SignalWire credentials not configured.' }), { status: 500, headers });
   }
   if (!WEBHOOK_SECRET) {
@@ -118,7 +127,7 @@ export async function onRequestPost(context) {
       `<Hangup/>` +
     `</Response>`;
 
-  const callsUrl = `https://${SPACE_URL}/api/laml/2010-04-01/Accounts/${PROJECT_ID}/Calls.json`;
+  const callsUrl = `https://${SPACE_HOST}/api/laml/2010-04-01/Accounts/${PROJECT_ID}/Calls.json`;
   const basicAuth = 'Basic ' + btoa(`${PROJECT_ID}:${API_TOKEN}`);
 
   try {
