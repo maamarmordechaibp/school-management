@@ -18,16 +18,66 @@ import { loadMenu, baseUrlFrom } from '../../_lib/ivr-render.js';
 
 const WINDOW_DAYS = 7;
 
-/** Fetch the broadcast recordings from the last WINDOW_DAYS, newest first. */
+function extractAudioUrlFromLogMessage(message) {
+  const s = String(message || '').trim();
+  if (!s.toLowerCase().startsWith('[audio]')) return null;
+  const url = s.slice(7).trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
+/**
+ * Fetch recent callback-eligible messages, newest first.
+ *
+ * Primary source: call_recordings created in the last WINDOW_DAYS.
+ * Fallback source: call_log entries from recent mass calls where message stores
+ * an audio URL as "[audio] <url>". This ensures a message sent today is still
+ * available on callback even if the underlying recording was created earlier.
+ */
 async function loadRecentRecordings(env) {
   const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const path =
+  const recordingsPath =
     `call_recordings?select=id,label,audio_url,created_at,duration_sec` +
     `&created_at=gte.${encodeURIComponent(since)}` +
     `&audio_url=not.is.null` +
     `&order=created_at.desc`;
-  const rows = await sbSelect(env, path);
-  return Array.isArray(rows) ? rows.filter((r) => r.audio_url) : [];
+
+  const logsPath =
+    `call_log?select=created_at,message,related_type,status` +
+    `&created_at=gte.${encodeURIComponent(since)}` +
+    `&related_type=eq.mass_call` +
+    `&status=neq.failed` +
+    `&order=created_at.desc` +
+    `&limit=200`;
+
+  const [recordingRows, logRows] = await Promise.all([
+    sbSelect(env, recordingsPath),
+    sbSelect(env, logsPath),
+  ]);
+
+  const merged = [];
+  const seenUrls = new Set();
+
+  for (const r of Array.isArray(recordingRows) ? recordingRows : []) {
+    if (!r?.audio_url || seenUrls.has(r.audio_url)) continue;
+    seenUrls.add(r.audio_url);
+    merged.push(r);
+  }
+
+  for (const row of Array.isArray(logRows) ? logRows : []) {
+    const audioUrl = extractAudioUrlFromLogMessage(row?.message);
+    if (!audioUrl || seenUrls.has(audioUrl)) continue;
+    seenUrls.add(audioUrl);
+    merged.push({
+      id: `log-${audioUrl}`,
+      label: 'Recent school message',
+      audio_url: audioUrl,
+      created_at: row.created_at,
+      duration_sec: null,
+    });
+  }
+
+  merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return merged;
 }
 
 /** Human-ish "June 14" style date for the spoken intro. */
