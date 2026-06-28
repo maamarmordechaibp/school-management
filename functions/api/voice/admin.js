@@ -52,6 +52,49 @@ function say(text, voice, language) {
   return `<Say voice="${escapeXml(voice)}" language="${escapeXml(language)}">${escapeXml(text)}</Say>`;
 }
 
+// ---------------------------------------------------------------
+// Hebrew / Yiddish names can't be spoken by the English TTS voice
+// (it just says "For , press 1"). Transliterate them to Latin so the
+// voice can read an approximation, and fall back to a numbered option
+// when nothing speakable remains.
+// ---------------------------------------------------------------
+const HEBREW_MAP = {
+  'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'u', 'ז': 'z',
+  'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ך': 'ch', 'ל': 'l', 'מ': 'm',
+  'ם': 'm', 'נ': 'n', 'ן': 'n', 'ס': 's', 'ע': 'e', 'פ': 'p', 'ף': 'f',
+  'צ': 'tz', 'ץ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh', 'ת': 't',
+};
+
+function hasHebrew(str) {
+  return /[\u0590-\u05FF]/.test(String(str || ''));
+}
+
+function transliterateHebrew(str) {
+  let out = '';
+  for (const ch of String(str || '')) {
+    if (HEBREW_MAP[ch] !== undefined) out += HEBREW_MAP[ch];
+    else if (/[\u0591-\u05C7]/.test(ch)) continue;        // nikkud / cantillation
+    else if (ch === '׳' || ch === '״' || ch === '\u2018' || ch === '\u2019') continue; // geresh/gershayim
+    else out += ch;
+  }
+  return out;
+}
+
+// A label safe to read aloud: transliterate any Hebrew, keep Latin as-is.
+function speakLabel(text) {
+  if (!hasHebrew(text)) return String(text || '');
+  return transliterateHebrew(text).replace(/\s+/g, ' ').trim();
+}
+
+// A list item name for prompts; falls back to "option N" when not speakable.
+function speakable(name, index) {
+  const raw = String(name || '').trim();
+  if (!raw) return `option ${index}`;
+  if (!hasHebrew(raw)) return raw;
+  const t = transliterateHebrew(raw).replace(/\s+/g, ' ').trim();
+  return t ? `${t}, option ${index}` : `option ${index}`;
+}
+
 // Build a URL back into this endpoint, preserving session + audio state.
 function step(baseUrl, name, state = {}) {
   const u = new URL(`${baseUrl}/api/voice/admin`);
@@ -344,7 +387,7 @@ export async function onRequestPost(context) {
     const pageItems = items.slice(start, start + PAGE_SIZE);
     const hasMore = start + PAGE_SIZE < items.length;
     let prompt = '';
-    pageItems.forEach((it, i) => { prompt += `For ${it.name}, press ${i + 1}. `; });
+    pageItems.forEach((it, i) => { prompt += `For ${speakable(it.name, i + 1)}, press ${i + 1}. `; });
     if (hasMore) prompt += 'For more options, press 9. ';
     prompt += 'To go back, press 0.';
     const pickStep = stepName === 'grade-list' ? 'grade-pick' : stepName === 'class-list' ? 'class-pick' : 'pos-pick';
@@ -396,14 +439,15 @@ export async function onRequestPost(context) {
     const numbers = await resolveRecipients(env, { audienceType: at, audienceId: aid, audienceText: atext });
     const count = numbers.length;
     const label = audienceLabel({ audienceType: at, audienceName: aname });
+    const spokenLabel = speakLabel(label);
     if (count === 0) {
-      return laml(S(`There are no phone numbers for ${label}. Returning to the menu.`) +
+      return laml(S(`There are no phone numbers for ${spokenLabel}. Returning to the menu.`) +
         `<Redirect method="POST">${escapeXml(step(baseUrl, 'menu', { s }))}</Redirect>`);
     }
     return laml(
       gather(
         step(baseUrl, 'send', { s, audio, at, aid, atext, aname }),
-        S(`This message will be sent to ${count} ${count === 1 ? 'number' : 'numbers'}, for ${label}. To send now, press 1. To cancel, press 2.`),
+        S(`This message will be sent to ${count} ${count === 1 ? 'number' : 'numbers'}, for ${spokenLabel}. To send now, press 1. To cancel, press 2.`),
       ) + `<Redirect method="POST">${escapeXml(step(baseUrl, 'menu', { s }))}</Redirect>`
     );
   }
@@ -428,6 +472,7 @@ export async function onRequestPost(context) {
     const numbers = await resolveRecipients(env, { audienceType: at, audienceId: aid, audienceText: atext });
     const count = numbers.length;
     const label = audienceLabel({ audienceType: at, audienceName: aname });
+    const spokenLabel = speakLabel(label);
 
     if (count === 0) {
       return laml(S('There are no recipients. Goodbye.') + '<Hangup/>');
@@ -455,7 +500,7 @@ export async function onRequestPost(context) {
     }
 
     return laml(
-      S(`Your message is being sent to ${count} ${count === 1 ? 'number' : 'numbers'}, for ${label}. Thank you. Goodbye.`) +
+      S(`Your message is being sent to ${count} ${count === 1 ? 'number' : 'numbers'}, for ${spokenLabel}. Thank you. Goodbye.`) +
       '<Hangup/>'
     );
   }
