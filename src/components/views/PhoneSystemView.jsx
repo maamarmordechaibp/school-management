@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   Phone, PhoneCall, Voicemail, ListTree, Plus, Trash2, Pencil, Save, X,
   Upload, ChevronRight, Home, User, RefreshCw, MailCheck, Settings2,
+  Megaphone, KeyRound, ShieldCheck,
 } from 'lucide-react';
 import {
   listExtensions, saveExtension, deleteExtension,
@@ -20,6 +21,8 @@ import {
   listMenus, listOptions, saveMenu, deleteMenu, saveOption, deleteOption,
   listVoicemails, markVoicemailRead, deleteVoicemail,
   listInboundCalls, uploadAudio,
+  listBroadcastAdmins, saveBroadcastAdmin, deleteBroadcastAdmin,
+  setBroadcastAdminPin, listPhoneBroadcasts,
 } from '@/lib/phoneService';
 
 const PRINCIPAL_ROLES = ['admin', 'principal', 'principal_hebrew', 'principal_english'];
@@ -29,6 +32,7 @@ const ACTION_TYPES = [
   { value: 'submenu', label: 'Open a submenu' },
   { value: 'message', label: 'Play a message' },
   { value: 'recordings', label: 'Play recent broadcast recordings (7 days)' },
+  { value: 'admin', label: 'Call-in broadcast (principal records & sends to a group)' },
   { value: 'voicemail', label: 'Send to voicemail' },
   { value: 'forward', label: 'Forward to a phone number' },
   { value: 'hangup', label: 'Hang up' },
@@ -47,6 +51,7 @@ const TABS = [
   { id: 'devices', label: 'Devices', icon: Settings2 },
   { id: 'voicemails', label: 'Voicemails', icon: Voicemail },
   { id: 'activity', label: 'Call Activity', icon: PhoneCall },
+  { id: 'broadcast', label: 'Call-In Broadcast', icon: Megaphone },
 ];
 
 const sel =
@@ -102,6 +107,7 @@ const PhoneSystemView = ({ role }) => {
       {tab === 'devices' && <DevicesTab />}
       {tab === 'voicemails' && <VoicemailsTab />}
       {tab === 'activity' && <CallActivityTab />}
+      {tab === 'broadcast' && <BroadcastAdminTab />}
     </div>
   );
 };
@@ -999,6 +1005,220 @@ const CallActivityTab = () => {
           {rows.length === 0 && <p className="text-slate-400 text-sm">No inbound calls logged yet.</p>}
         </div>
       )}
+    </div>
+  );
+};
+
+/* ===================== Call-In Broadcast (lock + log) ===================== */
+const blankAdmin = () => ({ name: '', phone: '', is_active: true });
+
+const BroadcastAdminTab = () => {
+  const { toast } = useToast();
+  const [admins, setAdmins] = useState([]);
+  const [broadcasts, setBroadcasts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [pinFor, setPinFor] = useState(null); // admin row to set a PIN on
+  const [pinValue, setPinValue] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [a, b] = await Promise.all([listBroadcastAdmins(), listPhoneBroadcasts(100)]);
+      setAdmins(a);
+      setBroadcasts(b);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Could not load', description: e.message });
+    }
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onSave = async () => {
+    if (!editing?.name?.trim()) {
+      toast({ variant: 'destructive', title: 'Name is required' });
+      return;
+    }
+    try {
+      await saveBroadcastAdmin(editing);
+      setEditing(null);
+      await load();
+      toast({ title: 'Saved' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+    }
+  };
+
+  const onDelete = async (row) => {
+    if (!confirm(`Remove ${row.name} from call-in broadcast access?`)) return;
+    try {
+      await deleteBroadcastAdmin(row.id);
+      await load();
+      toast({ title: 'Removed' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: e.message });
+    }
+  };
+
+  const onSavePin = async () => {
+    if (pinValue && !/^\d{4,8}$/.test(pinValue)) {
+      toast({ variant: 'destructive', title: 'PIN must be 4–8 digits' });
+      return;
+    }
+    setSavingPin(true);
+    try {
+      await setBroadcastAdminPin(pinFor.id, pinValue);
+      setPinFor(null);
+      setPinValue('');
+      await load();
+      toast({ title: pinValue ? 'PIN set' : 'PIN cleared' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Could not save PIN', description: e.message });
+    }
+    setSavingPin(false);
+  };
+
+  return (
+    <div>
+      <Card className="mb-5 border-blue-100 bg-blue-50/40">
+        <CardContent className="p-4 text-sm text-slate-600">
+          <p className="font-medium text-slate-800 flex items-center gap-2 mb-1">
+            <ShieldCheck className="h-4 w-4 text-blue-600" /> How call-in broadcasts work
+          </p>
+          <p>
+            An authorized person below can call the school number, press <strong>*</strong> (or the
+            menu option you set to “Call-in broadcast”), and either be recognized by their
+            <strong> caller ID</strong> or enter their <strong>PIN</strong>. They record a message,
+            pick a group (parents — all / by grade / by class, or staff — all / by position), hear
+            the recipient count, confirm, and it sends. Every broadcast is logged below.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between items-center mb-3">
+        <p className="text-sm font-medium text-slate-700">Authorized callers</p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
+          <Button size="sm" onClick={() => setEditing(blankAdmin())}><Plus className="h-4 w-4 mr-1" /> Add caller</Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-slate-400 text-sm">Loading…</p>
+      ) : (
+        <div className="grid gap-2 mb-8">
+          {admins.map((a) => (
+            <Card key={a.id} className={a.is_active ? '' : 'opacity-60'}>
+              <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+                <Megaphone className="h-5 w-5 text-slate-400" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-800 truncate">{a.name}</p>
+                  <p className="text-xs text-slate-500">{a.phone || 'no caller ID set'}</p>
+                </div>
+                {a.has_pin
+                  ? <Badge variant="secondary"><KeyRound className="h-3 w-3 mr-1" /> PIN set</Badge>
+                  : <Badge variant="outline">No PIN</Badge>}
+                {!a.is_active && <Badge variant="outline">Disabled</Badge>}
+                <Button variant="ghost" size="sm" onClick={() => { setPinFor(a); setPinValue(''); }}>
+                  <KeyRound className="h-4 w-4 mr-1" /> PIN
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditing(a)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => onDelete(a)}>
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+          {admins.length === 0 && (
+            <p className="text-slate-400 text-sm">No authorized callers yet. Add the principal’s cell number so caller-ID recognizes them.</p>
+          )}
+        </div>
+      )}
+
+      <p className="text-sm font-medium text-slate-700 mb-3">Recent call-in broadcasts</p>
+      <div className="grid gap-2">
+        {broadcasts.map((b) => (
+          <Card key={b.id}>
+            <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+              <PhoneCall className="h-5 w-5 text-slate-400" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-800 truncate">
+                  {b.admin_name || 'Unknown'} → {b.audience_label || 'Recipients'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {new Date(b.created_at).toLocaleString()} · {b.caller_number || 'no caller ID'} ·
+                  {' '}auth: {b.auth_method || '—'}
+                </p>
+              </div>
+              {b.recording_url && (
+                <audio controls preload="none" src={b.recording_url} className="h-8 max-w-[180px]" />
+              )}
+              <Badge variant={b.status === 'completed' ? 'default' : b.status === 'failed' ? 'destructive' : 'secondary'}>
+                {b.ok_count}/{b.recipient_count} sent
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+        {broadcasts.length === 0 && <p className="text-slate-400 text-sm">No call-in broadcasts yet.</p>}
+      </div>
+
+      {/* Add / edit caller */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{editing?.id ? 'Edit caller' : 'Add caller'}</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="grid gap-3">
+              <div>
+                <Label>Name</Label>
+                <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="e.g. Rabbi Klein (Principal)" />
+              </div>
+              <div>
+                <Label>Phone (caller ID)</Label>
+                <Input value={editing.phone || ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} placeholder="+1 845 555 1234" />
+                <p className="text-xs text-slate-400 mt-1">If they call from this number they’re recognized automatically. A PIN is optional but recommended.</p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={!!editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
+                Active
+              </label>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={onSave}><Save className="h-4 w-4 mr-1" /> Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set / clear PIN */}
+      <Dialog open={!!pinFor} onOpenChange={(o) => !o && setPinFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>PIN for {pinFor?.name}</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            <div>
+              <Label>New PIN (4–8 digits)</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                value={pinValue}
+                onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                placeholder="Leave blank to clear the PIN"
+              />
+              <p className="text-xs text-slate-400 mt-1">The PIN is stored hashed and never shown again. Enter a blank value to remove it.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPinFor(null)}>Cancel</Button>
+            <Button onClick={onSavePin} disabled={savingPin}>
+              <Save className="h-4 w-4 mr-1" /> {pinValue ? 'Set PIN' : 'Clear PIN'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

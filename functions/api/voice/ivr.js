@@ -44,6 +44,12 @@ export async function onRequestPost(context) {
       const rec = `${baseUrl}/api/voice/recordings?i=0`;
       return laml(`<Redirect method="POST">${escapeXml(rec)}</Redirect>`);
     }
+    // Hidden admin shortcut on the root menu: pressing * takes an authorized
+    // principal into the locked call-in broadcast flow (caller-ID or PIN).
+    if (loaded.menu?.is_root && digit === '*') {
+      const adm = `${baseUrl}/api/voice/admin?step=auth`;
+      return laml(`<Redirect method="POST">${escapeXml(adm)}</Redirect>`);
+    }
     // Invalid choice → re-prompt (renderMenu enforces retry cap).
     return renderMenu(loaded, { baseUrl, attempt });
   }
@@ -94,6 +100,12 @@ export async function onRequestPost(context) {
       // Play back the broadcast (mass-call) recordings from the last 7 days.
       const rec = `${baseUrl}/api/voice/recordings?i=0`;
       return laml(`<Redirect method="POST">${escapeXml(rec)}</Redirect>`);
+    }
+
+    case 'admin': {
+      // Locked call-in broadcast flow (record a message + blast a group).
+      const adm = `${baseUrl}/api/voice/admin?step=auth`;
+      return laml(`<Redirect method="POST">${escapeXml(adm)}</Redirect>`);
     }
 
     case 'hangup':

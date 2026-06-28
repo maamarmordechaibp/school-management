@@ -144,6 +144,54 @@ export async function listInboundCalls(limit = 100) {
   return data || [];
 }
 
+/* ------------------------- Call-in broadcast admins ------------------------- */
+// People authorized to CALL THE SCHOOL and trigger a mass voice broadcast.
+// Never selects pin_hash; the PIN is write-only via set_phone_admin_pin RPC.
+export async function listBroadcastAdmins() {
+  const { data, error } = await supabase
+    .from('phone_broadcast_admins')
+    .select('id, name, phone, app_user_id, staff_member_id, is_active, pin_hash, created_at')
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  // Expose only whether a PIN is set, not the hash itself.
+  return (data || []).map(({ pin_hash, ...rest }) => ({ ...rest, has_pin: !!pin_hash }));
+}
+
+export async function saveBroadcastAdmin(admin) {
+  const payload = { ...admin };
+  delete payload.has_pin;
+  delete payload.pin; // PINs are set separately via setBroadcastAdminPin
+  const { data, error } = await supabase
+    .from('phone_broadcast_admins')
+    .upsert(payload, { onConflict: 'id' })
+    .select('id, name, phone, app_user_id, staff_member_id, is_active')
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function deleteBroadcastAdmin(id) {
+  const { error } = await supabase.from('phone_broadcast_admins').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+// Set or clear an admin's PIN. Pass an empty string to clear it.
+export async function setBroadcastAdminPin(adminId, pin) {
+  const { error } = await supabase.rpc('set_phone_admin_pin', { p_admin_id: adminId, p_pin: pin || '' });
+  if (error) throw new Error(error.message);
+}
+
+// Audit log: who called in and blasted which group.
+export async function listPhoneBroadcasts(limit = 100) {
+  const { data, error } = await supabase
+    .from('phone_broadcasts')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 /* ------------------------- Audio upload (IVR greetings) ------------------------- */
 export async function uploadAudio(file, prefix = 'ivr') {
   if (!file) throw new Error('No file provided');
