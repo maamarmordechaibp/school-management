@@ -148,7 +148,9 @@ RETURNS JSONB
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+-- pgcrypto (crypt) lives in the `extensions` schema on Supabase, so it must be
+-- on the search_path for the hash comparison below to resolve.
+SET search_path = public, extensions
 AS $$
 DECLARE
   rec RECORD;
@@ -185,7 +187,8 @@ CREATE OR REPLACE FUNCTION set_phone_admin_pin(p_admin_id UUID, p_pin TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+-- pgcrypto (crypt / gen_salt) lives in the `extensions` schema on Supabase.
+SET search_path = public, extensions
 AS $$
 BEGIN
   IF NOT is_phone_admin() THEN
