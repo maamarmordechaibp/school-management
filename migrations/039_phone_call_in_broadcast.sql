@@ -148,9 +148,9 @@ RETURNS JSONB
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
--- pgcrypto (crypt) lives in the `extensions` schema on Supabase, so it must be
--- on the search_path for the hash comparison below to resolve.
-SET search_path = public, extensions
+-- pgcrypto lives in the `extensions` schema on Supabase; calls are schema-
+-- qualified below so they resolve regardless of search_path.
+SET search_path = public
 AS $$
 DECLARE
   rec RECORD;
@@ -164,7 +164,7 @@ BEGIN
       FROM phone_broadcast_admins
      WHERE is_active = TRUE AND pin_hash IS NOT NULL
   LOOP
-    IF rec.pin_hash = crypt(p_pin, rec.pin_hash) THEN
+    IF rec.pin_hash = extensions.crypt(p_pin, rec.pin_hash) THEN
       RETURN jsonb_build_object(
         'id', rec.id,
         'name', rec.name,
@@ -187,8 +187,9 @@ CREATE OR REPLACE FUNCTION set_phone_admin_pin(p_admin_id UUID, p_pin TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
--- pgcrypto (crypt / gen_salt) lives in the `extensions` schema on Supabase.
-SET search_path = public, extensions
+-- pgcrypto lives in the `extensions` schema on Supabase; calls are schema-
+-- qualified below so they resolve regardless of search_path.
+SET search_path = public
 AS $$
 BEGIN
   IF NOT is_phone_admin() THEN
@@ -201,7 +202,7 @@ BEGIN
     RETURN TRUE;
   END IF;
   UPDATE phone_broadcast_admins
-     SET pin_hash = crypt(btrim(p_pin), gen_salt('bf')), updated_at = NOW()
+     SET pin_hash = extensions.crypt(btrim(p_pin), extensions.gen_salt('bf')), updated_at = NOW()
    WHERE id = p_admin_id;
   RETURN TRUE;
 END;
