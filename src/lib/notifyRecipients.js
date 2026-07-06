@@ -114,16 +114,45 @@ export async function saveNotifyGroupSettings(map) {
 
 /** Fetch every recipient group. Pass a studentId to also include parents. */
 export async function fetchRecipientGroups(studentId = null) {
-  const [usersRes, staffRes, spedRes, settings] = await Promise.all([
+  const [usersRes, staffRes, settings] = await Promise.all([
     supabase.from('app_users').select('id, name, first_name, last_name, email, role, is_active').eq('is_active', true),
     supabase.from('staff_members').select('id, full_name, hebrew_name, first_name, last_name, email, position, is_active').eq('is_active', true),
-    supabase.from('special_ed_staff').select('id, name, hebrew_name, email, role, is_active').eq('is_active', true),
     loadNotifyGroupSettings(),
   ]);
 
+  // Special-ed staff: try to follow the link chain to find an email wherever
+  // it lives (own column → linked staff_members → that member's app_user). If
+  // the embedded query fails (relationship not exposed), fall back to a plain
+  // select so we still get any email stored directly on special_ed_staff.
+  let spedData = [];
+  {
+    const embedded = await supabase
+      .from('special_ed_staff')
+      .select('id, name, hebrew_name, email, role, is_active, staff_member:staff_members(email, app_user:app_users(email))')
+      .eq('is_active', true);
+    if (embedded.error) {
+      const plain = await supabase
+        .from('special_ed_staff')
+        .select('id, name, hebrew_name, email, role, is_active')
+        .eq('is_active', true);
+      spedData = plain.data || [];
+    } else {
+      spedData = embedded.data || [];
+    }
+  }
+
+  const emailOf = (obj) => {
+    if (!obj) return null;
+    if (isEmail(obj.email)) return obj.email;
+    const sm = obj.staff_member;
+    if (sm && isEmail(sm.email)) return sm.email;
+    if (sm && sm.app_user && isEmail(sm.app_user.email)) return sm.app_user.email;
+    return null;
+  };
+
   const activeUsers = (usersRes.data || []).filter((u) => isEmail(u.email));
   const activeStaff = (staffRes.data || []).filter((s) => isEmail(s.email));
-  const activeSped = (spedRes.data || []).filter((s) => isEmail(s.email));
+  const activeSped = (spedData || []).filter((s) => isEmail(emailOf(s)));
 
   const groups = NOTIFY_GROUPS.map((g) => {
     const members = [];
@@ -144,7 +173,7 @@ export async function fetchRecipientGroups(studentId = null) {
       .forEach((s) => add(displayName(s), s.email, s.position));
 
     if (g.matchSped) {
-      activeSped.forEach((s) => add(s.name || s.hebrew_name || 'Special Ed', s.email, s.role));
+      activeSped.forEach((s) => add(s.name || s.hebrew_name || 'Special Ed', emailOf(s), s.role));
     }
 
     parseConfigured(settings[g.key]).forEach((e) => add(e, e, 'configured'));
