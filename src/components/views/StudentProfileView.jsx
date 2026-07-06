@@ -24,9 +24,13 @@ import SendEmailModal from '@/components/modals/SendEmailModal';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { MessageSquare, Edit, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
+  const { profile: currentUser } = useAuth();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [student, setStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
@@ -572,6 +576,17 @@ const StudentProfileView = ({ studentId, onBack }) => {
       setIsNoteModalOpen(false);
       setEditingNote(null);
       fetchStudentData();
+      const isEdit = editingNote && noteForm.edit_mode === 'edit';
+      notify({
+        studentId,
+        studentName: student?.hebrew_name || `${student?.first_name || ''} ${student?.last_name || ''}`.trim(),
+        action: isEdit ? 'updated' : 'created',
+        recordType: 'Student note',
+        title: noteForm.title || noteForm.note_type || 'Note',
+        details: noteForm.content,
+        relatedType: 'student_note',
+        relatedId: isEdit ? editingNote.id : undefined,
+      });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -582,6 +597,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       <AssessmentForm 
         student={student} 
         assessment={editingAssessment}
+        currentUser={currentUser}
         onSave={handleAssessmentSave}
         onCancel={() => {
           setIsAssessmentMode(false);
@@ -2220,6 +2236,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       {/* Student Plan Modal */}
       <StudentPlanModal
         isOpen={isPlanModalOpen}
+        currentUser={currentUser}
         onClose={() => {
           setIsPlanModalOpen(false);
           setEditingPlan(null);
@@ -2232,6 +2249,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
           setEditingPlan(null);
         }}
       />
+      {notifyElement}
     </div>
   );
 };

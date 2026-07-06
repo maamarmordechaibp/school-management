@@ -10,9 +10,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const GradesModal = ({ isOpen, onClose, student }) => {
   const { toast } = useToast();
+  const { profile: currentUser } = useAuth();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [grades, setGrades] = useState([]);
   const [newGrade, setNewGrade] = useState({
     subject: '',
@@ -72,12 +76,22 @@ const GradesModal = ({ isOpen, onClose, student }) => {
         title: 'Success',
         description: 'Grade added successfully',
       });
+      const added = { ...newGrade };
       setNewGrade({
         subject: '',
         grade: '',
         date: new Date().toISOString().split('T')[0],
       });
       loadGrades();
+      notify({
+        studentId: student.id,
+        studentName: student.hebrew_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+        action: 'created',
+        recordType: 'Grade',
+        title: `${added.subject}: ${added.grade}`,
+        details: `Subject: ${added.subject}\nGrade: ${added.grade}\nDate: ${added.date}`,
+        relatedType: 'grade',
+      });
     }
   };
 
@@ -179,6 +193,7 @@ const GradesModal = ({ isOpen, onClose, student }) => {
           )}
         </div>
       </DialogContent>
+      {notifyElement}
     </Dialog>
   );
 };

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Check, ArrowRight, FileText } from 'lucide-react';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const StandardHebrewForm = ({ formData, handleChange }) => (
   <div className="border border-slate-800 rounded-sm mb-6">
@@ -205,8 +206,9 @@ const CustomTemplateForm = ({ schema, customData, onChange }) => {
   );
 };
 
-const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
+const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('standard');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -319,6 +321,18 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
         description: `Assessment for ${student.name} has been saved.`
       });
       if (onSave) onSave();
+      notify({
+        studentId: student.id,
+        studentName: student.name,
+        action: assessment?.id ? 'updated' : 'created',
+        recordType: 'Assessment',
+        title: selectedTemplate ? selectedTemplate.name : 'Standard Assessment',
+        details:
+          (formData.summary ? `Summary: ${formData.summary}\n` : '') +
+          (formData.plan ? `Plan: ${formData.plan}` : '') +
+          `Status: ${status}`,
+        relatedType: 'assessment',
+      });
     }
   };
 
@@ -418,6 +432,7 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel }) => {
           </Button>
         </div>
       </div>
+      {notifyElement}
     </div>
   );
 };

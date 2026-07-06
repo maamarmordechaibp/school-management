@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
-import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const IssuesView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [issues, setIssues] = useState([]);
   const [students, setStudents] = useState([]);
   const [users, setUsers] = useState([]);
@@ -38,12 +39,6 @@ const IssuesView = ({ role, currentUser }) => {
     severity: 'medium',
     assigned_to: ''
   });
-
-  // Email notification
-  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
-  const [isEmailOpen, setIsEmailOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
 
   // Detail/Comment Modal
   const [selectedIssue, setSelectedIssue] = useState(null);
@@ -174,6 +169,13 @@ const IssuesView = ({ role, currentUser }) => {
         assigned_to: issueForm.assigned_to || null
       };
 
+      const student = students.find(s => s.id === payload.student_id);
+      const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : '';
+      const details =
+        `Category: ${payload.category}\n` +
+        `Severity: ${payload.severity}` +
+        (payload.description ? `\nDescription: ${payload.description}` : '');
+
       if (editingIssue) {
         const { error } = await supabase
           .from('student_issues')
@@ -181,36 +183,43 @@ const IssuesView = ({ role, currentUser }) => {
           .eq('id', editingIssue.id);
         if (error) throw error;
         toast({ title: 'Success', description: 'Issue updated' });
+        setIsModalOpen(false);
+        loadData();
+        notify({
+          studentId: payload.student_id,
+          studentName,
+          action: 'updated',
+          recordType: 'Issue',
+          title: payload.title,
+          details,
+          relatedType: 'issue',
+          relatedId: editingIssue.id,
+        });
+        return;
       } else {
         payload.reported_by = currentUser?.id;
         payload.status = 'open';
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('student_issues')
-          .insert([payload]);
+          .insert([payload])
+          .select('id')
+          .maybeSingle();
         if (error) throw error;
         toast({ title: 'Success', description: 'Issue created' });
-        
-        // Prompt email notification
-        const student = students.find(s => s.id === payload.student_id);
-        const studentName = student ? `${student.first_name} ${student.last_name}` : '';
-        setEmailSubject(`New Issue Reported: ${payload.title}`);
-        setEmailBody(
-          `A new issue has been reported:\n\n` +
-          `Title: ${payload.title}\n` +
-          `Student: ${studentName}\n` +
-          `Category: ${payload.category}\n` +
-          `Severity: ${payload.severity}\n` +
-          (payload.description ? `Description: ${payload.description}\n` : '') +
-          `\nReported by: ${currentUser?.name || currentUser?.email || 'System'}`
-        );
         setIsModalOpen(false);
         loadData();
-        setShowEmailPrompt(true);
+        notify({
+          studentId: payload.student_id,
+          studentName,
+          action: 'created',
+          recordType: 'Issue',
+          title: payload.title,
+          details,
+          relatedType: 'issue',
+          relatedId: inserted?.id,
+        });
         return;
       }
-
-      setIsModalOpen(false);
-      loadData();
     } catch (error) {
       console.error('Error saving issue:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save issue' });
@@ -664,32 +673,8 @@ const IssuesView = ({ role, currentUser }) => {
           )}
         </DialogContent>
       </Dialog>
-      {/* Email Notification Prompt */}
-      <Dialog open={showEmailPrompt} onOpenChange={setShowEmailPrompt}>
-        <DialogContent className="sm:max-w-[350px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" /> Send Notification?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">Would you like to send an email to notify someone about this issue?</p>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEmailPrompt(false)}>No, Skip</Button>
-            <Button onClick={() => { setShowEmailPrompt(false); setIsEmailOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
-              <Mail className="mr-2 h-4 w-4" /> Yes, Send Email
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <SendEmailModal
-        isOpen={isEmailOpen}
-        onClose={() => setIsEmailOpen(false)}
-        defaultSubject={emailSubject}
-        defaultBody={emailBody}
-        currentUser={currentUser}
-        relatedType="issue"
-      />
+      {/* Notification prompt (create + update) */}
+      {notifyElement}
     </div>
   );
 };

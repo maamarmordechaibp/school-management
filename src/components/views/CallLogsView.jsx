@@ -12,13 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Mail } from 'lucide-react';
-import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const CallLogsView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [callLogs, setCallLogs] = useState([]);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,12 +28,6 @@ const CallLogsView = ({ role, currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
 
-  // Email notification
-  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
-  const [isEmailOpen, setIsEmailOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
-  
   const [formData, setFormData] = useState({
     student_id: '',
     contact_type: 'father',
@@ -197,32 +192,48 @@ const CallLogsView = ({ role, currentUser }) => {
         duration_minutes: formData.duration_minutes ? parseInt(formData.duration_minutes) : null
       };
 
+      const student = students.find(s => s.id === payload.student_id);
+      const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : '';
+      const details =
+        `Contact: ${payload.contact_person} (${payload.contact_type})\n` +
+        `Direction: ${payload.direction || payload.call_type}` +
+        (payload.purpose ? `\nPurpose: ${payload.purpose}` : '') +
+        (payload.notes ? `\nNotes: ${payload.notes}` : '') +
+        (payload.outcome ? `\nOutcome: ${payload.outcome}` : '');
+
       if (selectedLog) {
         const { error } = await supabase.from('call_logs').update(payload).eq('id', selectedLog.id);
         if (error) throw error;
         toast({ title: 'Success', description: 'Call log updated' });
-      } else {
-        const { error } = await supabase.from('call_logs').insert([payload]);
-        if (error) throw error;
-        toast({ title: 'Success', description: 'Call log created' });
-
-        // Prompt email notification
-        const student = students.find(s => s.id === payload.student_id);
-        const studentName = student ? `${student.first_name} ${student.last_name}` : '';
-        setEmailSubject(`Call Log: ${studentName || 'Student Contact'}`);
-        setEmailBody(
-          `A phone call has been logged:\n\n` +
-          `Student: ${studentName}\n` +
-          `Contact: ${payload.contact_person} (${payload.contact_type})\n` +
-          `Direction: ${payload.direction || payload.call_type}\n` +
-          (payload.purpose ? `Purpose: ${payload.purpose}\n` : '') +
-          (payload.notes ? `Notes: ${payload.notes}\n` : '') +
-          (payload.outcome ? `Outcome: ${payload.outcome}\n` : '') +
-          `\nLogged by: ${currentUser?.name || currentUser?.email || 'System'}`
-        );
         setIsModalOpen(false);
         loadCallLogs();
-        setShowEmailPrompt(true);
+        notify({
+          studentId: payload.student_id,
+          studentName,
+          action: 'updated',
+          recordType: 'Call log',
+          title: studentName ? `Contact with ${payload.contact_person}` : payload.contact_person,
+          details,
+          relatedType: 'call_log',
+          relatedId: selectedLog.id,
+        });
+        return;
+      } else {
+        const { data: inserted, error } = await supabase.from('call_logs').insert([payload]).select('id').maybeSingle();
+        if (error) throw error;
+        toast({ title: 'Success', description: 'Call log created' });
+        setIsModalOpen(false);
+        loadCallLogs();
+        notify({
+          studentId: payload.student_id,
+          studentName,
+          action: 'created',
+          recordType: 'Call log',
+          title: studentName ? `Contact with ${payload.contact_person}` : payload.contact_person,
+          details,
+          relatedType: 'call_log',
+          relatedId: inserted?.id,
+        });
         return;
       }
 
@@ -646,32 +657,8 @@ const CallLogsView = ({ role, currentUser }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Email Notification Prompt */}
-      <Dialog open={showEmailPrompt} onOpenChange={setShowEmailPrompt}>
-        <DialogContent className="sm:max-w-[350px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" /> Send Notification?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">Would you like to send an email notification about this call?</p>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEmailPrompt(false)}>No, Skip</Button>
-            <Button onClick={() => { setShowEmailPrompt(false); setIsEmailOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
-              <Mail className="mr-2 h-4 w-4" /> Yes, Send Email
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <SendEmailModal
-        isOpen={isEmailOpen}
-        onClose={() => setIsEmailOpen(false)}
-        defaultSubject={emailSubject}
-        defaultBody={emailBody}
-        currentUser={currentUser}
-        relatedType="call_log"
-      />
+      {/* Notification prompt (create + update) */}
+      {notifyElement}
     </div>
   );
 };

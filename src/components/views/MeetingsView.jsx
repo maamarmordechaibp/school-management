@@ -14,13 +14,14 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Mail } from 'lucide-react';
-import SendEmailModal from '@/components/modals/SendEmailModal';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const MeetingsView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [meetings, setMeetings] = useState([]);
   const [students, setStudents] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -29,12 +30,6 @@ const MeetingsView = ({ role, currentUser }) => {
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(true);
-
-  // Email notification
-  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
-  const [isEmailOpen, setIsEmailOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -207,24 +202,24 @@ const MeetingsView = ({ role, currentUser }) => {
       setIsModalOpen(false);
       loadMeetings();
 
-      // Prompt email notification only for new meetings
-      if (!selectedMeeting) {
-        const student = students.find(s => s.id === formData.student_id);
-        const studentName = student ? `${student.first_name} ${student.last_name}` : '';
-        setEmailSubject(`Meeting Scheduled: ${formData.title}`);
-        setEmailBody(
-          `A new meeting has been scheduled:\n\n` +
-          `Title: ${formData.title}\n` +
-          `Date: ${formData.scheduled_date} at ${formData.scheduled_time || 'TBD'}\n` +
-          `Duration: ${formData.duration_minutes} minutes\n` +
-          `Type: ${formData.meeting_type}\n` +
-          (studentName ? `Student: ${studentName}\n` : '') +
-          (formData.location ? `Location: ${formData.location}\n` : '') +
-          (formData.description ? `Description: ${formData.description}\n` : '') +
-          `\nOrganized by: ${currentUser?.name || currentUser?.email || 'System'}`
-        );
-        setShowEmailPrompt(true);
-      }
+      const student = students.find(s => s.id === formData.student_id);
+      const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : '';
+      const details =
+        `Date: ${formData.scheduled_date} at ${formData.scheduled_time || 'TBD'}\n` +
+        `Duration: ${formData.duration_minutes} minutes\n` +
+        `Type: ${formData.meeting_type}` +
+        (formData.location ? `\nLocation: ${formData.location}` : '') +
+        (formData.description ? `\nDescription: ${formData.description}` : '');
+      notify({
+        studentId: formData.student_id || null,
+        studentName,
+        action: selectedMeeting ? 'updated' : 'created',
+        recordType: 'Meeting',
+        title: formData.title,
+        details,
+        relatedType: 'meeting',
+        relatedId: meetingId,
+      });
     } catch (error) {
       console.error('Error saving meeting:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save meeting' });
@@ -660,32 +655,8 @@ const MeetingsView = ({ role, currentUser }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Email Notification Prompt */}
-      <Dialog open={showEmailPrompt} onOpenChange={setShowEmailPrompt}>
-        <DialogContent className="sm:max-w-[350px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" /> Send Notification?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-600">Would you like to send an email to notify participants about this meeting?</p>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEmailPrompt(false)}>No, Skip</Button>
-            <Button onClick={() => { setShowEmailPrompt(false); setIsEmailOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
-              <Mail className="mr-2 h-4 w-4" /> Yes, Send Email
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <SendEmailModal
-        isOpen={isEmailOpen}
-        onClose={() => setIsEmailOpen(false)}
-        defaultSubject={emailSubject}
-        defaultBody={emailBody}
-        currentUser={currentUser}
-        relatedType="meeting"
-      />
+      {/* Notification prompt (create + update) */}
+      {notifyElement}
     </div>
   );
 };

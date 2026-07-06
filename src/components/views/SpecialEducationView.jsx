@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import {
   Plus, Search, Edit, Trash2, User, Users, Calendar, Clock,
   FileText, ClipboardList, BookOpen, UserCheck, AlertCircle,
@@ -87,6 +88,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 const SpecialEducationView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [activeTab, setActiveTab] = useState('students');
   const [loading, setLoading] = useState(true);
   
@@ -253,6 +255,20 @@ const SpecialEducationView = ({ role, currentUser }) => {
       toast({ title: 'Saved', description: 'Monthly report saved' });
       setIsMonthlyReportModalOpen(false);
       loadMonthlyReports(reportMonth);
+      const rs = reportStudent.student || reportStudent;
+      const rsName = `${rs.first_name || ''} ${rs.last_name || ''}`.trim() || rs.hebrew_name || '';
+      notify({
+        studentId: rs.id || reportStudent.student_id || null,
+        studentName: rsName,
+        action: selectedReport ? 'updated' : 'created',
+        recordType: 'Monthly special-ed report',
+        title: `${monthLabel} report`,
+        details:
+          (reportForm.progress ? `Progress: ${reportForm.progress}\n` : '') +
+          (reportForm.challenges ? `Challenges: ${reportForm.challenges}\n` : '') +
+          (reportForm.goals_next_month ? `Goals: ${reportForm.goals_next_month}` : ''),
+        relatedType: 'special_ed_monthly_report',
+      });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -576,6 +592,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
       setEvalReqPriority('normal');
       setIsStudentModalOpen(false);
       loadData();
+      const sName = (() => {
+        const s = allStudents.find(x => x.id === studentForm.student_id);
+        return s ? (`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.hebrew_name || '') : '';
+      })();
+      notify({
+        studentId: studentForm.student_id,
+        studentName: sName,
+        action: selectedSpecEd ? 'updated' : 'created',
+        recordType: 'Special education record',
+        title: studentForm.help_type || 'Special education',
+        details:
+          (studentForm.referral_reason ? `Referral: ${studentForm.referral_reason}\n` : '') +
+          (studentForm.help_description ? `Help: ${studentForm.help_description}\n` : '') +
+          (studentForm.current_plan ? `Plan: ${studentForm.current_plan}` : ''),
+        relatedType: 'special_ed_student',
+        relatedId: selectedSpecEd?.id,
+      });
     } catch (error) {
       console.error('Error saving:', error);
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -2155,6 +2188,8 @@ const SpecialEducationView = ({ role, currentUser }) => {
         defaultTo={emailContext.to}
         currentUser={currentUser}
       />
+      {/* Notification prompt (create + update) */}
+      {notifyElement}
     </div>
   );
 };

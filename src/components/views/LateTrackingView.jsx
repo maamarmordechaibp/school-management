@@ -13,6 +13,7 @@ import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import {
   Clock, AlertCircle, Printer, Search, Plus, Calendar, Users,
   FileText, Download, Mail, Loader2, RefreshCw, ShieldCheck, Send,
@@ -89,6 +90,7 @@ const sigStyleCss = (s) => ({
 const LateTrackingView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [lateArrivals, setLateArrivals] = useState([]);
   const [students, setStudents] = useState([]);
@@ -310,6 +312,23 @@ const LateTrackingView = ({ role, currentUser }) => {
         if (!alreadyNotified && unexcused >= threshold) {
           setEscalationPrompt({ late: newRecord, count: unexcused });
         }
+
+        const st = newRecord.student || {};
+        const stName = `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.hebrew_name || '';
+        notify({
+          studentId: newRecord.student_id,
+          studentName: stName,
+          action: 'created',
+          recordType: 'Late arrival',
+          title: `Late on ${newRecord.date}`,
+          details:
+            (newRecord.arrival_time ? `Arrival: ${newRecord.arrival_time}\n` : '') +
+            (newRecord.minutes_late != null ? `Minutes late: ${newRecord.minutes_late}\n` : '') +
+            (newRecord.reason ? `Reason: ${newRecord.reason}\n` : '') +
+            `Unexcused this month: ${unexcused}`,
+          relatedType: 'late_arrival',
+          relatedId: newRecord.id,
+        });
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -967,6 +986,7 @@ const LateTrackingView = ({ role, currentUser }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {notifyElement}
     </div>
   );
 };

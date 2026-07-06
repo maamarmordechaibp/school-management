@@ -229,6 +229,7 @@ const IntakeWorkflowView = ({ role, currentUser }) => {
     return (
       <AssessmentForm
         student={selectedStudent}
+        currentUser={currentUser}
         onSave={() => {
           setIsAssessmentMode(false);
           setSelectedStudent(null);
@@ -366,6 +367,7 @@ const IntakeWorkflowView = ({ role, currentUser }) => {
 
       <StudentPlanModal
         isOpen={isPlanModalOpen}
+        currentUser={currentUser}
         onClose={() => {
           setIsPlanModalOpen(false);
           setSelectedStudent(null);

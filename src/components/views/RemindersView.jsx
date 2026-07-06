@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import {
   Bell, Plus, Edit, Trash2, Mail, Calendar, Clock, Search,
   CheckCircle, Filter, Loader2, AlertCircle
@@ -29,6 +30,7 @@ const REMINDER_TYPES = [
 
 const RemindersView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -155,6 +157,20 @@ const RemindersView = ({ role, currentUser }) => {
       setIsModalOpen(false);
       setEditingReminder(null);
       loadReminders();
+      if (payload.related_student_id) {
+        notify({
+          studentId: payload.related_student_id,
+          studentName: payload.related_student_name || '',
+          action: editingReminder ? 'updated' : 'created',
+          recordType: 'Reminder',
+          title: form.title,
+          details:
+            (form.description ? `${form.description}\n` : '') +
+            `Date: ${form.reminder_date} ${form.reminder_time || ''}`,
+          relatedType: 'reminder',
+          relatedId: editingReminder?.id,
+        });
+      }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -574,6 +590,7 @@ const RemindersView = ({ role, currentUser }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {notifyElement}
     </div>
   );
 };

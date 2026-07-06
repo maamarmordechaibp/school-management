@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import {
   Bus, Plus, Edit, Trash2, Printer, Search, Calendar, Users,
   MapPin, Clock, Mail, Loader2, AlertCircle, RefreshCw, Route
@@ -19,6 +20,7 @@ import {
 
 const BusChangesView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('changes');
   
@@ -137,6 +139,21 @@ const BusChangesView = ({ role, currentUser }) => {
       toast({ title: 'New Change', description: 'Bus change recorded' });
       setIsChangeModalOpen(false);
       loadData();
+      const st = students.find(s => s.id === changeForm.student_id);
+      const stName = st ? (`${st.first_name || ''} ${st.last_name || ''}`.trim() || st.hebrew_name || '') : '';
+      notify({
+        studentId: changeForm.student_id,
+        studentName: stName,
+        action: 'created',
+        recordType: 'Bus change',
+        title: `Bus change on ${changeForm.change_date}`,
+        details:
+          (changeForm.change_type ? `Type: ${changeForm.change_type}\n` : '') +
+          (changeForm.effective_from ? `From: ${changeForm.effective_from}\n` : '') +
+          (changeForm.effective_until ? `Until: ${changeForm.effective_until}\n` : '') +
+          (changeForm.reason ? `Reason: ${changeForm.reason}` : ''),
+        relatedType: 'bus_change',
+      });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -541,6 +558,7 @@ const BusChangesView = ({ role, currentUser }) => {
         defaultBody={emailContext.body}
         currentUser={currentUser}
       />
+      {notifyElement}
     </div>
   );
 };

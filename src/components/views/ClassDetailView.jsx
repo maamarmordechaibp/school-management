@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import StudentProfileView from '@/components/views/StudentProfileView';
 import {
   Users, Plus, Edit, FileText, School, MessageSquare, Mail,
@@ -30,6 +31,7 @@ const NOTE_TYPES = [
 
 const ClassDetailView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -211,6 +213,17 @@ const ClassDetailView = ({ role, currentUser }) => {
       setIsStudentNoteModalOpen(false);
       setEditingNote(null);
       loadClassData(selectedClass.id);
+      const isEdit = editingNote && noteForm.edit_mode === 'edit';
+      notify({
+        studentId: selectedStudent?.id,
+        studentName: selectedStudent?.hebrew_name || `${selectedStudent?.first_name || ''} ${selectedStudent?.last_name || ''}`.trim(),
+        action: isEdit ? 'updated' : 'created',
+        recordType: 'Student note',
+        title: noteForm.title || noteForm.note_type || 'Note',
+        details: noteForm.content,
+        relatedType: 'student_note',
+        relatedId: isEdit ? editingNote.id : undefined,
+      });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
@@ -596,6 +609,7 @@ const ClassDetailView = ({ role, currentUser }) => {
         defaultBody={emailContext.body}
         currentUser={currentUser}
       />
+      {notifyElement}
     </div>
   );
 };

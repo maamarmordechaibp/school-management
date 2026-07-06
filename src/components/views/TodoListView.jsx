@@ -16,7 +16,7 @@ import {
   Sun, Play, ExternalLink, Star, StarOff, Eye, RotateCcw, Repeat
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import SendEmailModal from '@/components/modals/SendEmailModal';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 import StudentProfileModal from '@/components/modals/StudentProfileModal';
 import StudentPicker from '@/components/ui/student-picker';
 
@@ -40,6 +40,7 @@ const PRIORITY_SORT = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 const TodoListView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [todos, setTodos] = useState([]);
   const [users, setUsers] = useState([]);
   const [students, setStudents] = useState([]);
@@ -68,13 +69,6 @@ const TodoListView = ({ role, currentUser }) => {
     recurrence_pattern: 'monthly',
     recurrence_end_date: '',
   });
-
-  // Email notification
-  const [isEmailOpen, setIsEmailOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
-  const [pendingEmailTodo, setPendingEmailTodo] = useState(null);
-  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
   // Student profile modal (for click-through)
   const [selectedStudentId, setSelectedStudentId] = useState(null);
@@ -222,19 +216,21 @@ const TodoListView = ({ role, currentUser }) => {
         const { error } = await supabase.from('todos').update(payload).eq('id', editingTodo.id);
         if (error) throw error;
         toast({ title: 'Updated', description: 'To-do item updated.' });
+        setIsModalOpen(false);
+        fetchTodos();
+        promptTaskNotification({ ...payload, id: editingTodo.id }, 'updated');
       } else {
         payload.created_by = currentUser?.id;
         payload.status = 'pending';
         const { data, error } = await supabase.from('todos').insert([payload]).select();
         if (error) throw error;
         toast({ title: 'Created', description: 'New to-do item created.' });
-        
+
         const savedTodo = data?.[0] || payload;
-        promptEmailNotification(savedTodo);
+        setIsModalOpen(false);
+        fetchTodos();
+        promptTaskNotification(savedTodo, 'created');
       }
-      
-      setIsModalOpen(false);
-      fetchTodos();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
@@ -242,27 +238,21 @@ const TodoListView = ({ role, currentUser }) => {
     }
   };
 
-  const promptEmailNotification = (todo) => {
-    setPendingEmailTodo(todo);
-    setShowEmailPrompt(true);
-  };
-
-  const sendNotificationEmail = () => {
-    if (!pendingEmailTodo) return;
-    const todo = pendingEmailTodo;
-    setEmailSubject(`New Task: ${todo.title}`);
-    setEmailBody(
-      `A new task has been created:\n\n` +
-      `Title: ${todo.title}\n` +
-      `Category: ${todo.category}\n` +
-      `Priority: ${todo.priority}\n` +
-      (todo.description ? `Description: ${todo.description}\n` : '') +
-      (todo.student_name ? `Student: ${todo.student_name}\n` : '') +
-      (todo.due_date ? `Due: ${todo.due_date}\n` : '') +
-      `\nCreated by: ${currentUser?.name || currentUser?.email || 'System'}`
-    );
-    setShowEmailPrompt(false);
-    setIsEmailOpen(true);
+  const promptTaskNotification = (todo, action) => {
+    notify({
+      studentId: todo.student_id || null,
+      studentName: todo.student_name || '',
+      action,
+      recordType: 'Task',
+      title: todo.title,
+      details:
+        `Category: ${todo.category}\n` +
+        `Priority: ${todo.priority}` +
+        (todo.description ? `\nDescription: ${todo.description}` : '') +
+        (todo.due_date ? `\nDue: ${todo.due_date}` : ''),
+      relatedType: 'todo',
+      relatedId: todo.id,
+    });
   };
 
   // ─── Status management ───────────────────────────────────────────
@@ -1029,36 +1019,8 @@ const TodoListView = ({ role, currentUser }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Email Notification Prompt */}
-      <Dialog open={showEmailPrompt} onOpenChange={setShowEmailPrompt}>
-        <DialogContent className="sm:max-w-[350px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-500" /> Send Notification?
-            </DialogTitle>
-            <DialogDescription>
-              Would you like to send an email to notify someone about this new task?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEmailPrompt(false)}>No, Skip</Button>
-            <Button onClick={sendNotificationEmail} className="bg-blue-600 hover:bg-blue-700">
-              <Mail className="mr-2 h-4 w-4" /> Yes, Send Email
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Email Modal */}
-      <SendEmailModal
-        isOpen={isEmailOpen}
-        onClose={() => setIsEmailOpen(false)}
-        defaultSubject={emailSubject}
-        defaultBody={emailBody}
-        currentUser={currentUser}
-        relatedType="todo"
-        relatedId={pendingEmailTodo?.id}
-      />
+      {/* Notification prompt (create + update) */}
+      {notifyElement}
 
       {/* Student Profile Modal (click-through from tasks) */}
       {selectedStudentId && (

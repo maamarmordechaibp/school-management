@@ -8,9 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useStudentNotify } from '@/hooks/useStudentNotify';
 
-const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
+const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess, currentUser }) => {
   const { toast } = useToast();
+  const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(false);
   const [student, setStudent] = useState(null);
   const [tutorsList, setTutorsList] = useState([]);
@@ -113,6 +115,22 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
       toast({ title: 'Success', description: 'Plan saved successfully' });
       onSuccess();
       onClose();
+      const sName = student
+        ? (`${student.first_name || ''} ${student.last_name || ''}`.trim() || student.hebrew_name || student.name || '')
+        : '';
+      notify({
+        studentId,
+        studentName: sName,
+        action: plan ? 'updated' : 'created',
+        recordType: 'Student plan',
+        title: formData.goals ? String(formData.goals).slice(0, 80) : 'Support plan',
+        details:
+          (formData.goals ? `Goals: ${formData.goals}\n` : '') +
+          (formData.review_frequency ? `Review: ${formData.review_frequency}\n` : '') +
+          `Status: ${formData.status || 'draft'}`,
+        relatedType: 'student_plan',
+        relatedId: plan?.id,
+      });
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save plan' });
@@ -122,6 +140,7 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -320,6 +339,8 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess }) => {
         </form>
       </DialogContent>
     </Dialog>
+    {notifyElement}
+    </>
   );
 };
 
