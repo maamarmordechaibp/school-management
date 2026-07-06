@@ -324,16 +324,26 @@ const UserManagementView = () => {
   };
 
   const deleteUser = async (userId) => {
-    if(!window.confirm("Are you sure? This will remove the user's access.")) return;
+    if(!window.confirm("Are you sure? This will permanently remove the user and their login.")) return;
 
     try {
-      const { error } = await supabase.from('app_users').delete().eq('id', userId);
-      if (error) throw error;
-      
-      toast({ title: "User Removed", description: "The user has been deleted from the system." });
+      // Delete server-side with the service role: removes the app_users profile
+      // AND the auth login, and works even when the user is referenced by other
+      // records (those references are set to null via ON DELETE SET NULL).
+      const res = await apiFetch('/api/delete-user', {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not delete user.');
+
+      toast({
+        title: "User Removed",
+        description: data.warning || "The user has been deleted from the system.",
+      });
       fetchUsers();
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not delete user." });
+      toast({ variant: "destructive", title: "Error", description: error.message || "Could not delete user." });
     }
   };
 
