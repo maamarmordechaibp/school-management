@@ -7,11 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Save, School, Globe, Calendar, Palette } from 'lucide-react';
+import { Loader2, Save, School, Globe, Calendar, Palette, Bell } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { NOTIFY_GROUPS, loadNotifyGroupSettings, saveNotifyGroupSettings } from '@/lib/notifyRecipients';
 
 const SettingsView = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingNotify, setSavingNotify] = useState(false);
+  const [notifyEmails, setNotifyEmails] = useState({});
   const [schoolInfo, setSchoolInfo] = useState({
     name: '',
     address: '',
@@ -32,6 +36,7 @@ const SettingsView = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
+      loadNotifyGroupSettings().then((m) => setNotifyEmails(m || {})).catch(() => {});
       const { data, error } = await supabase
         .from('system_settings')
         .select('*');
@@ -95,6 +100,25 @@ const SettingsView = () => {
     }
   };
 
+  const handleSaveNotifyEmails = async () => {
+    setSavingNotify(true);
+    try {
+      await saveNotifyGroupSettings(notifyEmails);
+      toast({
+        title: "Notification Recipients Saved",
+        description: "These addresses will be offered when sending student notifications."
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Save Failed",
+        description: error.message
+      });
+    } finally {
+      setSavingNotify(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -121,8 +145,10 @@ const SettingsView = () => {
           <TabsTrigger value="appearance" className="flex items-center gap-2">
             <Palette className="w-4 h-4" /> Appearance
           </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="w-4 h-4" /> Notifications
+          </TabsTrigger>
         </TabsList>
-
         <TabsContent value="general">
           <Card>
             <CardHeader>
@@ -241,6 +267,41 @@ const SettingsView = () => {
                   <p>Theme customization features are currently under development.</p>
                </div>
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Recipients</CardTitle>
+              <CardDescription>
+                Set a fallback email (or several) for each group. These are offered whenever
+                someone sends a notification about a student. Staff members with an email on
+                their record are included automatically — this is for groups that don't have
+                individual emails on file. Separate multiple addresses with commas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {NOTIFY_GROUPS.map((g) => (
+                <div className="grid gap-2" key={g.key}>
+                  <Label htmlFor={`notify-${g.key}`}>{g.label}</Label>
+                  <Textarea
+                    id={`notify-${g.key}`}
+                    rows={2}
+                    dir="ltr"
+                    value={notifyEmails[g.key] || ''}
+                    onChange={(e) => setNotifyEmails({ ...notifyEmails, [g.key]: e.target.value })}
+                    placeholder="name@example.com, second@example.com"
+                  />
+                </div>
+              ))}
+            </CardContent>
+            <CardFooter className="flex justify-end border-t p-6 bg-slate-50 rounded-b-lg">
+              <Button onClick={handleSaveNotifyEmails} disabled={savingNotify}>
+                {savingNotify ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Recipients
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

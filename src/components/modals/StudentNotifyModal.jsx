@@ -178,7 +178,7 @@ const StudentNotifyModal = ({ opts, onClose, currentUser }) => {
               <div className="space-y-3 border rounded-lg p-3 bg-slate-50">
                 {groups.map((group) => {
                   const emails = group.members.map((m) => m.email);
-                  const groupOn = emails.every((e) => selected[e]);
+                  const groupOn = emails.length > 0 && emails.every((e) => selected[e]);
                   return (
                     <div key={group.key}>
                       <button
@@ -189,7 +189,11 @@ const StudentNotifyModal = ({ opts, onClose, currentUser }) => {
                         {group.label} {groupOn ? '✓' : ''}
                       </button>
                       <div className="mt-1 flex flex-wrap gap-2">
-                        {group.members.map((m) => (
+                        {group.members.length === 0 ? (
+                          <span className="text-xs text-slate-400 italic">
+                            No email on file — add one below or set it in Settings → Notifications.
+                          </span>
+                        ) : group.members.map((m) => (
                           <label
                             key={m.email}
                             className={`flex items-center gap-2 text-sm px-2 py-1 rounded border cursor-pointer transition-colors ${
