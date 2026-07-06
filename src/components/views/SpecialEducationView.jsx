@@ -22,6 +22,7 @@ import {
 
 const STATUS_OPTIONS = [
   { value: 'monitoring', label: 'Monitoring', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'needs_evaluation', label: 'Needs Evaluation', color: 'bg-red-100 text-red-800' },
   { value: 'referral_pending', label: 'Referral Pending', color: 'bg-orange-100 text-orange-800' },
   { value: 'being_evaluated', label: 'Being Evaluated', color: 'bg-blue-100 text-blue-800' },
   { value: 'has_plan', label: 'Has Plan', color: 'bg-purple-100 text-purple-800' },
@@ -849,7 +850,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const stats = {
     total: specEdStudents.length,
     monitoring: specEdStudents.filter(s => s.status === 'monitoring').length,
-    pendingEval: specEdStudents.filter(s => s.status === 'referral_pending' || s.status === 'being_evaluated').length,
+    pendingEval: specEdStudents.filter(s => s.status === 'needs_evaluation' || s.status === 'referral_pending' || s.status === 'being_evaluated').length,
     active: specEdStudents.filter(s => s.status === 'receiving_services' || s.status === 'has_plan').length,
   };
 

@@ -104,6 +104,15 @@
 }
 
 @layer components {
+  /* Thin, low-profile scrollbar for horizontally scrolling strips (e.g. tab bars) */
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
   /* Premium elevation scale — soft, layered shadows */
   .shadow-card {
     box-shadow: 0 1px 2px -1px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.06);
