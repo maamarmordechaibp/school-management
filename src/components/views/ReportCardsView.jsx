@@ -12,8 +12,8 @@ import { Reorder, useDragControls } from 'framer-motion';
 import {
   Plus, Trash2, Save, Type, List, CheckSquare, Hash, AlignLeft, Star, Gauge,
   Heading, GripVertical, Copy, Pencil, ArrowLeft, ClipboardList, Layers, BookUser,
+  Printer, FileText,
 } from 'lucide-react';
-
 const FIELD_TYPES = [
   { value: 'heading', label: 'Section Heading', icon: Heading },
   { value: 'text', label: 'Short Text', icon: Type },
@@ -26,6 +26,14 @@ const FIELD_TYPES = [
 ];
 
 const fieldIcon = (type) => (FIELD_TYPES.find((t) => t.value === type)?.icon || Type);
+
+const escapeHtml = (v) =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 const newField = (type = 'text') => ({
   id: crypto.randomUUID(),
   type,
@@ -236,6 +244,95 @@ const ReportCardsView = ({ role, currentUser }) => {
   };
 
   const studentName = (s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.hebrew_name || 'Student';
+
+  // ---------- Printing ----------
+  const className = () => classes.find((c) => c.id === gradeClassId)?.name || students[0]?.class?.name || '';
+
+  const openPrintWindow = (title, bodyHtml) => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      toast({ variant: 'destructive', title: 'Popup blocked', description: 'Allow popups for this site to print.' });
+      return;
+    }
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 24px; }
+        h1 { font-size: 20px; margin: 0 0 4px; }
+        h2 { font-size: 16px; margin: 18px 0 8px; color: #4f46e5; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .meta { color: #64748b; font-size: 12px; margin-bottom: 16px; }
+        .card { page-break-after: always; padding-bottom: 12px; }
+        .card:last-child { page-break-after: auto; }
+        .field { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px dotted #e2e8f0; font-size: 13px; }
+        .field .label { color: #475569; }
+        .field .value { font-weight: 600; text-align: right; }
+        .notes { margin-top: 10px; font-size: 13px; }
+        .notes .label { color: #475569; font-weight: 600; margin-bottom: 3px; }
+        .notes .body { white-space: pre-wrap; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; min-height: 40px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+        th { background: #f1f5f9; font-weight: 600; }
+        td.name { font-weight: 600; white-space: nowrap; }
+        @media print { body { padding: 0; } .no-print { display: none; } }
+      </style></head><body>${bodyHtml}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const displayValue = (field, value) => {
+    if (value === undefined || value === null || value === '') return '—';
+    if (field.type === 'checkbox') return value === true ? 'Yes' : 'No';
+    if (field.type === 'rating') return `${value} / 5`;
+    if (field.type === 'scale') return `${value} / ${field.max || 10}`;
+    return String(value);
+  };
+
+  // One formatted report card per student, page break between each.
+  const printAllCards = () => {
+    const withData = students.filter((s) => entries[s.id]);
+    if (!withData.length) {
+      toast({ title: 'Nothing to print', description: 'No graded students in this class/period.' });
+      return;
+    }
+    const cards = withData.map((s) => {
+      const entry = entries[s.id] || { values: {}, notes: '' };
+      const fieldsHtml = gradeTemplate.fields.map((f) => {
+        if (f.type === 'heading') return `<h2>${escapeHtml(f.label)}</h2>`;
+        return `<div class="field"><span class="label">${escapeHtml(f.label)}</span><span class="value">${escapeHtml(displayValue(f, entry.values?.[f.id]))}</span></div>`;
+      }).join('');
+      const notesHtml = entry.notes
+        ? `<div class="notes"><div class="label">Overall Notes</div><div class="body">${escapeHtml(entry.notes)}</div></div>`
+        : '';
+      return `<div class="card">
+        <h1>${escapeHtml(studentName(s))}</h1>
+        <div class="meta">${escapeHtml(gradeTemplate.name)} · ${escapeHtml(className())} · ${escapeHtml(gradePeriod)}</div>
+        ${fieldsHtml}${notesHtml}
+      </div>`;
+    }).join('');
+    openPrintWindow(`Report Cards — ${className()} — ${gradePeriod}`, cards);
+  };
+
+  // Single class list: one row per student, one column per field + remarks.
+  const printClassSummary = () => {
+    const withData = students.filter((s) => entries[s.id]);
+    if (!withData.length) {
+      toast({ title: 'Nothing to print', description: 'No graded students in this class/period.' });
+      return;
+    }
+    const cols = gradableFields;
+    const head = `<tr><th>#</th><th>Student</th>${cols.map((f) => `<th>${escapeHtml(f.label)}</th>`).join('')}<th>Remarks</th></tr>`;
+    const body = withData.map((s, i) => {
+      const entry = entries[s.id] || { values: {}, notes: '' };
+      const cells = cols.map((f) => `<td>${escapeHtml(displayValue(f, entry.values?.[f.id]))}</td>`).join('');
+      return `<tr><td>${i + 1}</td><td class="name">${escapeHtml(studentName(s))}</td>${cells}<td>${escapeHtml(entry.notes || '')}</td></tr>`;
+    }).join('');
+    const bodyHtml = `
+      <h1>${escapeHtml(className())} — Class Report</h1>
+      <div class="meta">${escapeHtml(gradeTemplate.name)} · ${escapeHtml(gradePeriod)} · ${withData.length} students</div>
+      <table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    openPrintWindow(`Class Report — ${className()} — ${gradePeriod}`, bodyHtml);
+  };
   const gradableFields = useMemo(
     () => (gradeTemplate?.fields || []).filter((f) => f.type !== 'heading'),
     [gradeTemplate]
@@ -388,7 +485,13 @@ const ReportCardsView = ({ role, currentUser }) => {
           <Button variant="ghost" onClick={() => { setMode('list'); setGradeTemplate(null); }}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={printAllCards} disabled={!gradeClassId || !students.length}>
+              <Printer className="mr-2 h-4 w-4" /> Print All Cards
+            </Button>
+            <Button variant="outline" onClick={printClassSummary} disabled={!gradeClassId || !students.length}>
+              <FileText className="mr-2 h-4 w-4" /> Print Class List
+            </Button>
             <Button variant="outline" onClick={() => saveAllGrades('draft')}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
             <Button onClick={() => saveAllGrades('final')}>Finalize</Button>
           </div>
