@@ -205,7 +205,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
   // Detail view data
   const [detailData, setDetailData] = useState({
-    infoSources: [], evaluations: [], tutoring: [], sessionLogs: []
+    infoSources: [], evaluations: [], tutoring: [], sessionLogs: [], assessments: []
   });
 
   // Monthly reports
@@ -494,17 +494,23 @@ const SpecialEducationView = ({ role, currentUser }) => {
   // Load detail data for expanded student
   const loadStudentDetail = async (specEdId) => {
     try {
-      const [infoRes, evalRes, tutorRes, sessRes] = await Promise.all([
+      const specEd = specEdStudents.find(s => s.id === specEdId);
+      const studentId = specEd?.student_id || specEd?.student?.id || null;
+      const [infoRes, evalRes, tutorRes, sessRes, asmtRes] = await Promise.all([
         supabase.from('special_ed_info_sources').select('*').eq('special_ed_student_id', specEdId).order('date_gathered', { ascending: false }),
         supabase.from('special_ed_evaluations').select('*').eq('special_ed_student_id', specEdId).order('evaluation_date', { ascending: false }),
         supabase.from('special_ed_tutoring').select('*').eq('special_ed_student_id', specEdId).eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('special_ed_session_logs').select('*, staff:special_ed_staff(name)').eq('special_ed_student_id', specEdId).order('session_date', { ascending: false }).limit(20)
+        supabase.from('special_ed_session_logs').select('*, staff:special_ed_staff(name)').eq('special_ed_student_id', specEdId).order('session_date', { ascending: false }).limit(20),
+        studentId
+          ? supabase.from('assessments').select('*').eq('student_id', studentId).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
       ]);
       setDetailData({
         infoSources: infoRes.data || [],
         evaluations: evalRes.data || [],
         tutoring: tutorRes.data || [],
-        sessionLogs: sessRes.data || []
+        sessionLogs: sessRes.data || [],
+        assessments: asmtRes.data || []
       });
     } catch (error) {
       console.error('Error loading detail:', error);
@@ -1172,6 +1178,29 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                 {ev.recommendations && <div className="bg-yellow-50 p-2 rounded"><strong>Recommendation:</strong> {ev.recommendations}</div>}
                                 {ev.plan && <div className="bg-green-50 p-2 rounded"><strong>Plan:</strong> {ev.plan}</div>}
                                 {ev.actual_actions && <div className="bg-purple-50 p-2 rounded"><strong>Actual Actions:</strong> {ev.actual_actions}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Assessments (from student profile) */}
+                      {detailData.assessments && detailData.assessments.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-slate-700 mb-2">Assessments ({detailData.assessments.length})</h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {detailData.assessments.map(a => (
+                              <div key={a.id} className="p-3 bg-white rounded border text-sm space-y-1">
+                                <div className="flex justify-between items-center">
+                                  <Badge variant="outline">{a.template_id ? 'Custom Assessment' : 'Standard Assessment'}</Badge>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded capitalize ${a.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>{a.status || 'draft'}</span>
+                                    <span className="text-xs text-slate-400">{a.date && new Date(a.date).toLocaleDateString('en-US')}</span>
+                                  </div>
+                                </div>
+                                {(a.created_by_name || a.teacher_name) && <p className="text-xs text-slate-500">By {a.created_by_name || a.teacher_name}</p>}
+                                {a.summary && <div className="bg-blue-50 p-2 rounded"><strong>Summary:</strong> {a.summary}</div>}
+                                {a.plan && <div className="bg-green-50 p-2 rounded"><strong>Plan:</strong> {a.plan}</div>}
                               </div>
                             ))}
                           </div>

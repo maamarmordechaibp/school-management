@@ -24,7 +24,7 @@ import StudentPlanModal from '@/components/modals/StudentPlanModal';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { MessageSquare, Edit, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
+import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
 
@@ -248,6 +248,43 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setIsAssessmentMode(false);
     setEditingAssessment(null);
     fetchStudentData(); // Refresh list
+  };
+
+  const handleDeleteAssessment = async (assessmentId) => {
+    if (!window.confirm('Delete this assessment? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('assessments').delete().eq('id', assessmentId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Assessment removed.' });
+      fetchStudentData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete assessment' });
+    }
+  };
+
+  const handleDeleteLateArrival = async (lateId) => {
+    if (!window.confirm('Delete this late arrival record? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('late_arrivals').delete().eq('id', lateId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Late arrival removed.' });
+      fetchStudentData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete record' });
+    }
+  };
+
+  const canDeleteStudent = ['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(currentUser?.role);
+  const handleDeleteStudent = async () => {
+    if (!window.confirm(`Delete ${student.name} and EVERYTHING linked to them (issues, calls, meetings, grades, assessments, fees, payments, reminders, tasks, documents, special-ed)? This cannot be undone.`)) return;
+    try {
+      const { error } = await supabase.rpc('delete_student_cascade', { p_student_id: studentId });
+      if (error) throw error;
+      toast({ title: 'Student deleted', description: 'The student and all associated records were removed.' });
+      if (onBack) onBack();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete student' });
+    }
   };
 
   // Save a recurring (or one-off) reminder/todo for this student
@@ -821,6 +858,11 @@ const StudentProfileView = ({ studentId, onBack }) => {
            }}>
              <Plus size={16} className="mr-2" /> Create Plan
            </Button>
+           {canDeleteStudent && (
+             <Button onClick={handleDeleteStudent} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+               <Trash2 size={16} className="mr-2" /> Delete Student
+             </Button>
+           )}
         </div>
       </div>
 
@@ -1980,9 +2022,20 @@ const StudentProfileView = ({ studentId, onBack }) => {
                                </p>
                             </div>
                          </div>
-                         <span className={`text-xs px-2 py-1 rounded capitalize ${
-                            assessment.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                         }`}>{assessment.status}</span>
+                         <div className="flex items-center gap-2">
+                           <span className={`text-xs px-2 py-1 rounded capitalize ${
+                              assessment.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+                           }`}>{assessment.status}</span>
+                           <Button
+                             variant="ghost"
+                             size="icon"
+                             className="h-8 w-8 text-slate-400 hover:text-red-600"
+                             onClick={(e) => { e.stopPropagation(); handleDeleteAssessment(assessment.id); }}
+                             title="Delete assessment"
+                           >
+                             <Trash2 size={16} />
+                           </Button>
+                         </div>
                       </CardContent>
                    </Card>
                  ))}
@@ -2142,6 +2195,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                       <th className="px-4 py-3 text-right font-medium">Minutes Late</th>
                       <th className="px-4 py-3 text-right font-medium">Reason</th>
                       <th className="px-4 py-3 text-right font-medium">Notes</th>
+                      <th className="px-4 py-3 text-center font-medium"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -2168,6 +2222,17 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         </td>
                         <td className="px-4 py-3 max-w-[200px] text-slate-500">
                           {la.notes || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600"
+                            onClick={() => handleDeleteLateArrival(la.id)}
+                            title="Delete late arrival"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
                         </td>
                       </tr>
                     ))}

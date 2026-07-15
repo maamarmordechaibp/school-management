@@ -361,33 +361,6 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
         description: `Assessment for ${student.name} has been saved.`
       });
 
-      // If this student is tracked in Special Education, mirror the assessment
-      // as a special-ed evaluation so it also shows up under the Special Ed record.
-      if (!assessment?.id) {
-        try {
-          const { data: specEdRows } = await supabase
-            .from('special_ed_students')
-            .select('id')
-            .eq('student_id', student.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const specEdId = specEdRows?.[0]?.id;
-          if (specEdId) {
-            await supabase.from('special_ed_evaluations').insert([{
-              special_ed_student_id: specEdId,
-              evaluation_type: 'academic',
-              evaluator_name: formData.teacher_name || null,
-              evaluation_date: formData.date || null,
-              results: formData.summary || formData.remarks || null,
-              recommendations: formData.remarks || null,
-              plan: formData.plan || null,
-            }]);
-          }
-        } catch (linkErr) {
-          console.error('Failed to link assessment to special-ed evaluation:', linkErr);
-        }
-      }
-
       if (onSave) onSave();
       notify({
         studentId: student.id,
