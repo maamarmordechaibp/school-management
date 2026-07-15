@@ -407,7 +407,7 @@ const IssuesView = ({ role, currentUser }) => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setStatusFilter('open'); setSeverityFilter('all'); }}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
               <AlertTriangle className="h-6 w-6 text-blue-600" />
@@ -418,7 +418,7 @@ const IssuesView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setStatusFilter('in_progress'); setSeverityFilter('all'); }}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-lg">
               <Clock className="h-6 w-6 text-purple-600" />
@@ -429,7 +429,7 @@ const IssuesView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setSeverityFilter('critical'); setStatusFilter('all'); }}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-red-100 rounded-lg">
               <AlertTriangle className="h-6 w-6 text-red-600" />
@@ -440,7 +440,7 @@ const IssuesView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setStatusFilter('resolved'); setSeverityFilter('all'); }}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-lg">
               <CheckCircle className="h-6 w-6 text-green-600" />

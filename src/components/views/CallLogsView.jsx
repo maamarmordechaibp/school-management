@@ -386,7 +386,7 @@ const CallLogsView = ({ role, currentUser }) => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('all')}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
               <Phone className="h-6 w-6 text-blue-600" />
@@ -397,7 +397,7 @@ const CallLogsView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('today')}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-lg">
               <Calendar className="h-6 w-6 text-green-600" />
@@ -408,7 +408,7 @@ const CallLogsView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('follow_up')}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-amber-100 rounded-lg">
               <MessageSquare className="h-6 w-6 text-amber-600" />
@@ -419,7 +419,7 @@ const CallLogsView = ({ role, currentUser }) => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('all')}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-lg">
               <User className="h-6 w-6 text-purple-600" />

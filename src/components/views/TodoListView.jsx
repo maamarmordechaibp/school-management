@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { sendEmail } from '@/lib/emailService';
 import StudentProfileModal from '@/components/modals/StudentProfileModal';
 import StudentPicker from '@/components/ui/student-picker';
 
@@ -187,6 +188,40 @@ const TodoListView = ({ role, currentUser }) => {
     setIsModalOpen(true);
   };
 
+  // Email the person a task is assigned to (skips self-assignment).
+  const emailAssignee = async (todo) => {
+    try {
+      const assigneeId = todo.assigned_to;
+      if (!assigneeId || assigneeId === currentUser?.id) return;
+      const assignee = users.find(u => u.id === assigneeId);
+      if (!assignee?.email) return;
+      const assignerName = currentUser?.name || currentUser?.email || 'A staff member';
+      const body = [
+        `Hi ${assignee.name || ''},`.trim(),
+        '',
+        `${assignerName} assigned you a task on TYY Monsey:`,
+        '',
+        `Task: ${todo.title}`,
+        todo.description ? `Details: ${todo.description}` : null,
+        todo.student_name ? `Student: ${todo.student_name}` : null,
+        `Priority: ${todo.priority}`,
+        todo.due_date ? `Due: ${todo.due_date}` : null,
+        '',
+        'Please log in to review and complete it.',
+      ].filter(v => v !== null).join('\n');
+      await sendEmail({
+        to: assignee.email,
+        subject: `New task assigned: ${todo.title}`,
+        body,
+        relatedType: 'todo',
+        relatedId: todo.id || null,
+        sentBy: currentUser?.id || null,
+      });
+    } catch (err) {
+      console.error('Failed to email task assignee:', err);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
@@ -219,6 +254,9 @@ const TodoListView = ({ role, currentUser }) => {
         setIsModalOpen(false);
         fetchTodos();
         promptTaskNotification({ ...payload, id: editingTodo.id }, 'updated');
+        if (editingTodo.assigned_to !== payload.assigned_to) {
+          emailAssignee({ ...payload, id: editingTodo.id });
+        }
       } else {
         payload.created_by = currentUser?.id;
         payload.status = 'pending';
@@ -230,6 +268,7 @@ const TodoListView = ({ role, currentUser }) => {
         setIsModalOpen(false);
         fetchTodos();
         promptTaskNotification(savedTodo, 'created');
+        emailAssignee(savedTodo);
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -938,7 +977,7 @@ const TodoListView = ({ role, currentUser }) => {
                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                   />
                 </div>
-                {isAdmin && (
+                {(
                   <div className="grid gap-2">
                     <Label>Assign To</Label>
                     <Select value={formData.assigned_to} onValueChange={(v) => setFormData({ ...formData, assigned_to: v })}>

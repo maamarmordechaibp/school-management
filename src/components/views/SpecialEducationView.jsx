@@ -937,17 +937,26 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div className="bg-[#4F46E5]/5 rounded-2xl border border-slate-200/70 shadow-card p-6">
+        <button
+          type="button"
+          onClick={() => { setStatusFilter('all'); setActiveTab('students'); }}
+          className={`bg-[#4F46E5]/5 rounded-2xl border shadow-card p-6 text-start cursor-pointer transition-all duration-150 hover:shadow-card-hover hover:-translate-y-0.5 ${statusFilter === 'all' ? 'border-primary ring-2 ring-primary/30' : 'border-slate-200/70'}`}
+        >
           <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-4"><Users className="h-9 w-9" strokeWidth={1.75} /></div>
           <p className="text-4xl font-bold text-slate-900 tabular-nums leading-none">{stats.total}</p>
           <p className="text-sm text-slate-500 font-medium mt-2">Total Students</p>
-        </div>
+        </button>
         {STATUS_OPTIONS.map((o) => (
-          <div key={o.value} className="bg-white rounded-2xl border border-slate-200/70 shadow-card p-6 flex flex-col">
+          <button
+            type="button"
+            key={o.value}
+            onClick={() => { setStatusFilter(o.value); setActiveTab('students'); }}
+            className={`bg-white rounded-2xl border shadow-card p-6 flex flex-col text-start cursor-pointer transition-all duration-150 hover:shadow-card-hover hover:-translate-y-0.5 ${statusFilter === o.value ? 'border-primary ring-2 ring-primary/30' : 'border-slate-200/70'}`}
+          >
             <span className={`inline-flex items-center self-start px-2.5 py-1 rounded-full text-xs font-semibold mb-4 ${o.color}`}>{o.label}</span>
             <p className="text-4xl font-bold text-slate-900 tabular-nums leading-none">{statusCounts[o.value] || 0}</p>
             <p className="text-sm text-slate-500 font-medium mt-2">{o.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 

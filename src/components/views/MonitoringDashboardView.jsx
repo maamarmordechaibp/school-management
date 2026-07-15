@@ -292,7 +292,7 @@ const MonitoringDashboardView = ({ role, currentUser }) => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('all')}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -304,7 +304,7 @@ const MonitoringDashboardView = ({ role, currentUser }) => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('needs_review')}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -318,7 +318,7 @@ const MonitoringDashboardView = ({ role, currentUser }) => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('overdue')}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -332,7 +332,7 @@ const MonitoringDashboardView = ({ role, currentUser }) => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('concerns')}>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
