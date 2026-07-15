@@ -1156,11 +1156,11 @@ const SpecialEducationView = ({ role, currentUser }) => {
                         </div>
                       )}
 
-                      {/* Evaluations */}
-                      {detailData.evaluations.length > 0 && (
+                      {/* Evaluations & Assessments (unified view) */}
+                      {(detailData.evaluations.length > 0 || (detailData.assessments && detailData.assessments.length > 0)) && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">Evaluations ({detailData.evaluations.length})</h4>
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                          <h4 className="font-semibold text-slate-700 mb-2">Evaluations &amp; Assessments ({detailData.evaluations.length + (detailData.assessments?.length || 0)})</h4>
+                          <div className="space-y-2 max-h-72 overflow-y-auto">
                             {detailData.evaluations.map(ev => (
                               <div key={ev.id} className="p-3 bg-white rounded border text-sm space-y-1">
                                 <div className="flex justify-between items-center">
@@ -1180,19 +1180,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                 {ev.actual_actions && <div className="bg-purple-50 p-2 rounded"><strong>Actual Actions:</strong> {ev.actual_actions}</div>}
                               </div>
                             ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Assessments (from student profile) */}
-                      {detailData.assessments && detailData.assessments.length > 0 && (
-                        <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">Assessments ({detailData.assessments.length})</h4>
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {detailData.assessments.map(a => (
-                              <div key={a.id} className="p-3 bg-white rounded border text-sm space-y-1">
+                            {(detailData.assessments || []).map(a => (
+                              <div key={`asmt-${a.id}`} className="p-3 bg-white rounded border text-sm space-y-1">
                                 <div className="flex justify-between items-center">
-                                  <Badge variant="outline">{a.template_id ? 'Custom Assessment' : 'Standard Assessment'}</Badge>
+                                  <Badge variant="outline">{a.template_id ? 'Assessment (Custom)' : 'Assessment (Standard)'}</Badge>
                                   <div className="flex items-center gap-2">
                                     <span className={`text-xs px-2 py-0.5 rounded capitalize ${a.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>{a.status || 'draft'}</span>
                                     <span className="text-xs text-slate-400">{a.date && new Date(a.date).toLocaleDateString('en-US')}</span>
@@ -1200,6 +1191,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                                 </div>
                                 {(a.created_by_name || a.teacher_name) && <p className="text-xs text-slate-500">By {a.created_by_name || a.teacher_name}</p>}
                                 {a.summary && <div className="bg-blue-50 p-2 rounded"><strong>Summary:</strong> {a.summary}</div>}
+                                {a.remarks && <div className="bg-yellow-50 p-2 rounded"><strong>Remarks:</strong> {a.remarks}</div>}
                                 {a.plan && <div className="bg-green-50 p-2 rounded"><strong>Plan:</strong> {a.plan}</div>}
                               </div>
                             ))}

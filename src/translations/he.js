@@ -166,6 +166,7 @@ export const hebrew = {
     classes: "כיתות",
     "class-detail": "פרטי כיתה",
     "report-cards": "תעודות",
+    templates: "תבניות הערכה",
     issues: "בעיות פתוחות",
     calls: "שיחות טלפון",
     meetings: "פגישות",

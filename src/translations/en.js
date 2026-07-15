@@ -166,6 +166,7 @@ export const english = {
     classes: "Classes",
     "class-detail": "Class Detail",
     "report-cards": "Report Cards",
+    templates: "Assessment Templates",
     issues: "Open Problems",
     calls: "Phone Calls",
     meetings: "Meetings",
