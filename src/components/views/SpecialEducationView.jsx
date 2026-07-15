@@ -932,7 +932,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800">{t('menu.special-ed')}</h1>
-          <p className="text-slate-500">Special Education Management - Students, Staff, Evaluations, and Plans</p>
+          <p className="text-slate-500">Special Education Management - Students, Staff, Assessments, and Plans</p>
         </div>
         <div className="flex gap-2">
           <ExportButton
@@ -988,7 +988,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="students">{t('nav.students')} ({specEdStudents.length})</TabsTrigger>
-          <TabsTrigger value="evaluations">Evaluations ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length + allAssessments.length})</TabsTrigger>
+          <TabsTrigger value="evaluations">Assessments ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length + allAssessments.length})</TabsTrigger>
           <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
           <TabsTrigger value="monthly">Monthly Reports</TabsTrigger>
           <TabsTrigger value="overview">{t('nav.overview')}</TabsTrigger>
@@ -1176,7 +1176,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       {/* Evaluations & Assessments (unified view) */}
                       {(detailData.evaluations.length > 0 || (detailData.assessments && detailData.assessments.length > 0)) && (
                         <div>
-                          <h4 className="font-semibold text-slate-700 mb-2">Evaluations &amp; Assessments ({detailData.evaluations.length + (detailData.assessments?.length || 0)})</h4>
+                          <h4 className="font-semibold text-slate-700 mb-2">Assessments ({detailData.evaluations.length + (detailData.assessments?.length || 0)})</h4>
                           <div className="space-y-2 max-h-72 overflow-y-auto">
                             {detailData.evaluations.map(ev => (
                               <div key={ev.id} className="p-3 bg-white rounded border text-sm space-y-1">
