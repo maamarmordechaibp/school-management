@@ -130,6 +130,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const [specEdStaff, setSpecEdStaff] = useState([]);
   const [classes, setClasses] = useState([]);
   const [evalRequests, setEvalRequests] = useState([]);
+  const [allAssessments, setAllAssessments] = useState([]);
   const [evalRequestSearch, setEvalRequestSearch] = useState('');
   const [evalRequestStatusFilter, setEvalRequestStatusFilter] = useState('open');
   
@@ -225,6 +226,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
   useEffect(() => {
     loadData();
+    loadAllAssessments();
   }, []);
 
   useEffect(() => {
@@ -412,6 +414,21 @@ const SpecialEducationView = ({ role, currentUser }) => {
       return;
     }
     setEvalRequests(data || []);
+  };
+
+  // Load ALL assessments (from the general assessments table) so they can be
+  // surfaced alongside evaluations — assessments and evaluations are treated
+  // as the same thing from the user's perspective.
+  const loadAllAssessments = async () => {
+    const { data, error } = await supabase
+      .from('assessments')
+      .select(`*, student:students(id, first_name, last_name, hebrew_name, class:classes!class_id(name))`)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error loading assessments:', error);
+      return;
+    }
+    setAllAssessments(data || []);
   };
 
   // Create a pending evaluation request for a student
@@ -971,7 +988,7 @@ const SpecialEducationView = ({ role, currentUser }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="students">{t('nav.students')} ({specEdStudents.length})</TabsTrigger>
-          <TabsTrigger value="evaluations">Evaluations ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length})</TabsTrigger>
+          <TabsTrigger value="evaluations">Evaluations ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length + allAssessments.length})</TabsTrigger>
           <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
           <TabsTrigger value="monthly">Monthly Reports</TabsTrigger>
           <TabsTrigger value="overview">{t('nav.overview')}</TabsTrigger>
@@ -1275,6 +1292,44 @@ const SpecialEducationView = ({ role, currentUser }) => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Assessments (unified with evaluations) */}
+          {allAssessments.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-semibold text-slate-700 flex items-center gap-2"><FileText className="h-4 w-4 text-indigo-500" /> Assessments ({allAssessments.length})</h3>
+              {allAssessments
+                .filter(a => {
+                  const name = `${a.student?.first_name || ''} ${a.student?.last_name || ''} ${a.student?.hebrew_name || ''}`.toLowerCase();
+                  return !evalRequestSearch || name.includes(evalRequestSearch.toLowerCase());
+                })
+                .map(a => {
+                  const studentName = a.student?.hebrew_name || `${a.student?.first_name || ''} ${a.student?.last_name || ''}`.trim() || 'Unknown student';
+                  return (
+                    <Card key={`asmt-${a.id}`}>
+                      <CardContent className="p-4 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">{studentName.charAt(0) || '?'}</div>
+                          <div>
+                            <p className="font-semibold">{studentName}</p>
+                            <p className="text-xs text-slate-500">
+                              {a.template_id ? 'Custom Assessment' : 'Standard Assessment'}
+                              {a.date ? ` • ${new Date(a.date).toLocaleDateString('en-US')}` : ''}
+                              {(a.created_by_name || a.teacher_name) ? ` • ${a.created_by_name || a.teacher_name}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded capitalize ${a.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>{a.status || 'draft'}</span>
+                          {a.student?.id && (
+                            <Button size="sm" variant="outline" onClick={() => openProfile(a.student.id)}>View</Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+            </div>
+          )}
 
           <div className="space-y-3">
             {evalRequests

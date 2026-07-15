@@ -274,6 +274,18 @@ const StudentProfileView = ({ studentId, onBack }) => {
     }
   };
 
+  const handleDeleteNote = async (noteId) => {
+    if (!window.confirm('Delete this note? This cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('student_notes').delete().eq('id', noteId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Note removed.' });
+      fetchStudentData();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete note' });
+    }
+  };
+
   const canDeleteStudent = ['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(currentUser?.role);
   const handleDeleteStudent = async () => {
     if (!window.confirm(`Delete ${student.name} and EVERYTHING linked to them (issues, calls, meetings, grades, assessments, fees, payments, reminders, tasks, documents, special-ed)? This cannot be undone.`)) return;
@@ -2124,16 +2136,21 @@ const StudentProfileView = ({ studentId, onBack }) => {
                           {note.created_by_name && <span>By: {note.created_by_name}</span>}
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingNote(note);
-                        setNoteForm({
-                          title: note.title || '', content: note.content,
-                          note_type: note.note_type, edit_mode: 'edit'
-                        });
-                        setIsNoteModalOpen(true);
-                      }}>
-                        <Edit size={14} />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setEditingNote(note);
+                          setNoteForm({
+                            title: note.title || '', content: note.content,
+                            note_type: note.note_type, edit_mode: 'edit'
+                          });
+                          setIsNoteModalOpen(true);
+                        }}>
+                          <Edit size={14} />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-600" onClick={() => handleDeleteNote(note.id)} title="Delete note">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
