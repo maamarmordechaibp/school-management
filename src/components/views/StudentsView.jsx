@@ -9,11 +9,62 @@ import StudentModal from '@/components/modals/StudentModal';
 import GradesModal from '@/components/modals/GradesModal';
 import ImportStudentsModal from '@/components/modals/ImportStudentsModal';
 import StudentProfileView from '@/components/views/StudentProfileView';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+
+// Export configuration — every field the user can choose to include when
+// exporting the students list to PDF or Excel. Order here = column order.
+const fullName = (s) => `${s.first_name || ''} ${s.last_name || ''}`.trim();
+const STUDENT_EXPORT_COLUMNS = [
+  { key: 'name', label: 'Student Name', accessor: fullName },
+  { key: 'first_name', label: 'First Name', accessor: (s) => s.first_name },
+  { key: 'last_name', label: 'Last Name', accessor: (s) => s.last_name },
+  { key: 'hebrew_name', label: 'Hebrew Name', accessor: (s) => s.hebrew_name },
+  { key: 'class', label: 'Class', accessor: (s) => s.class?.name },
+  { key: 'grade', label: 'Grade', accessor: (s) => s.class?.grade?.name },
+  { key: 'father_name', label: 'Father Name', accessor: (s) => s.father_name },
+  { key: 'father_phone', label: 'Father Phone', accessor: (s) => s.father_phone, default: false },
+  { key: 'mother_name', label: 'Mother Name', accessor: (s) => s.mother_name },
+  { key: 'mother_phone', label: 'Mother Phone', accessor: (s) => s.mother_phone, default: false },
+  { key: 'home_phone', label: 'Home Phone', accessor: (s) => s.home_phone, default: false },
+  { key: 'email', label: 'Email', accessor: (s) => s.email, default: false },
+  { key: 'address', label: 'Address', accessor: (s) => s.address, default: false },
+  { key: 'status', label: 'Status', accessor: (s) => (s.is_active === false || s.status === 'inactive' ? 'Inactive' : 'Active'), default: false },
+  { key: 'open_issues', label: 'Open Issues', accessor: (s) => s.open_issues_count ?? 0, default: false },
+  // Comprehensive summary columns — everything a student has across the app.
+  // Included by default so the download reflects all of a student's info.
+  { key: 'agg_charged', label: 'Total Charged', accessor: (s) => (s.agg_charged ?? 0).toFixed(2), default: true },
+  { key: 'agg_paid', label: 'Total Paid', accessor: (s) => (s.agg_paid ?? 0).toFixed(2), default: true },
+  { key: 'agg_balance', label: 'Balance', accessor: (s) => (s.agg_balance ?? 0).toFixed(2), default: true },
+  { key: 'agg_grade_average', label: 'Grade Average', accessor: (s) => (s.agg_grade_average ?? ''), default: true },
+  { key: 'agg_open_todos', label: 'Open Tasks', accessor: (s) => s.agg_open_todos ?? 0, default: true },
+  { key: 'agg_reminders', label: 'Reminders', accessor: (s) => s.agg_reminders ?? 0, default: true },
+  { key: 'agg_lates', label: 'Late Arrivals', accessor: (s) => s.agg_lates ?? 0, default: true },
+  { key: 'agg_calls', label: 'Calls', accessor: (s) => s.agg_calls ?? 0, default: true },
+  { key: 'agg_meetings', label: 'Meetings', accessor: (s) => s.agg_meetings ?? 0, default: true },
+  { key: 'agg_assessments', label: 'Assessments', accessor: (s) => s.agg_assessments ?? 0, default: true },
+  { key: 'agg_notes', label: 'Notes', accessor: (s) => s.agg_notes ?? 0, default: true },
+  { key: 'agg_plan_status', label: 'Plan Status', accessor: (s) => s.agg_plan_status || '', default: true },
+  { key: 'agg_special_ed_status', label: 'Special Ed', accessor: (s) => s.agg_special_ed_status || '', default: true },
+];
+const STUDENT_SORT_OPTIONS = [
+  { key: 'last_name', label: 'Last Name', accessor: (s) => s.last_name },
+  { key: 'first_name', label: 'First Name', accessor: (s) => s.first_name },
+  { key: 'hebrew_name', label: 'Hebrew Name', accessor: (s) => s.hebrew_name },
+  { key: 'class', label: 'Class', accessor: (s) => s.class?.name },
+  { key: 'grade', label: 'Grade', accessor: (s) => s.class?.grade?.name },
+  { key: 'agg_balance', label: 'Balance', accessor: (s) => s.agg_balance ?? 0 },
+  { key: 'agg_grade_average', label: 'Grade Average', accessor: (s) => s.agg_grade_average ?? 0 },
+];
+const STUDENT_GROUP_OPTIONS = [
+  { key: 'class', label: 'Class', accessor: (s) => s.class?.name || 'No Class' },
+  { key: 'grade', label: 'Grade', accessor: (s) => s.class?.grade?.name || 'No Grade' },
+];
 
 const StudentsView = ({ role, currentUser }) => {
   const { t } = useLanguage();
@@ -25,14 +76,15 @@ const StudentsView = ({ role, currentUser }) => {
   const PAGE_SIZE = 24;
   
   // View State
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
   
   // Filter State
   const [filters, setFilters] = useState({
     search: '',
     class_id: 'all',
     grade_id: 'all',
-    hasOpenIssues: 'all'
+    hasOpenIssues: 'all',
+    status: 'all'
   });
 
   const [classes, setClasses] = useState([]);
@@ -169,12 +221,86 @@ const StudentsView = ({ role, currentUser }) => {
       } catch (e) {
         // student_issues table may not exist
       }
-      
-      // Add open issues count
-      const studentsWithIssues = (data || []).map(s => ({
-        ...s,
-        open_issues_count: (issuesByStudent[s.id] || []).filter(i => i.status === 'open' || i.status === 'in_progress').length
-      }));
+
+      // Best-effort aggregates for the export (financial, academic, tasks, etc.).
+      // Each block is guarded so a missing table never breaks the students list.
+      const agg = {};
+      const ensureAgg = (id) => (agg[id] = agg[id] || {
+        charged: 0, paid: 0, gradeSum: 0, gradeCount: 0,
+        todos_open: 0, reminders: 0, lates: 0, calls: 0, meetings: 0,
+        assessments: 0, notes: 0, plan_status: null, special_ed_status: null,
+      });
+      const OPEN_TODO = (st) => !['done', 'completed', 'cancelled', 'closed'].includes(String(st || '').toLowerCase());
+      try {
+        const fees = await fetchAllRows(() => supabase.from('student_fees').select('student_id, amount'));
+        fees?.forEach((f) => { ensureAgg(f.student_id).charged += Number(f.amount || 0); });
+      } catch (e) { /* student_fees optional */ }
+      try {
+        const pays = await fetchAllRows(() => supabase.from('payments').select('student_id, amount'));
+        pays?.forEach((p) => { if (p.student_id) ensureAgg(p.student_id).paid += Number(p.amount || 0); });
+      } catch (e) { /* payments optional */ }
+      try {
+        const gr = await fetchAllRows(() => supabase.from('grades').select('student_id, grade'));
+        gr?.forEach((g) => { const n = parseFloat(g.grade); if (Number.isFinite(n)) { const a = ensureAgg(g.student_id); a.gradeSum += n; a.gradeCount += 1; } });
+      } catch (e) { /* grades optional */ }
+      try {
+        const td = await fetchAllRows(() => supabase.from('todos').select('student_id, status'));
+        td?.forEach((t) => { if (t.student_id && OPEN_TODO(t.status)) ensureAgg(t.student_id).todos_open += 1; });
+      } catch (e) { /* todos optional */ }
+      try {
+        const rm = await fetchAllRows(() => supabase.from('reminders').select('related_student_id'));
+        rm?.forEach((r) => { if (r.related_student_id) ensureAgg(r.related_student_id).reminders += 1; });
+      } catch (e) { /* reminders optional */ }
+      try {
+        const la = await fetchAllRows(() => supabase.from('late_arrivals').select('student_id'));
+        la?.forEach((l) => { if (l.student_id) ensureAgg(l.student_id).lates += 1; });
+      } catch (e) { /* late_arrivals optional */ }
+      try {
+        const cl = await fetchAllRows(() => supabase.from('call_logs').select('student_id'));
+        cl?.forEach((c) => { if (c.student_id) ensureAgg(c.student_id).calls += 1; });
+      } catch (e) { /* call_logs optional */ }
+      try {
+        const mt = await fetchAllRows(() => supabase.from('meetings').select('student_id'));
+        mt?.forEach((m) => { if (m.student_id) ensureAgg(m.student_id).meetings += 1; });
+      } catch (e) { /* meetings optional */ }
+      try {
+        const pl = await fetchAllRows(() => supabase.from('student_plans').select('student_id, status, created_at').order('created_at', { ascending: false }));
+        pl?.forEach((p) => { if (p.student_id) { const a = ensureAgg(p.student_id); if (a.plan_status === null) a.plan_status = p.status || 'active'; } });
+      } catch (e) { /* student_plans optional */ }
+      try {
+        const asm = await fetchAllRows(() => supabase.from('assessments').select('student_id'));
+        asm?.forEach((a) => { if (a.student_id) ensureAgg(a.student_id).assessments += 1; });
+      } catch (e) { /* assessments optional */ }
+      try {
+        const nt = await fetchAllRows(() => supabase.from('student_notes').select('student_id, is_active'));
+        nt?.forEach((n) => { if (n.student_id && n.is_active !== false) ensureAgg(n.student_id).notes += 1; });
+      } catch (e) { /* student_notes optional */ }
+      try {
+        const sed = await fetchAllRows(() => supabase.from('special_ed_students').select('student_id, status, is_active'));
+        sed?.forEach((r) => { if (r.student_id && r.is_active !== false) { const a = ensureAgg(r.student_id); if (a.special_ed_status === null) a.special_ed_status = r.status || 'active'; } });
+      } catch (e) { /* special_ed_students optional */ }
+
+      // Merge issue counts + aggregates onto each student
+      const studentsWithIssues = (data || []).map(s => {
+        const a = agg[s.id] || {};
+        return {
+          ...s,
+          open_issues_count: (issuesByStudent[s.id] || []).filter(i => i.status === 'open' || i.status === 'in_progress').length,
+          agg_charged: a.charged || 0,
+          agg_paid: a.paid || 0,
+          agg_balance: (a.charged || 0) - (a.paid || 0),
+          agg_grade_average: a.gradeCount ? Math.round((a.gradeSum / a.gradeCount) * 10) / 10 : null,
+          agg_open_todos: a.todos_open || 0,
+          agg_reminders: a.reminders || 0,
+          agg_lates: a.lates || 0,
+          agg_calls: a.calls || 0,
+          agg_meetings: a.meetings || 0,
+          agg_assessments: a.assessments || 0,
+          agg_notes: a.notes || 0,
+          agg_plan_status: a.plan_status || null,
+          agg_special_ed_status: a.special_ed_status || null,
+        };
+      });
       setStudents(studentsWithIssues);
 
     } catch (error) {
@@ -215,6 +341,14 @@ const StudentsView = ({ role, currentUser }) => {
       result = result.filter(s => {
         const hasOpen = s.open_issues_count > 0;
         return filters.hasOpenIssues === 'yes' ? hasOpen : !hasOpen;
+      });
+    }
+
+    // Status Filter (active / inactive)
+    if (filters.status !== 'all') {
+      result = result.filter(s => {
+        const active = s.is_active !== false && s.status !== 'inactive';
+        return filters.status === 'active' ? active : !active;
       });
     }
 
@@ -268,7 +402,8 @@ const StudentsView = ({ role, currentUser }) => {
       search: '',
       class_id: 'all',
       grade_id: 'all',
-      hasOpenIssues: 'all'
+      hasOpenIssues: 'all',
+      status: 'all'
     });
   };
 
@@ -304,110 +439,110 @@ const StudentsView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Students</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('students.title')}</h2>
           <p className="text-muted-foreground mt-1">
             {role === 'teacher' || role === 'teacher_hebrew' || role === 'teacher_english' ? 'Students in your classes' : 
              role === 'tutor' ? 'Your assigned students' : 
-             `${students.length} students registered`}
+             `${students.length} ${t('nav.students')}`}
           </p>
         </div>
         <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title={t('students.title')}
+            filename="students"
+            rows={filteredStudents}
+            columns={STUDENT_EXPORT_COLUMNS}
+            sortOptions={STUDENT_SORT_OPTIONS}
+            groupOptions={STUDENT_GROUP_OPTIONS}
+          />
           {['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(role) && (
-            <Button variant="outline" onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2">
-              <Upload size={18} /> Import
+            <Button variant="outline" onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 h-12 px-4">
+              <Upload size={18} /> {t('students.import')}
             </Button>
           )}
           {['principal', 'principal_hebrew', 'principal_english', 'admin', 'teacher', 'teacher_hebrew', 'teacher_english'].includes(role) && (
-            <Button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }}>
-              <Plus size={18} className="mr-2" /> Add Student
+            <Button onClick={() => { setSelectedStudent(null); setIsModalOpen(true); }} className="h-12 px-5 text-base font-semibold">
+              <Plus size={20} className="me-2" /> {t('students.add')}
             </Button>
           )}
         </div>
       </div>
 
       {/* Toolbar & Filters */}
-      <div className="bg-white rounded-xl shadow-card border border-border/70 p-4 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4 justify-between">
-          <div className="flex-1 flex flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search students..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full h-10 pl-9 pr-4 border border-input rounded-lg bg-background shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary text-sm transition-all"
-              />
-            </div>
-            
-            <Select value={filters.grade_id} onValueChange={(val) => setFilters(prev => ({ ...prev, grade_id: val }))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Grade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Grades</SelectItem>
-                {grades.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('students.search')}
+        values={filters}
+        onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onClear={clearFilters}
+        resultCount={filteredStudents.length}
+        totalCount={students.length}
+        resultNoun={t('nav.students')}
+        filters={[
+          {
+            key: 'grade_id',
+            label: t('filterLabels.grade'),
+            type: 'select',
+            options: grades.map(g => ({ value: g.id, label: g.name })),
+          },
+          {
+            key: 'class_id',
+            label: t('filterLabels.class'),
+            type: 'select',
+            options: classes.map(c => ({ value: c.id, label: `${c.name}${c.grade?.name ? ` (${c.grade.name})` : ''}` })),
+          },
+          {
+            key: 'status',
+            label: t('filterLabels.status'),
+            type: 'select',
+            options: [
+              { value: 'active', label: t('filterLabels.active') },
+              { value: 'inactive', label: t('filterLabels.inactive') },
+            ],
+          },
+          {
+            key: 'hasOpenIssues',
+            label: t('filterLabels.hasOpenIssues'),
+            type: 'toggle',
+            onValue: 'yes',
+          },
+        ]}
+        rightSlot={
+          <div className="flex bg-slate-100 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              title={t('meetings.listView')}
+              className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <List size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              title="Grid"
+              className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              <Grid size={20} />
+            </button>
+          </div>
+        }
+      />
 
-            <Select value={filters.class_id} onValueChange={(val) => setFilters(prev => ({ ...prev, class_id: val }))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Class" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
-                {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.grade?.name})</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.hasOpenIssues} onValueChange={(val) => setFilters(prev => ({ ...prev, hasOpenIssues: val }))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Issues" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Status</SelectItem>
-                <SelectItem value="yes">Has Open Issues</SelectItem>
-                <SelectItem value="no">No Open Issues</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear Filters" className="text-slate-500">
-              <X size={18} />
+      {/* Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between bg-primary/5 p-3 rounded-xl border border-primary/15 animate-in slide-in-from-top-2">
+          <span className="text-sm font-medium text-primary ms-2">
+            {selectedIds.length} {t('nav.students')}
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setIsAttendanceModalOpen(true)}>
+              <CheckSquare size={16} className="me-2" /> {t('students.markAttendance')}
             </Button>
           </div>
-
-          <div className="flex items-center gap-2 border-l pl-4">
-            <div className="flex bg-muted rounded-lg p-1">
-              <button 
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                <Grid size={18} />
-              </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                <List size={18} />
-              </button>
-            </div>
-          </div>
         </div>
-         
-        {/* Bulk Actions Bar */}
-        {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between bg-primary/5 p-2 rounded-lg border border-primary/15 animate-in slide-in-from-top-2">
-            <span className="text-sm font-medium text-primary ml-2">
-              {selectedIds.length} students selected
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setIsAttendanceModalOpen(true)}>
-                <CheckSquare size={16} className="mr-2" /> Mark Attendance
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Content */}
       {viewMode === 'grid' ? (

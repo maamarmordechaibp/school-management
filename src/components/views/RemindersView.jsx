@@ -12,6 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
 import {
   Bell, Plus, Edit, Trash2, Mail, Calendar, Clock, Search,
   CheckCircle, Filter, Loader2, AlertCircle
@@ -28,8 +31,29 @@ const REMINDER_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+const REMINDER_EXPORT_COLUMNS = [
+  { key: 'title', label: 'Title', accessor: (r) => r.title },
+  { key: 'reminder_date', label: 'Date', accessor: (r) => r.reminder_date ? new Date(r.reminder_date).toLocaleDateString('en-US') : '' },
+  { key: 'reminder_type', label: 'Type', accessor: (r) => r.reminder_type },
+  { key: 'priority', label: 'Priority', accessor: (r) => r.priority },
+  { key: 'student', label: 'Student', accessor: (r) => r.related_student_name },
+  { key: 'status', label: 'Status', accessor: (r) => (r.is_completed ? 'Completed' : 'Active') },
+  { key: 'description', label: 'Description', accessor: (r) => r.description, default: false },
+];
+const REMINDER_SORT_OPTIONS = [
+  { key: 'reminder_date', label: 'Date', accessor: (r) => r.reminder_date },
+  { key: 'title', label: 'Title', accessor: (r) => r.title },
+  { key: 'priority', label: 'Priority', accessor: (r) => r.priority },
+];
+const REMINDER_GROUP_OPTIONS = [
+  { key: 'reminder_type', label: 'Type', accessor: (r) => r.reminder_type || 'Other' },
+  { key: 'priority', label: 'Priority', accessor: (r) => r.priority || 'normal' },
+  { key: 'status', label: 'Status', accessor: (r) => (r.is_completed ? 'Completed' : 'Active') },
+];
+
 const RemindersView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState([]);
@@ -317,9 +341,20 @@ const RemindersView = ({ role, currentUser }) => {
           </h1>
           <p className="text-slate-500">All reminders - with email option</p>
         </div>
-        <Button onClick={openAddModal}>
-          <Plus className="h-4 w-4 mr-2" /> New Reminder
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title="Reminders"
+            filename="reminders"
+            rows={filteredReminders}
+            columns={REMINDER_EXPORT_COLUMNS}
+            sortOptions={REMINDER_SORT_OPTIONS}
+            groupOptions={REMINDER_GROUP_OPTIONS}
+          />
+          <Button onClick={openAddModal}>
+            <Plus className="h-4 w-4 me-2" /> {t('quickActions.addReminder')}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -355,23 +390,32 @@ const RemindersView = ({ role, currentUser }) => {
       </div>
 
       {/* Search */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search reminders..." className="pl-10" />
-        </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('common.search')}
+        values={{ search: searchQuery, status: filter }}
+        onChange={(key, value) => {
+          if (key === 'search') setSearchQuery(value);
+          else if (key === 'status') setFilter(value);
+        }}
+        onClear={() => { setSearchQuery(''); setFilter('active'); }}
+        resultCount={filteredReminders.length}
+        totalCount={reminders.length}
+        filters={[
+          {
+            key: 'status',
+            label: t('filterLabels.status'),
+            allValue: 'active',
+            allLabel: t('filterLabels.active'),
+            type: 'select',
+            options: [
+              { value: 'overdue', label: 'Overdue' },
+              { value: 'completed', label: 'Completed' },
+              { value: 'all', label: t('common.all') },
+            ],
+          },
+        ]}
+      />
 
       {/* Reminders List */}
       {loading ? (

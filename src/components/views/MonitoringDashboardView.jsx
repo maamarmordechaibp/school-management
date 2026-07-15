@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, AlertCircle, TrendingUp, TrendingDown, CheckCircle, Clock, FileText, Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const MonitoringDashboardView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -195,7 +197,12 @@ const MonitoringDashboardView = ({ role, currentUser }) => {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="text-lg">{student.name}</CardTitle>
+              <CardTitle
+                className={`text-lg ${student.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                onClick={() => student.id && openProfile(student.id)}
+              >
+                {student.name}
+              </CardTitle>
               <p className="text-sm text-slate-500 mt-1">{student.class}</p>
             </div>
             {student.reviewOverdue && (

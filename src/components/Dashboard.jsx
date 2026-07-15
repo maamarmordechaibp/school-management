@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 import GlobalSearch from '@/components/GlobalSearch';
+import LanguageToggle from '@/components/LanguageToggle';
+import Footer from '@/components/Footer';
 
 // Views
 import StudentsView from '@/components/views/StudentsView';
@@ -46,8 +48,12 @@ import TodoListView from '@/components/views/TodoListView';
 import PhoneSystemView from '@/components/views/PhoneSystemView';
 
 const Dashboard = () => {
-  const { t } = useLanguage();
+  const { t, isRTL, dir } = useLanguage();
   const { user, profile, signOut, loading } = useAuth();
+
+  // Friendly, translated label for a menu item (falls back to its English label).
+  const menuLabel = (item) => t(`menu.${item.id}`) || item.label;
+  const groupLabel = (name) => t(`groups.${name}`) || name;
   const [activeView, setActiveView] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
@@ -131,7 +137,7 @@ const Dashboard = () => {
   const MENU_GROUP_ORDER = ['Main', 'Students & Classes', 'Communication', 'Staff & Access', 'Operations', 'Finance', 'System'];
 
   const renderView = () => {
-    const viewProps = { role: userRole, currentUser: profile };
+    const viewProps = { role: userRole, currentUser: profile, onNavigate: setActiveView };
 
     switch (activeView) {
       case 'overview': return <OverviewView {...viewProps} />;
@@ -205,7 +211,7 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden app-canvas" dir="ltr">
+    <div className="flex h-screen overflow-hidden app-canvas" dir={dir}>
       {/* Mobile backdrop */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -223,19 +229,19 @@ const Dashboard = () => {
       <AnimatePresence mode="wait">
         {sidebarOpen && (
           <motion.aside
-            initial={{ x: -280 }}
+            initial={{ x: isRTL ? 280 : -280 }}
             animate={{ x: 0 }}
-            exit={{ x: -280 }}
+            exit={{ x: isRTL ? 280 : -280 }}
             transition={{ duration: 0.28, ease: 'easeInOut' }}
-            className="fixed lg:relative inset-y-0 left-0 w-[270px] bg-white border-r border-slate-200/80 flex flex-col z-40 shadow-float lg:shadow-none"
+            className="fixed lg:relative inset-y-0 start-0 w-[270px] glass-rail border-e border-white/50 flex flex-col z-40 shadow-float lg:shadow-card"
           >
             {/* Brand header */}
-            <div className="px-4 py-4 border-b border-slate-100 flex items-center gap-3">
+            <div className="px-4 py-4 border-b border-white/50 flex items-center gap-3">
               <img
                 src={SCHOOL_LOGO_URL}
                 alt=""
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                className="h-11 w-11 rounded-xl bg-white p-0.5 shadow-card ring-1 ring-slate-200 flex-shrink-0"
+                className="h-11 w-11 rounded-xl bg-white/80 p-0.5 shadow-glow ring-1 ring-white/60 flex-shrink-0"
               />
               <div className="min-w-0" dir="rtl">
                 <h1 className="text-[13px] font-bold leading-tight truncate text-slate-800 font-hebrew" title={SCHOOL_NAME_YI}>
@@ -251,10 +257,10 @@ const Dashboard = () => {
                 if (groupItems.length === 0) return null;
                 return (
                   <div key={groupName}>
-                    <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      {groupName}
+                    <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400/90">
+                      {groupLabel(groupName)}
                     </p>
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       {groupItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeView === item.id;
@@ -266,20 +272,17 @@ const Dashboard = () => {
                               if (window.innerWidth < 1024) setSidebarOpen(false);
                             }}
                             title={item.description}
-                            className={`w-full group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+                            className={`w-full group relative flex items-center gap-3 px-3 min-h-[48px] rounded-xl text-[15px] transition-all duration-200 ${
                               isActive
-                                ? 'bg-primary/10 text-primary font-semibold'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                ? 'bg-brand-gradient text-white font-bold shadow-glow'
+                                : 'text-slate-600 hover:bg-white/70 hover:text-slate-900 font-medium'
                             }`}
                           >
-                            {isActive && (
-                              <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-primary" />
-                            )}
                             <Icon
-                              size={18}
-                              className={isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}
+                              size={20}
+                              className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary'}
                             />
-                            <span className="truncate">{item.label}</span>
+                            <span className="truncate text-start">{menuLabel(item)}</span>
                           </button>
                         );
                       })}
@@ -290,9 +293,9 @@ const Dashboard = () => {
             </nav>
 
             {/* User + actions */}
-            <div className="p-3 border-t border-slate-100 space-y-1">
-              <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-indigo-700 flex items-center justify-center text-white font-semibold text-sm shadow-sm flex-shrink-0">
+            <div className="p-3 border-t border-white/50 space-y-1">
+              <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-white/50">
+                <div className="h-9 w-9 rounded-full bg-brand-gradient flex items-center justify-center text-white font-semibold text-sm shadow-glow flex-shrink-0">
                   {profile?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -303,20 +306,20 @@ const Dashboard = () => {
               {(userRole === 'admin' || userRole === 'principal') && (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-slate-600 hover:bg-slate-100 rounded-lg text-sm h-9"
+                  className="w-full justify-start text-slate-600 hover:bg-slate-100 rounded-lg text-sm h-10"
                   onClick={() => setIsMenuSettingsOpen(true)}
                 >
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Menu Settings</span>
+                  <Settings className="me-2 h-4 w-4" />
+                  <span>{t('menu.menuSettings')}</span>
                 </Button>
               )}
               <Button
                 variant="ghost"
-                className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg text-sm h-9"
+                className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg text-sm h-10"
                 onClick={signOut}
               >
-                <LogOut className="mr-2 h-4 w-4" />
-                <span className="font-semibold">Log Out</span>
+                <LogOut className="me-2 h-4 w-4" />
+                <span className="font-semibold">{t('menu.logout')}</span>
               </Button>
             </div>
           </motion.aside>
@@ -326,7 +329,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header */}
-        <header className="surface-glass border-b border-slate-200/70 px-4 md:px-6 py-3 flex items-center justify-between z-20 sticky top-0">
+        <header className="surface-glass border-b border-white/50 px-4 md:px-6 py-3 flex items-center justify-between z-20 sticky top-0">
           <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
@@ -337,8 +340,8 @@ const Dashboard = () => {
               <Menu size={22} />
             </Button>
             <div className="min-w-0">
-              <h2 className="text-lg md:text-xl font-bold text-slate-800 truncate leading-tight">
-                {menuItems.find(i => i.id === activeView)?.label || 'Dashboard'}
+              <h2 className="text-lg md:text-xl font-bold text-gradient truncate leading-tight">
+                {menuItems.find(i => i.id === activeView) ? menuLabel(menuItems.find(i => i.id === activeView)) : t('menu.overview')}
               </h2>
               <p className="text-xs text-slate-400 truncate hidden sm:block">
                 {menuItems.find(i => i.id === activeView)?.description}
@@ -348,7 +351,8 @@ const Dashboard = () => {
 
           <div className="flex items-center gap-3 flex-shrink-0">
             <GlobalSearch />
-            <div className="hidden md:flex flex-col items-end pl-3 border-l border-slate-200">
+            <LanguageToggle className="hidden sm:inline-flex" />
+            <div className="hidden md:flex flex-col items-end ps-3 border-s border-slate-200">
               <p className="text-sm font-semibold text-slate-700">
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </p>
@@ -373,6 +377,12 @@ const Dashboard = () => {
               {renderView()}
             </motion.div>
           </AnimatePresence>
+          <div className="max-w-7xl mx-auto">
+            <div className="sm:hidden mt-4 flex justify-center">
+              <LanguageToggle />
+            </div>
+            <Footer />
+          </div>
         </main>
       </div>
 

@@ -14,10 +14,13 @@ import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
 import {
   Clock, AlertCircle, Printer, Search, Plus, Calendar, Users,
   FileText, Download, Mail, Loader2, RefreshCw, ShieldCheck, Send,
-  PenLine, Edit3, X
+  PenLine, Edit3, X, Settings
 } from 'lucide-react';
 import {
   buildLateLetterDocument,
@@ -87,7 +90,29 @@ const sigStyleCss = (s) => ({
   display: 'inline-block',
 });
 
+const LATE_STUDENT = (l) => l.student ? (l.student.hebrew_name || `${l.student.first_name || ''} ${l.student.last_name || ''}`.trim()) : '';
+const LATE_EXPORT_COLUMNS = [
+  { key: 'date', label: 'Date', accessor: (l) => l.date ? new Date(l.date).toLocaleDateString('en-US') : '' },
+  { key: 'student', label: 'Student', accessor: LATE_STUDENT },
+  { key: 'class', label: 'Class', accessor: (l) => l.student?.class?.name },
+  { key: 'arrival_time', label: 'Arrival Time', accessor: (l) => l.arrival_time },
+  { key: 'minutes_late', label: 'Minutes Late', accessor: (l) => l.minutes_late },
+  { key: 'reason', label: 'Reason', accessor: (l) => l.reason },
+  { key: 'excused', label: 'Excused', accessor: (l) => (l.excused ? 'Yes' : 'No') },
+  { key: 'notes', label: 'Notes', accessor: (l) => l.notes, default: false },
+];
+const LATE_SORT_OPTIONS = [
+  { key: 'date', label: 'Date', accessor: (l) => l.date },
+  { key: 'student', label: 'Student', accessor: LATE_STUDENT },
+  { key: 'minutes_late', label: 'Minutes Late', accessor: (l) => l.minutes_late },
+];
+const LATE_GROUP_OPTIONS = [
+  { key: 'class', label: 'Class', accessor: (l) => l.student?.class?.name || 'No Class' },
+  { key: 'excused', label: 'Excused', accessor: (l) => (l.excused ? 'Excused' : 'Unexcused') },
+];
+
 const LateTrackingView = ({ role, currentUser }) => {
+  const { t } = useLanguage();
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
   const { notify, notifyElement } = useStudentNotify(currentUser);
@@ -103,8 +128,17 @@ const LateTrackingView = ({ role, currentUser }) => {
     late_summary_recipients: '',
     signature_name: '',          // saved permanent signature (e.g. "הרב משה כהן")
     signature_role: 'סגן המנהל', // saved permanent role line under the signature
-    signature_style: 'signature' // visual style id (see SIGNATURE_STYLES below)
+    signature_style: 'signature', // visual style id (see SIGNATURE_STYLES below)
+    // Late-letter print layout (thermal / narrow roll). Editable by principal.
+    late_letter_paper_width: 80,   // mm
+    late_letter_margin: 3,         // mm
+    late_letter_font: 'Frank Ruhl Libre',
+    late_letter_font_size: 11      // pt
   });
+
+  // Print-settings editor
+  const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
+  const [printDraft, setPrintDraft] = useState({ paperWidth: 80, margin: 3, font: 'Frank Ruhl Libre', fontSize: 11 });
 
   // Today-only signature override (resets on reload)
   const [todaySignature, setTodaySignature] = useState(null); // { name, role, style } | null
@@ -139,18 +173,27 @@ const LateTrackingView = ({ role, currentUser }) => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'signature_name', 'signature_role', 'signature_style']);
+        .in('key', ['late_escalation_threshold', 'late_summary_recipients', 'signature_name', 'signature_role', 'signature_style', 'late_letter_paper_width', 'late_letter_margin', 'late_letter_font', 'late_letter_font_size']);
       if (data) {
         const map = {};
         for (const row of data) map[row.key] = row.value;
+        const paperWidth = parseFloat(map.late_letter_paper_width) || 80;
+        const margin = map.late_letter_margin != null && map.late_letter_margin !== '' ? parseFloat(map.late_letter_margin) : 3;
+        const font = map.late_letter_font || 'Frank Ruhl Libre';
+        const fontSize = parseFloat(map.late_letter_font_size) || 11;
         setSettings((prev) => ({
           ...prev,
           late_escalation_threshold: parseInt(map.late_escalation_threshold || '3', 10) || 3,
           late_summary_recipients: map.late_summary_recipients || '',
           signature_name: map.signature_name || '',
           signature_role: map.signature_role || prev.signature_role,
-          signature_style: SIGNATURE_STYLES[map.signature_style] ? map.signature_style : prev.signature_style
+          signature_style: SIGNATURE_STYLES[map.signature_style] ? map.signature_style : prev.signature_style,
+          late_letter_paper_width: paperWidth,
+          late_letter_margin: margin,
+          late_letter_font: font,
+          late_letter_font_size: fontSize
         }));
+        setPrintDraft({ paperWidth, margin, font, fontSize });
       }
     } catch (e) {
       console.error('Failed to load late-tracking settings:', e);
@@ -176,6 +219,36 @@ const LateTrackingView = ({ role, currentUser }) => {
       setTodaySignature(null); // clear any temp override
       setSignatureEditOpen(false);
       toast({ title: 'Signature saved', description: name ? `Letters will be signed by ${name}` : 'Signature cleared' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+    }
+  };
+
+  // Persist the late-letter print layout (paper width, margin, font, size)
+  const savePrintSettings = async () => {
+    const paperWidth = parseFloat(printDraft.paperWidth) || 80;
+    const margin = printDraft.margin === '' || printDraft.margin == null ? 3 : parseFloat(printDraft.margin);
+    const font = (printDraft.font || 'Frank Ruhl Libre').trim() || 'Frank Ruhl Libre';
+    const fontSize = parseFloat(printDraft.fontSize) || 11;
+    try {
+      const rows = [
+        { key: 'late_letter_paper_width', value: String(paperWidth) },
+        { key: 'late_letter_margin', value: String(margin) },
+        { key: 'late_letter_font', value: font },
+        { key: 'late_letter_font_size', value: String(fontSize) }
+      ];
+      for (const r of rows) {
+        await supabase.from('app_settings').upsert(r, { onConflict: 'key' });
+      }
+      setSettings((prev) => ({
+        ...prev,
+        late_letter_paper_width: paperWidth,
+        late_letter_margin: margin,
+        late_letter_font: font,
+        late_letter_font_size: fontSize
+      }));
+      setPrintSettingsOpen(false);
+      toast({ title: 'Print settings saved', description: `Paper ${paperWidth}mm · margin ${margin}mm · ${font} ${fontSize}pt` });
     } catch (e) {
       toast({ variant: 'destructive', title: 'Save failed', description: e.message });
     }
@@ -360,6 +433,13 @@ const LateTrackingView = ({ role, currentUser }) => {
   };
 
   // Print slip for a student (Yiddish letter, school letterhead)
+  const letterPrintOpts = () => ({
+    paperWidth: settings.late_letter_paper_width,
+    margin: settings.late_letter_margin,
+    fontFamily: settings.late_letter_font,
+    fontSize: settings.late_letter_font_size
+  });
+
   const printSlip = (late, repeatCount) => {
     const count = repeatCount ?? monthlyCounts[late.student_id]?.unexcused;
     const sig = todaySignature || { name: settings.signature_name, role: settings.signature_role, style: settings.signature_style };
@@ -370,7 +450,8 @@ const LateTrackingView = ({ role, currentUser }) => {
       signatureName: sig.name,
       signatureRole: sig.role,
       signatureStyle: SIGNATURE_STYLES[sig.style] || SIGNATURE_STYLES.signature,
-      repeatCounts: count ? { [late.id]: count } : {}
+      repeatCounts: count ? { [late.id]: count } : {},
+      print: letterPrintOpts()
     });
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -404,7 +485,8 @@ const LateTrackingView = ({ role, currentUser }) => {
       signatureName: sig.name,
       signatureRole: sig.role,
       signatureStyle: SIGNATURE_STYLES[sig.style] || SIGNATURE_STYLES.signature,
-      repeatCounts
+      repeatCounts,
+      print: letterPrintOpts()
     });
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -528,6 +610,15 @@ const LateTrackingView = ({ role, currentUser }) => {
           <p className="text-slate-500">Track students who arrive late, print slips for teachers</p>
         </div>
         <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title="Late Arrivals"
+            filename="late-arrivals"
+            rows={filteredLateArrivals}
+            columns={LATE_EXPORT_COLUMNS}
+            sortOptions={LATE_SORT_OPTIONS}
+            groupOptions={LATE_GROUP_OPTIONS}
+          />
           <Button variant="outline" onClick={sendDailySummary} disabled={sendingSummary || filteredLateArrivals.length === 0}>
             {sendingSummary ? <Loader2 className="h-4 w-4 ml-2 animate-spin" /> : <Send className="h-4 w-4 ml-2" />}
             Email Daily Summary
@@ -601,6 +692,21 @@ const LateTrackingView = ({ role, currentUser }) => {
             >
               <Edit3 className="h-4 w-4 mr-1" /> {settings.signature_name ? 'Change signature' : 'Set signature'}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setPrintDraft({
+                  paperWidth: settings.late_letter_paper_width,
+                  margin: settings.late_letter_margin,
+                  font: settings.late_letter_font,
+                  fontSize: settings.late_letter_font_size
+                });
+                setPrintSettingsOpen(true);
+              }}
+            >
+              <Settings className="h-4 w-4 mr-1" /> Letter print settings
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -634,33 +740,33 @@ const LateTrackingView = ({ role, currentUser }) => {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[200px]" />
-            </div>
-            <div className="flex-1">
-              <Label>Search</Label>
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search student..." className="pr-10" />
-              </div>
-            </div>
-            <div>
-              <Label>Class</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('students.search')}
+        values={{ search: searchQuery, class: selectedClass }}
+        onChange={(key, value) => {
+          if (key === 'search') setSearchQuery(value);
+          else if (key === 'class') setSelectedClass(value);
+        }}
+        onClear={() => { setSearchQuery(''); setSelectedClass('all'); }}
+        resultCount={filteredLateArrivals.length}
+        totalCount={lateArrivals.length}
+        resultNoun={t('nav.students')}
+        filters={[
+          {
+            key: 'class',
+            label: t('filterLabels.class'),
+            type: 'select',
+            options: classes.map(c => ({ value: c.id, label: c.name })),
+          },
+        ]}
+        rightSlot={
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 mb-1">{t('meetings.date')}</label>
+            <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[180px] h-12" />
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
 
       {/* Late Arrivals Table */}
       <Card>
@@ -982,6 +1088,84 @@ const LateTrackingView = ({ role, currentUser }) => {
             </Button>
             <Button onClick={savePermanentSignature} className="bg-blue-600 hover:bg-blue-700">
               <PenLine className="h-4 w-4 mr-2" /> Save permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Letter print settings dialog */}
+      <Dialog open={printSettingsOpen} onOpenChange={setPrintSettingsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Letter print settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-slate-500">
+              Adjust the size of the printed late-arrival letter so it fits your printer's paper.
+              For a 2-inch thermal roll use a paper width of about 50mm.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Paper width (mm)</Label>
+                <Input
+                  type="number"
+                  min="30"
+                  max="300"
+                  value={printDraft.paperWidth}
+                  onChange={(e) => setPrintDraft({ ...printDraft, paperWidth: e.target.value })}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">2 inch ≈ 50 · 3 inch ≈ 80</p>
+              </div>
+              <div>
+                <Label className="text-sm">Margin (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="0.5"
+                  value={printDraft.margin}
+                  onChange={(e) => setPrintDraft({ ...printDraft, margin: e.target.value })}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Space around the text</p>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Font</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={printDraft.font}
+                onChange={(e) => setPrintDraft({ ...printDraft, font: e.target.value })}
+              >
+                <option value="Frank Ruhl Libre">Frank Ruhl Libre (default serif)</option>
+                <option value="David Libre">David Libre</option>
+                <option value="Noto Serif Hebrew">Noto Serif Hebrew</option>
+                <option value="Miriam Libre">Miriam Libre (clean sans)</option>
+                <option value="Heebo">Heebo (modern sans)</option>
+                <option value="Suez One">Suez One (bold display)</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Arial">Arial</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-sm">Font size (pt): {printDraft.fontSize}</Label>
+              <Input
+                type="range"
+                min="7"
+                max="20"
+                step="0.5"
+                value={printDraft.fontSize}
+                onChange={(e) => setPrintDraft({ ...printDraft, fontSize: e.target.value })}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Whole letter scales with this size</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintSettingsOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setPrintDraft({ paperWidth: 80, margin: 3, font: 'Frank Ruhl Libre', fontSize: 11 })}>
+              Reset defaults
+            </Button>
+            <Button onClick={savePrintSettings} className="bg-blue-600 hover:bg-blue-700">
+              <Settings className="h-4 w-4 mr-2" /> Save
             </Button>
           </DialogFooter>
         </DialogContent>

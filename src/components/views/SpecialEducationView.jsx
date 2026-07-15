@@ -14,6 +14,9 @@ import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import ExportButton from '@/components/ExportButton';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import {
   Plus, Search, Edit, Trash2, User, Users, Calendar, Clock,
   FileText, ClipboardList, BookOpen, UserCheck, AlertCircle,
@@ -87,8 +90,35 @@ const EVAL_PRIORITIES = [
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Shabbos'];
 
+const SPECED_STUDENT = (s) => s.student ? (s.student.hebrew_name || `${s.student.first_name || ''} ${s.student.last_name || ''}`.trim()) : '';
+const SPECED_LABEL = (arr, v) => (arr.find((o) => o.value === v)?.label) || v || '';
+const SPECED_EXPORT_COLUMNS = [
+  { key: 'student', label: 'Student', accessor: SPECED_STUDENT },
+  { key: 'hebrew_name', label: 'Hebrew Name', accessor: (s) => s.student?.hebrew_name, default: false },
+  { key: 'class', label: 'Class', accessor: (s) => s.student?.class?.name },
+  { key: 'grade', label: 'Grade', accessor: (s) => s.student?.class?.grade?.name, default: false },
+  { key: 'status', label: 'Status', accessor: (s) => SPECED_LABEL(STATUS_OPTIONS, s.status) },
+  { key: 'help_type', label: 'Help Type', accessor: (s) => SPECED_LABEL(HELP_TYPES, s.help_type) },
+  { key: 'referral_reason', label: 'Referral Reason', accessor: (s) => s.referral_reason },
+  { key: 'help_description', label: 'Help Description', accessor: (s) => s.help_description, default: false },
+  { key: 'current_plan', label: 'Current Plan', accessor: (s) => s.current_plan, default: false },
+  { key: 'referral_date', label: 'Referral Date', accessor: (s) => (s.referral_date ? new Date(s.referral_date).toLocaleDateString('en-US') : ''), default: false },
+];
+const SPECED_SORT_OPTIONS = [
+  { key: 'student', label: 'Student', accessor: SPECED_STUDENT },
+  { key: 'status', label: 'Status', accessor: (s) => s.status },
+  { key: 'help_type', label: 'Help Type', accessor: (s) => s.help_type },
+];
+const SPECED_GROUP_OPTIONS = [
+  { key: 'status', label: 'Status', accessor: (s) => SPECED_LABEL(STATUS_OPTIONS, s.status) || 'Unknown' },
+  { key: 'help_type', label: 'Help Type', accessor: (s) => SPECED_LABEL(HELP_TYPES, s.help_type) || 'None' },
+  { key: 'class', label: 'Class', accessor: (s) => s.student?.class?.name || 'No Class' },
+];
+
 const SpecialEducationView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
+  const { t } = useLanguage();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [activeTab, setActiveTab] = useState('students');
   const [loading, setLoading] = useState(true);
@@ -827,7 +857,13 @@ const SpecialEducationView = ({ role, currentUser }) => {
 
   const getStatusBadge = (status) => {
     const opt = STATUS_OPTIONS.find(s => s.value === status);
-    return opt ? <Badge className={opt.color}>{opt.label}</Badge> : <Badge>{status}</Badge>;
+    if (!opt) return <Badge>{status}</Badge>;
+    return (
+      <Badge className={`${opt.color} text-sm px-3 py-1 font-semibold rounded-full inline-flex items-center gap-1.5 border-0`}>
+        <span className="h-2 w-2 rounded-full bg-current opacity-70" />
+        {opt.label}
+      </Badge>
+    );
   };
 
   const openSendEmail = (subject, body) => {
@@ -853,6 +889,10 @@ const SpecialEducationView = ({ role, currentUser }) => {
     pendingEval: specEdStudents.filter(s => s.status === 'needs_evaluation' || s.status === 'referral_pending' || s.status === 'being_evaluated').length,
     active: specEdStudents.filter(s => s.status === 'receiving_services' || s.status === 'has_plan').length,
   };
+  const statusCounts = STATUS_OPTIONS.reduce((acc, o) => {
+    acc[o.value] = specEdStudents.filter(s => s.status === o.value).length;
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -863,16 +903,25 @@ const SpecialEducationView = ({ role, currentUser }) => {
   }
 
   return (
-    <div className="space-y-6" dir="ltr">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Special Education</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">{t('menu.special-ed')}</h1>
           <p className="text-slate-500">Special Education Management - Students, Staff, Evaluations, and Plans</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadData}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          <ExportButton
+            className="h-12 px-4"
+            title={t('menu.special-ed')}
+            filename="special-education"
+            rows={filteredStudents}
+            columns={SPECED_EXPORT_COLUMNS}
+            sortOptions={SPECED_SORT_OPTIONS}
+            groupOptions={SPECED_GROUP_OPTIONS}
+          />
+          <Button variant="outline" onClick={loadData} className="h-12">
+            <RefreshCw className="h-4 w-4 me-2" /> Refresh
           </Button>
           <Button onClick={() => {
             setSelectedSpecEd(null);
@@ -880,65 +929,56 @@ const SpecialEducationView = ({ role, currentUser }) => {
             setNeedsEval(false);
             setEvalReqPriority('normal');
             setIsStudentModalOpen(true);
-          }} className="bg-orange-600 hover:bg-orange-700">
-            <Plus className="h-4 w-4 mr-2" /> Add Student
+          }} className="bg-orange-600 hover:bg-orange-700 h-12 px-5 text-base font-semibold">
+            <Plus className="h-5 w-5 me-2" /> {t('students.add')}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-orange-100 rounded-lg"><Users className="h-6 w-6 text-orange-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.total}</p><p className="text-sm text-slate-500">Total Students</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-yellow-100 rounded-lg"><AlertCircle className="h-6 w-6 text-yellow-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.monitoring}</p><p className="text-sm text-slate-500">Monitoring</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg"><ClipboardList className="h-6 w-6 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.pendingEval}</p><p className="text-sm text-slate-500">Pending / Being Evaluated</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg"><UserCheck className="h-6 w-6 text-green-600" /></div>
-            <div><p className="text-2xl font-bold">{stats.active}</p><p className="text-sm text-slate-500">Receiving Services</p></div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="bg-[#4F46E5]/5 rounded-2xl border border-slate-200/70 shadow-card p-6">
+          <div className="inline-flex p-3 rounded-2xl bg-primary/10 text-primary mb-4"><Users className="h-9 w-9" strokeWidth={1.75} /></div>
+          <p className="text-4xl font-bold text-slate-900 tabular-nums leading-none">{stats.total}</p>
+          <p className="text-sm text-slate-500 font-medium mt-2">Total Students</p>
+        </div>
+        {STATUS_OPTIONS.map((o) => (
+          <div key={o.value} className="bg-white rounded-2xl border border-slate-200/70 shadow-card p-6 flex flex-col">
+            <span className={`inline-flex items-center self-start px-2.5 py-1 rounded-full text-xs font-semibold mb-4 ${o.color}`}>{o.label}</span>
+            <p className="text-4xl font-bold text-slate-900 tabular-nums leading-none">{statusCounts[o.value] || 0}</p>
+            <p className="text-sm text-slate-500 font-medium mt-2">{o.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="students">Students ({specEdStudents.length})</TabsTrigger>
+          <TabsTrigger value="students">{t('nav.students')} ({specEdStudents.length})</TabsTrigger>
           <TabsTrigger value="evaluations">Evaluations ({evalRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled').length})</TabsTrigger>
           <TabsTrigger value="staff">Staff ({specEdStaff.length})</TabsTrigger>
           <TabsTrigger value="monthly">Monthly Reports</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="overview">{t('nav.overview')}</TabsTrigger>
         </TabsList>
 
         {/* ===== STUDENTS TAB ===== */}
         <TabsContent value="students" className="space-y-4">
           {/* Search & Filter */}
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-4 md:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+              <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder={t('students.search')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="ps-10 h-12" />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-[200px] h-12"><SelectValue placeholder={t('filterLabels.status')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">{t('common.all')}</SelectItem>
                 {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            <p className="text-sm text-slate-500 font-medium whitespace-nowrap">
+              {t('common.showing')} <span className="font-bold text-slate-800">{filteredStudents.length}</span> {t('common.of')} <span className="font-bold text-slate-800">{specEdStudents.length}</span>
+            </p>
           </div>
 
           {/* Student List */}
@@ -957,7 +997,12 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       </div>
                       <div>
                         <h3 className="font-bold text-slate-800">
-                          {specEd.student?.hebrew_name || `${specEd.student?.first_name} ${specEd.student?.last_name}`}
+                          <span
+                            className={specEd.student?.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}
+                            onClick={(e) => { e.stopPropagation(); specEd.student?.id && openProfile(specEd.student.id); }}
+                          >
+                            {specEd.student?.hebrew_name || `${specEd.student?.first_name} ${specEd.student?.last_name}`}
+                          </span>
                         </h3>
                         <p className="text-sm text-slate-500">
                           {specEd.student?.class?.name || 'No Class'} | {specEd.help_type ? HELP_TYPES.find(h => h.value === specEd.help_type)?.label : 'N/A'}

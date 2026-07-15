@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Phone, Users, CheckCircle, Clock, ArrowRight, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import AssessmentForm from '@/components/forms/AssessmentForm';
 
 const IntakeWorkflowView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -152,7 +154,12 @@ const IntakeWorkflowView = ({ role, currentUser }) => {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="text-lg">{student.name}</CardTitle>
+              <CardTitle
+                className={`text-lg ${student.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
+                onClick={() => student.id && openProfile(student.id)}
+              >
+                {student.name}
+              </CardTitle>
               <p className="text-sm text-slate-500 mt-1">{student.class}</p>
             </div>
             <WorkflowBadge stage={student.workflow_stage} />

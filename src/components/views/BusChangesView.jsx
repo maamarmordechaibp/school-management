@@ -13,15 +13,44 @@ import StudentPicker from '@/components/ui/student-picker';
 import { useToast } from '@/components/ui/use-toast';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import {
   Bus, Plus, Edit, Trash2, Printer, Search, Calendar, Users,
   MapPin, Clock, Mail, Loader2, AlertCircle, RefreshCw, Route
 } from 'lucide-react';
 
+const BUS_STUDENT = (c) => c.student ? (c.student.hebrew_name || `${c.student.first_name || ''} ${c.student.last_name || ''}`.trim()) : '';
+const BUS_EXPORT_COLUMNS = [
+  { key: 'change_date', label: 'Date', accessor: (c) => c.change_date ? new Date(c.change_date).toLocaleDateString('en-US') : '' },
+  { key: 'student', label: 'Student', accessor: BUS_STUDENT },
+  { key: 'class', label: 'Class', accessor: (c) => c.student?.class?.name, default: false },
+  { key: 'change_type', label: 'Type', accessor: (c) => c.change_type },
+  { key: 'original_bus', label: 'From Route', accessor: (c) => c.original_bus?.route_name },
+  { key: 'new_bus', label: 'To Route', accessor: (c) => c.new_bus?.route_name },
+  { key: 'pickup_address', label: 'Pickup Address', accessor: (c) => c.pickup_address, default: false },
+  { key: 'reason', label: 'Reason', accessor: (c) => c.reason },
+  { key: 'notes', label: 'Notes', accessor: (c) => c.notes, default: false },
+];
+const BUS_SORT_OPTIONS = [
+  { key: 'change_date', label: 'Date', accessor: (c) => c.change_date },
+  { key: 'student', label: 'Student', accessor: BUS_STUDENT },
+  { key: 'change_type', label: 'Type', accessor: (c) => c.change_type },
+];
+const BUS_GROUP_OPTIONS = [
+  { key: 'change_type', label: 'Type', accessor: (c) => c.change_type || 'Unknown' },
+  { key: 'new_bus', label: 'To Route', accessor: (c) => c.new_bus?.route_name || 'None' },
+];
+
 const BusChangesView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
+  const { t, dir } = useLanguage();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
+  const [changeSearch, setChangeSearch] = useState('');
   const [activeTab, setActiveTab] = useState('changes');
   
   // Data
@@ -222,7 +251,10 @@ const BusChangesView = ({ role, currentUser }) => {
   // Filter changes
   const filteredChanges = busChanges.filter(c => {
     const matchesType = changeTypeFilter === 'all' || c.change_type === changeTypeFilter;
-    return matchesType;
+    const q = changeSearch.toLowerCase();
+    const name = `${c.student?.first_name || ''} ${c.student?.last_name || ''} ${c.student?.hebrew_name || ''}`.toLowerCase();
+    const matchesSearch = !q || name.includes(q);
+    return matchesType && matchesSearch;
   });
 
   if (loading) {
@@ -230,7 +262,7 @@ const BusChangesView = ({ role, currentUser }) => {
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6" dir={dir}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -238,15 +270,24 @@ const BusChangesView = ({ role, currentUser }) => {
           <p className="text-slate-500">Create and print bus changes</p>
         </div>
         <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title="Bus Changes"
+            filename="bus-changes"
+            rows={filteredChanges}
+            columns={BUS_EXPORT_COLUMNS}
+            sortOptions={BUS_SORT_OPTIONS}
+            groupOptions={BUS_GROUP_OPTIONS}
+          />
           <Button variant="outline" onClick={printChanges}>
-            <Printer className="h-4 w-4 ml-2" /> Print
+            <Printer className="h-4 w-4 me-2" /> Print
           </Button>
           <Button variant="outline" onClick={() => {
             setEditingRoute(null);
             setRouteForm({ route_name: '', route_number: '', driver_name: '', driver_phone: '' });
             setIsRouteModalOpen(true);
           }}>
-            <Route className="h-4 w-4 ml-2" /> New Route
+            <Route className="h-4 w-4 me-2" /> New Route
           </Button>
           <Button onClick={() => {
             setChangeForm({
@@ -256,7 +297,7 @@ const BusChangesView = ({ role, currentUser }) => {
             });
             setIsChangeModalOpen(true);
           }} className="bg-cyan-600 hover:bg-cyan-700">
-            <Plus className="h-4 w-4 ml-2" /> New Change
+            <Plus className="h-4 w-4 me-2" /> New Change
           </Button>
         </div>
       </div>
@@ -284,26 +325,36 @@ const BusChangesView = ({ role, currentUser }) => {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4 flex flex-col md:flex-row gap-4">
-          <div>
-            <Label>From Date</Label>
-            <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[200px]" />
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('students.search')}
+        values={{ search: changeSearch, change_type: changeTypeFilter }}
+        onChange={(key, value) => {
+          if (key === 'search') setChangeSearch(value);
+          else if (key === 'change_type') setChangeTypeFilter(value);
+        }}
+        onClear={() => { setChangeSearch(''); setChangeTypeFilter('all'); }}
+        resultCount={filteredChanges.length}
+        totalCount={busChanges.length}
+        filters={[
+          {
+            key: 'change_type',
+            label: t('filterLabels.callType'),
+            type: 'select',
+            options: [
+              { value: 'one_time', label: 'One Time' },
+              { value: 'temporary', label: 'Temporary' },
+              { value: 'permanent', label: 'Permanent' },
+            ],
+          },
+        ]}
+        rightSlot={
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 mb-1">{t('common.from')}</label>
+            <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-[180px] h-12" />
           </div>
-          <div>
-            <Label>Change Type</Label>
-            <Select value={changeTypeFilter} onValueChange={setChangeTypeFilter}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="one_time">One Time</SelectItem>
-                <SelectItem value="temporary">Temporary</SelectItem>
-                <SelectItem value="permanent">Permanent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+        }
+      />
 
       {/* Bus Routes */}
       <Card>
@@ -387,7 +438,12 @@ const BusChangesView = ({ role, currentUser }) => {
                 <TableRow key={change.id}>
                   <TableCell>{new Date(change.change_date).toLocaleDateString('en-US')}</TableCell>
                   <TableCell className="font-medium">
-                    {change.student?.hebrew_name || `${change.student?.first_name} ${change.student?.last_name}`}
+                    <span
+                      className={change.student?.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}
+                      onClick={() => change.student?.id && openProfile(change.student.id)}
+                    >
+                      {change.student?.hebrew_name || `${change.student?.first_name} ${change.student?.last_name}`}
+                    </span>
                   </TableCell>
                   <TableCell><Badge variant="outline">{change.student?.class?.name || 'N/A'}</Badge></TableCell>
                   <TableCell>{change.original_bus?.route_name || '-'}</TableCell>

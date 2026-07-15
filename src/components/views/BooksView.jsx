@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
 
 const BooksView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [books, setBooks] = useState([]);
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -396,7 +399,7 @@ const BooksView = ({ role, currentUser }) => {
           <p className="text-slate-500">Manage book inventory and grade requirements</p>
         </div>
         <Button onClick={() => openBookModal()} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 me-2" />
           Add Book
         </Button>
       </div>
@@ -460,34 +463,34 @@ const BooksView = ({ role, currentUser }) => {
 
         {/* Book Catalog Tab */}
         <TabsContent value="catalog">
+          <FilterBar
+            searchKey="search"
+            searchPlaceholder="Search books..."
+            values={{ search: searchQuery, category: categoryFilter }}
+            onChange={(key, value) => {
+              if (key === 'search') setSearchQuery(value);
+              else if (key === 'category') setCategoryFilter(value);
+            }}
+            onClear={() => { setSearchQuery(''); setCategoryFilter('all'); }}
+            resultCount={filteredBooks.length}
+            totalCount={books.length}
+            filters={[
+              {
+                key: 'category',
+                label: 'Category',
+                allValue: 'all',
+                allLabel: t('common.all'),
+                type: 'select',
+                options: categories.map(cat => ({ value: cat.value, label: cat.label })),
+              },
+            ]}
+          />
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Book Catalog</CardTitle>
                   <CardDescription>All books in your inventory</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Search books..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 w-64"
-                    />
-                  </div>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map(cat => (
-                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </CardHeader>

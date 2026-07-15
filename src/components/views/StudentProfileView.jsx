@@ -32,6 +32,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const { profile: currentUser } = useAuth();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [student, setStudent] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedYear, setSelectedYear] = useState('all'); // Year filter for financial tab
   
@@ -142,8 +143,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const fetchStudentData = async () => {
     try {
       // 1. Student Info
-      const { data: studentInfo } = await supabase.from('students').select('*').eq('id', studentId).single();
+      const { data: studentInfo } = await supabase.from('students').select('*').eq('id', studentId).maybeSingle();
       setStudent(studentInfo);
+      setNotFound(!studentInfo);
 
       // 2. Parallel Fetching for related data
       const [calls, issues, grades, assessments, interventions, meetings, plans, reviews, studentFees, payments, todos, reminders] = await Promise.all([
@@ -542,8 +544,14 @@ const StudentProfileView = ({ studentId, onBack }) => {
     }
   };
 
+  if (notFound) return (
+    <div className="p-8 text-center space-y-3">
+      <p className="text-slate-700 font-semibold">Student not found</p>
+      <p className="text-sm text-slate-500">This student may have been removed, or you don't have permission to view it.</p>
+      {onBack && <button onClick={onBack} className="text-blue-600 hover:underline text-sm">Go back</button>}
+    </div>
+  );
   if (!student) return <div className="p-8 text-center">Loading profile...</div>;
-
   const NOTE_TYPES = [
     { value: 'general', label: 'General' },
     { value: 'teacher_meeting', label: 'Teacher Meeting' },
@@ -614,6 +622,177 @@ const StudentProfileView = ({ studentId, onBack }) => {
     subject: g.subject
   })).slice(-10);
 
+  // ---------- Full profile report (print / PDF) ----------
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '—');
+  const money = (n) => `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const buildTable = (headers, rows) => {
+    if (!rows || !rows.length) return '<p class="empty">No records.</p>';
+    const head = `<tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+    const body = rows.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('');
+    return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  };
+  const section = (title, html) => (html ? `<h2>${escapeHtml(title)}</h2>${html}` : '');
+
+  const printFullProfile = () => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      toast({ variant: 'destructive', title: 'Popup blocked', description: 'Allow popups for this site to print.' });
+      return;
+    }
+
+    // Student details
+    const detailRows = [
+      ['Name', student.name],
+      ['Hebrew name', student.hebrew_name],
+      ['Class', student.class],
+      ['Teacher', student.teacher],
+      ['Grade', student.grade],
+      ['Status', student.status || student.workflow_stage],
+      ['Phone', student.phone],
+      ['Email', student.email],
+      ['Parent / Father', student.father_name || student.parent_name],
+      ['Mother', student.mother_name],
+      ['Parent phone', student.parent_phone || student.father_phone],
+      ['Address', student.address],
+      ['Date of birth', student.date_of_birth ? fmtDate(student.date_of_birth) : ''],
+    ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+    const detailsHtml = `<table class="details">${detailRows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join('')}</table>`;
+
+    // Financial
+    const totalCharged = data.studentFees.reduce((s, f) => s + Number(f.amount || 0), 0);
+    const totalPaid = data.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const balance = totalCharged - totalPaid;
+    const finSummary = `<div class="summary">
+      <span>Total charged: <b>${money(totalCharged)}</b></span>
+      <span>Total paid: <b>${money(totalPaid)}</b></span>
+      <span>Balance: <b>${money(balance)}</b></span>
+    </div>`;
+    const feesTable = buildTable(
+      ['Fee', 'Category', 'Year', 'Amount', 'Paid', 'Status'],
+      data.studentFees.map((f) => [f.fee?.name || '—', f.fee?.fee_type?.category || '—', f.fee?.academic_year || '—', money(f.amount), money(f.amount_paid), f.status || '—'])
+    );
+    const paymentsTable = buildTable(
+      ['Date', 'Amount', 'Method', 'For', 'Notes'],
+      data.payments.map((p) => [fmtDate(p.payment_date), money(p.amount), p.payment_method || '—', p.student_fee?.fee?.name || '—', p.notes || ''])
+    );
+
+    // Academic
+    const numericGrades = data.grades.map((g) => parseFloat(g.grade)).filter((n) => Number.isFinite(n));
+    const gradeAvg = numericGrades.length ? Math.round((numericGrades.reduce((a, b) => a + b, 0) / numericGrades.length) * 10) / 10 : null;
+    const gradeAvgHtml = gradeAvg === null ? '' : `<div class="summary"><span>Grade average: <b>${gradeAvg}</b></span></div>`;
+    const gradesTable = buildTable(
+      ['Date', 'Subject', 'Grade', 'Quarter', 'Year'],
+      data.grades.map((g) => [fmtDate(g.date), g.subject || '—', g.grade ?? '—', g.quarter || '—', g.school_year || '—'])
+    );
+
+    // Workflow & plans
+    const plansTable = buildTable(
+      ['Created', 'Status', 'Goals', 'Review'],
+      data.plans.map((p) => [fmtDate(p.created_at), p.status || '—', p.goals || '—', p.review_frequency || '—'])
+    );
+    const reviewsTable = buildTable(
+      ['Date', 'Rating', 'Notes', 'Concerns'],
+      data.progress_reviews.map((r) => [fmtDate(r.created_at), r.progress_rating ?? '—', r.notes || '—', r.concerns || '—'])
+    );
+
+    // Communication
+    const callsTable = buildTable(
+      ['Date', 'Contact', 'Phone', 'Outcome', 'Notes'],
+      data.calls.map((c) => [fmtDate(c.created_at), c.contact_person || '—', c.phone_number || '—', c.outcome || '—', c.notes || ''])
+    );
+    const meetingsTable = buildTable(
+      ['Date', 'Title', 'Type', 'Status', 'Notes'],
+      data.meetings.map((m) => [fmtDate(m.scheduled_date || m.meeting_date), m.title || '—', m.meeting_type || '—', m.status || '—', m.description || ''])
+    );
+
+    // Tasks & reminders
+    const todosTable = buildTable(
+      ['Title', 'Due', 'Priority', 'Category', 'Status'],
+      data.todos.map((t) => [t.title || '—', fmtDate(t.due_date), t.priority || '—', t.category || '—', t.status || '—'])
+    );
+    const remindersTable = buildTable(
+      ['Title', 'Date', 'Priority', 'Status'],
+      data.reminders.map((r) => [r.title || '—', fmtDate(r.reminder_date), r.priority || '—', r.status || '—'])
+    );
+
+    // Assessments
+    const assessmentsTable = buildTable(
+      ['Date', 'Type', 'Social/Emot.', 'Kriah', 'Limud', 'Notes'],
+      data.assessments.map((a) => [fmtDate(a.date), a.assessment_type || '—', a.social_emotional_rating ?? '—', a.kriah_rating ?? '—', a.limud_rating ?? '—', a.overall_notes || ''])
+    );
+
+    // Notes
+    const notesTable = buildTable(
+      ['Date', 'Type', 'Title', 'Content'],
+      (studentNotes || []).map((n) => [fmtDate(n.created_at), n.note_type || '—', n.title || '—', n.content || ''])
+    );
+
+    // Late arrivals
+    const lateTable = buildTable(
+      ['Date', 'Arrival', 'Minutes late', 'Reason', 'Excused'],
+      (lateArrivals || []).map((l) => [fmtDate(l.date), l.arrival_time || '—', l.minutes_late ?? '—', l.reason || '—', l.excused ? 'Yes' : 'No'])
+    );
+
+    // Special ed
+    let specialEdHtml = '';
+    if (specialEdData) {
+      const sedRows = [
+        ['Status', specialEdData.status],
+        ['Referral reason', specialEdData.referral_reason],
+        ['Referral date', specialEdData.referral_date ? fmtDate(specialEdData.referral_date) : ''],
+        ['Help type', specialEdData.help_type],
+        ['Help description', specialEdData.help_description],
+        ['Current plan', specialEdData.current_plan],
+        ['Notes', specialEdData.notes],
+      ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+      const sedInfo = `<table class="details">${sedRows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join('')}</table>`;
+      const evalsTable = (specialEdData.evaluations || []).length
+        ? buildTable(['Date', 'Type', 'Evaluator', 'Results', 'Recommendations'], specialEdData.evaluations.map((e) => [fmtDate(e.evaluation_date), e.evaluation_type || '—', e.evaluator_name || '—', e.results || '—', e.recommendations || '—']))
+        : '';
+      const tutoringTable = (specialEdData.tutoring || []).length
+        ? buildTable(['Tutor', 'Subject', 'Days', 'Time', 'Frequency'], specialEdData.tutoring.map((tu) => [tu.tutor_name || '—', tu.subject || '—', Array.isArray(tu.schedule_days) ? tu.schedule_days.join(', ') : (tu.schedule_days || '—'), tu.schedule_time || '—', tu.frequency || '—']))
+        : '';
+      specialEdHtml = sedInfo + (evalsTable ? `<h3>Evaluations</h3>${evalsTable}` : '') + (tutoringTable ? `<h3>Tutoring</h3>${tutoringTable}` : '');
+    }
+
+    const body = `
+      <h1>${escapeHtml(student.name || 'Student')}</h1>
+      <div class="meta">Full Student Report · Generated ${new Date().toLocaleString()}</div>
+      <h2>Student Details</h2>${detailsHtml}
+      <h2>Financial</h2>${finSummary}<h3>Charges</h3>${feesTable}<h3>Payments</h3>${paymentsTable}
+      ${section('Academic', gradeAvgHtml + gradesTable)}
+      ${data.plans.length || data.progress_reviews.length ? `<h2>Workflow &amp; Plans</h2><h3>Plans</h3>${plansTable}<h3>Progress Reviews</h3>${reviewsTable}` : ''}
+      ${data.calls.length || data.meetings.length ? `<h2>Communication</h2><h3>Calls</h3>${callsTable}<h3>Meetings</h3>${meetingsTable}` : ''}
+      ${data.todos.length || data.reminders.length ? `<h2>Tasks &amp; Reminders</h2><h3>Tasks</h3>${todosTable}<h3>Reminders</h3>${remindersTable}` : ''}
+      ${data.assessments.length ? section('Assessments', assessmentsTable) : ''}
+      ${(studentNotes || []).length ? section('Notes', notesTable) : ''}
+      ${(lateArrivals || []).length ? section('Late Arrivals', lateTable) : ''}
+      ${specialEdHtml ? `<h2>Special Education</h2>${specialEdHtml}` : ''}
+    `;
+
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(student.name || 'Student')} — Full Report</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 24px; }
+        h1 { font-size: 22px; margin: 0 0 4px; }
+        h2 { font-size: 16px; margin: 22px 0 8px; color: #4f46e5; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+        h3 { font-size: 13px; margin: 14px 0 6px; color: #475569; }
+        .meta { color: #64748b; font-size: 12px; margin-bottom: 12px; }
+        .summary { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; margin: 6px 0 10px; }
+        .summary b { color: #4338ca; }
+        .empty { color: #94a3b8; font-size: 12px; font-style: italic; margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; }
+        th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: #f1f5f9; font-weight: 600; }
+        table.details th { width: 180px; white-space: nowrap; }
+        @media print { body { padding: 0; } }
+      </style></head><body>${body}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
@@ -629,6 +808,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <p className="text-slate-500">Class: {student.class} • Teacher: {student.teacher}</p>
         </div>
         <div className="ml-auto flex gap-2">
+           <Button onClick={printFullProfile} variant="outline">
+             <FileText size={16} className="mr-2" /> Full Report
+           </Button>
            <Button onClick={() => setIsAssessmentMode(true)} variant="outline">
              <Plus size={16} className="mr-2" /> New Assessment
            </Button>

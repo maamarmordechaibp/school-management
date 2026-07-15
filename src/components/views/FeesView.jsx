@@ -12,14 +12,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
 
 const FeesView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [fees, setFees] = useState([]);
   const [feeTypes, setFeeTypes] = useState([]);
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [feeSearch, setFeeSearch] = useState('');
+  const [feeStatusFilter, setFeeStatusFilter] = useState('all');
   
   // Modal State
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
@@ -323,6 +328,16 @@ const FeesView = ({ role, currentUser }) => {
   const totalCollected = fees.reduce((sum, f) => sum + (f.total_collected || 0), 0);
   const activeFees = fees.filter(f => f.status === 'active');
 
+  const filteredFees = fees.filter(f => {
+    const q = feeSearch.trim().toLowerCase();
+    const matchesSearch = !q ||
+      f.name?.toLowerCase().includes(q) ||
+      f.description?.toLowerCase().includes(q) ||
+      f.name?.includes(feeSearch.trim());
+    const matchesStatus = feeStatusFilter === 'all' || f.status === feeStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -333,11 +348,11 @@ const FeesView = ({ role, currentUser }) => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsFeeTypeModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 me-2" />
             Fee Type
           </Button>
           <Button onClick={() => openFeeModal()} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 me-2" />
             Create Fee
           </Button>
         </div>
@@ -394,6 +409,31 @@ const FeesView = ({ role, currentUser }) => {
       </div>
 
       {/* Fees Table */}
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('common.search')}
+        values={{ search: feeSearch, status: feeStatusFilter }}
+        onChange={(key, value) => {
+          if (key === 'search') setFeeSearch(value);
+          else if (key === 'status') setFeeStatusFilter(value);
+        }}
+        onClear={() => { setFeeSearch(''); setFeeStatusFilter('all'); }}
+        resultCount={filteredFees.length}
+        totalCount={fees.length}
+        filters={[
+          {
+            key: 'status',
+            label: t('filterLabels.status'),
+            allValue: 'all',
+            allLabel: t('common.all'),
+            type: 'select',
+            options: [
+              { value: 'active', label: t('filterLabels.active') },
+              { value: 'inactive', label: t('filterLabels.inactive') },
+            ],
+          },
+        ]}
+      />
       <Card>
         <CardHeader>
           <CardTitle>All Fees</CardTitle>
@@ -420,7 +460,7 @@ const FeesView = ({ role, currentUser }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fees.map((fee) => {
+                {filteredFees.map((fee) => {
                   const Icon = getCategoryIcon(fee.fee_type?.category);
                   const collectionPercent = fee.total_expected > 0 
                     ? Math.round((fee.total_collected / fee.total_expected) * 100)

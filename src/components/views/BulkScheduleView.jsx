@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const BulkScheduleView = () => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [step, setStep] = useState(1);
   const [filterType, setFilterType] = useState('class'); // 'class' or 'teacher'
   const [filterValue, setFilterValue] = useState('');
@@ -284,7 +286,14 @@ const BulkScheduleView = () => {
                       <tr key={idx}>
                         <td className="px-3 py-2 font-medium">{item.date} ({new Date(item.date).toLocaleDateString('en-US', {weekday: 'short'})})</td>
                         <td className="px-3 py-2">{item.time} - {item.endTime}</td>
-                        <td className="px-3 py-2">{item.student.name}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={item.student.id ? 'cursor-pointer text-blue-600 hover:underline' : ''}
+                            onClick={() => item.student.id && openProfile(item.student.id)}
+                          >
+                            {item.student.name}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-slate-500">{item.student.class}</td>
                       </tr>
                     ))}

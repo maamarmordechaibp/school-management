@@ -269,6 +269,10 @@ const ReportCardsView = ({ role, currentUser }) => {
         .notes { margin-top: 10px; font-size: 13px; }
         .notes .label { color: #475569; font-weight: 600; margin-bottom: 3px; }
         .notes .body { white-space: pre-wrap; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; min-height: 40px; }
+        .avg { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 10px; padding: 8px 12px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; }
+        .avg-label { color: #4338ca; font-weight: 600; font-size: 13px; }
+        .avg-value { color: #4338ca; font-weight: 700; font-size: 16px; }
+        td.avg-cell { font-weight: 700; color: #4338ca; text-align: center; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
         th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
         th { background: #f1f5f9; font-weight: 600; }
@@ -288,6 +292,38 @@ const ReportCardsView = ({ role, currentUser }) => {
     return String(value);
   };
 
+  // ---- Average mark ----
+  // Numeric-style fields are normalized to a percentage so different scales
+  // (a 0-100 number, a 1-5 rating, a 1-10 scale) can be averaged fairly.
+  const NUMERIC_FIELD_TYPES = ['number', 'rating', 'scale'];
+  const fieldMaxFor = (f) => {
+    if (f.type === 'rating') return 5;
+    if (f.type === 'scale') return Number(f.max) || 10;
+    return Number(f.max) || 100; // plain number field
+  };
+  const computeAverage = (entry) => {
+    const ratios = (gradeTemplate?.fields || [])
+      .filter((f) => NUMERIC_FIELD_TYPES.includes(f.type))
+      .map((f) => {
+        const raw = entry?.values?.[f.id];
+        if (raw === undefined || raw === null || raw === '') return null;
+        const num = Number(raw);
+        if (!Number.isFinite(num)) return null;
+        const max = fieldMaxFor(f);
+        return max > 0 ? num / max : null;
+      })
+      .filter((v) => v !== null);
+    if (!ratios.length) return null;
+    const pct = (ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100;
+    return Math.round(pct * 10) / 10; // one decimal place
+  };
+  const formatAverage = (avg) => (avg === null || avg === undefined ? '—' : `${avg}%`);
+  const studentMeta = (s) => {
+    const parts = [gradeTemplate?.name, className(), gradePeriod].filter(Boolean);
+    if (s.hebrew_name) parts.unshift(s.hebrew_name);
+    return parts.join(' · ');
+  };
+
   // One formatted report card per student, page break between each.
   const printAllCards = () => {
     const withData = students.filter((s) => entries[s.id]);
@@ -304,10 +340,14 @@ const ReportCardsView = ({ role, currentUser }) => {
       const notesHtml = entry.notes
         ? `<div class="notes"><div class="label">Overall Notes</div><div class="body">${escapeHtml(entry.notes)}</div></div>`
         : '';
+      const avg = computeAverage(entry);
+      const avgHtml = avg === null
+        ? ''
+        : `<div class="avg"><span class="avg-label">Average Mark</span><span class="avg-value">${escapeHtml(formatAverage(avg))}</span></div>`;
       return `<div class="card">
         <h1>${escapeHtml(studentName(s))}</h1>
-        <div class="meta">${escapeHtml(gradeTemplate.name)} · ${escapeHtml(className())} · ${escapeHtml(gradePeriod)}</div>
-        ${fieldsHtml}${notesHtml}
+        <div class="meta">${escapeHtml(studentMeta(s))}</div>
+        ${fieldsHtml}${avgHtml}${notesHtml}
       </div>`;
     }).join('');
     openPrintWindow(`Report Cards — ${className()} — ${gradePeriod}`, cards);
@@ -321,11 +361,12 @@ const ReportCardsView = ({ role, currentUser }) => {
       return;
     }
     const cols = gradableFields;
-    const head = `<tr><th>#</th><th>Student</th>${cols.map((f) => `<th>${escapeHtml(f.label)}</th>`).join('')}<th>Remarks</th></tr>`;
+    const head = `<tr><th>#</th><th>Student</th>${cols.map((f) => `<th>${escapeHtml(f.label)}</th>`).join('')}<th>Average</th><th>Remarks</th></tr>`;
     const body = withData.map((s, i) => {
       const entry = entries[s.id] || { values: {}, notes: '' };
       const cells = cols.map((f) => `<td>${escapeHtml(displayValue(f, entry.values?.[f.id]))}</td>`).join('');
-      return `<tr><td>${i + 1}</td><td class="name">${escapeHtml(studentName(s))}</td>${cells}<td>${escapeHtml(entry.notes || '')}</td></tr>`;
+      const avg = computeAverage(entry);
+      return `<tr><td>${i + 1}</td><td class="name">${escapeHtml(studentName(s))}</td>${cells}<td class="avg-cell">${escapeHtml(formatAverage(avg))}</td><td>${escapeHtml(entry.notes || '')}</td></tr>`;
     }).join('');
     const bodyHtml = `
       <h1>${escapeHtml(className())} — Class Report</h1>
@@ -576,7 +617,13 @@ const ReportCardsView = ({ role, currentUser }) => {
                     <CardTitle>{studentName(activeStudent)}</CardTitle>
                     <p className="text-sm text-muted-foreground">{activeStudent.class?.name} · {gradePeriod}</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const avg = computeAverage(entries[activeStudentId]);
+                      return avg === null ? null : (
+                        <Badge variant="secondary" className="shrink-0 text-sm font-semibold">Avg {formatAverage(avg)}</Badge>
+                      );
+                    })()}
                     {students.findIndex((s) => s.id === activeStudentId) > 0 && (
                       <Button variant="outline" size="sm" onClick={() => {
                         const i = students.findIndex((s) => s.id === activeStudentId);

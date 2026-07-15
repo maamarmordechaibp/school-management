@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, Phone, Calendar } from 'lucide-react';
+import { Users, AlertCircle, Phone, Calendar, UserPlus, PhoneCall, CalendarPlus, Bell, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const OverviewView = ({ role = 'principal' }) => {
+const OverviewView = ({ role = 'principal', onNavigate }) => {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [stats, setStats] = useState({
     totalStudents: 0,
     openIssues: 0,
@@ -53,70 +53,114 @@ const OverviewView = ({ role = 'principal' }) => {
       title: t('overview.totalStudents'),
       value: stats.totalStudents,
       icon: Users,
-      tint: 'bg-primary/10 text-primary',
+      iconClass: 'text-primary',
+      tint: 'bg-primary/10',
+      cardTint: 'bg-[#4F46E5]/5',
+      view: 'students',
     },
     {
       title: t('overview.openIssues'),
       value: stats.openIssues,
       icon: AlertCircle,
-      tint: 'bg-warning/10 text-warning',
+      iconClass: 'text-[#F59E0B]',
+      tint: 'bg-[#F59E0B]/10',
+      cardTint: 'bg-[#F59E0B]/5',
+      view: 'issues',
     },
     {
       title: t('overview.pendingCalls'),
       value: stats.pendingCalls,
       icon: Phone,
-      tint: 'bg-success/10 text-success',
+      iconClass: 'text-[#10B981]',
+      tint: 'bg-[#10B981]/10',
+      cardTint: 'bg-[#10B981]/5',
+      view: 'calls',
     },
     {
       title: t('overview.upcomingMeetings'),
       value: stats.upcomingMeetings,
       icon: Calendar,
-      tint: 'bg-indigo-500/10 text-indigo-600',
+      iconClass: 'text-indigo-600',
+      tint: 'bg-indigo-500/10',
+      cardTint: 'bg-indigo-500/5',
+      view: 'meetings',
     },
   ];
 
+  const quickActions = [
+    { label: t('quickActions.addStudent'), icon: UserPlus, view: 'students', color: 'bg-primary hover:bg-primary/90 text-white' },
+    { label: t('quickActions.logCall'), icon: PhoneCall, view: 'calls', color: 'bg-[#10B981] hover:bg-[#10B981]/90 text-white' },
+    { label: t('quickActions.viewIssues'), icon: AlertCircle, view: 'issues', color: 'bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white' },
+    { label: t('quickActions.scheduleMeeting'), icon: CalendarPlus, view: 'meetings', color: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
+    { label: t('quickActions.addReminder'), icon: Bell, view: 'reminders', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+    { label: t('quickActions.viewStudents'), icon: Users, view: 'students', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('overview.title')}</h2>
         <p className="text-muted-foreground mt-1">{t('overview.subtitle')}</p>
       </div>
 
+      {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div
+            <button
               key={stat.title}
-              className="group bg-white rounded-xl border border-border/70 shadow-card hover:shadow-card-hover transition-all duration-200 p-5 text-left"
+              type="button"
+              onClick={() => onNavigate?.(stat.view)}
+              className={`group ${stat.cardTint} rounded-2xl border border-slate-200/70 shadow-card hover:shadow-card-hover transition-all duration-200 p-6 text-start cursor-pointer hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-muted-foreground text-[13px] font-medium">{stat.title}</p>
-                  <p className="text-3xl font-bold text-slate-900 mt-2 tabular-nums">{stat.value}</p>
-                </div>
-                <div className={`p-2.5 rounded-xl ${stat.tint} transition-transform duration-200 group-hover:scale-105`}>
-                  <Icon size={22} />
-                </div>
+              <div className={`inline-flex p-3 rounded-2xl ${stat.tint} ${stat.iconClass} mb-4`}>
+                <Icon size={40} strokeWidth={1.75} />
               </div>
-            </div>
+              <p className="text-5xl font-bold text-slate-900 tabular-nums leading-none">{stat.value}</p>
+              <p className="text-slate-500 text-sm font-medium mt-3">{stat.title}</p>
+            </button>
           );
         })}
       </div>
 
       {stats.emergencyMeetings > 0 && (
-        <div className="bg-red-50 border border-red-200 border-l-4 border-l-red-500 p-4 rounded-xl text-left">
-          <div className="flex items-center gap-3 justify-start flex-row">
-            <AlertCircle className="text-red-500" size={24} />
+        <button
+          type="button"
+          onClick={() => onNavigate?.('meetings')}
+          className="w-full text-start bg-red-50 border border-red-200 border-s-4 border-s-[#EF4444] p-4 rounded-2xl cursor-pointer transition-all duration-150 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EF4444] focus-visible:ring-offset-2"
+        >
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-[#EF4444] flex-shrink-0" size={28} />
             <div>
-              <h3 className="text-red-800 font-semibold">{t('overview.emergency')}</h3>
+              <h3 className="text-red-800 font-bold">{t('overview.emergency')}</h3>
               <p className="text-red-700 text-sm">
-                {stats.emergencyMeetings} meetings need attention!
+                {stats.emergencyMeetings} {t('overview.upcomingMeetings')}
               </p>
             </div>
           </div>
-        </div>
+        </button>
       )}
+
+      {/* Quick Actions */}
+      <div>
+        <h3 className="text-lg font-bold text-slate-800 mb-3">{t('quickActions.title')}</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <button
+                key={action.label}
+                onClick={() => onNavigate?.(action.view)}
+                className={`flex flex-col items-center justify-center gap-2 min-h-[96px] p-4 rounded-2xl shadow-card font-semibold text-sm text-center transition-all duration-150 hover:-translate-y-0.5 ${action.color}`}
+              >
+                <Icon size={28} />
+                <span>{action.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

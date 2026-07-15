@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const FinancialReportsView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [loading, setLoading] = useState(true);
   const [fees, setFees] = useState([]);
   const [studentFees, setStudentFees] = useState([]);
@@ -294,7 +296,12 @@ const FinancialReportsView = ({ role, currentUser }) => {
                   {filteredStudentFees.map((sf) => (
                     <TableRow key={sf.id}>
                       <TableCell className="font-medium">
-                        {sf.student?.first_name} {sf.student?.last_name}
+                        <span
+                          className={sf.student?.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}
+                          onClick={() => sf.student?.id && openProfile(sf.student.id)}
+                        >
+                          {sf.student?.first_name} {sf.student?.last_name}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-slate-500">{sf.student?.class?.name}</span>
@@ -409,7 +416,12 @@ const FinancialReportsView = ({ role, currentUser }) => {
                     .map((sf) => (
                       <TableRow key={sf.id} className="bg-red-50/50">
                         <TableCell className="font-medium">
-                          {sf.student?.first_name} {sf.student?.last_name}
+                          <span
+                            className={sf.student?.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}
+                            onClick={() => sf.student?.id && openProfile(sf.student.id)}
+                          >
+                            {sf.student?.first_name} {sf.student?.last_name}
+                          </span>
                         </TableCell>
                         <TableCell>{sf.student?.class?.name}</TableCell>
                         <TableCell>{sf.student?.class?.grade?.name}</TableCell>

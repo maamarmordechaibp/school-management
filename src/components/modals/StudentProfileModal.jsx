@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 // Helper function to get current academic year (August starts new year)
 const getCurrentAcademicYear = () => {
@@ -45,6 +46,7 @@ const getAvailableYears = () => {
 
 const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [student, setStudent] = useState(null);
   const [siblings, setSiblings] = useState([]); // Students with same father_phone
   const [issues, setIssues] = useState([]);
@@ -545,10 +547,15 @@ const StudentProfileModal = ({ isOpen, onClose, studentId }) => {
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {siblings.map(sibling => (
-                    <div key={sibling.id} className="px-3 py-2 bg-white rounded-lg border border-purple-200 text-sm">
+                    <button
+                      type="button"
+                      key={sibling.id}
+                      onClick={() => sibling.id && openProfile(sibling.id)}
+                      className="px-3 py-2 bg-white rounded-lg border border-purple-200 text-sm text-left hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer"
+                    >
                       <span className="font-medium">{sibling.hebrew_name || sibling.first_name} {sibling.last_name}</span>
                       <span className="text-purple-600 mr-2">| {sibling.class?.name}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

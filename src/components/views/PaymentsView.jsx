@@ -12,9 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import BulkCollectionView from '@/components/views/BulkCollectionView';
+import { useStudentProfile } from '@/contexts/StudentProfileContext';
 
 const PaymentsView = ({ role, currentUser }) => {
+  const { t } = useLanguage();
   const { toast } = useToast();
+  const { open: openProfile } = useStudentProfile();
   const [payments, setPayments] = useState([]);
   const [students, setStudents] = useState([]);
   const [studentFees, setStudentFees] = useState([]);
@@ -221,10 +227,17 @@ const PaymentsView = ({ role, currentUser }) => {
           <p className="text-slate-500">Record and track student payments</p>
         </div>
         <Button onClick={() => setIsStudentLookupOpen(true)} className="bg-green-600 hover:bg-green-700">
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 me-2" />
           Record Payment
         </Button>
       </div>
+
+      <Tabs defaultValue="history" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="history">Payment History</TabsTrigger>
+          <TabsTrigger value="bulk">Bulk Collection by Class</TabsTrigger>
+        </TabsList>
+        <TabsContent value="history" className="space-y-6 mt-2">
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -277,34 +290,38 @@ const PaymentsView = ({ role, currentUser }) => {
       </div>
 
       {/* Payments Table */}
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder="Search by student or reference..."
+        values={{ search: searchQuery, dateFilter }}
+        onChange={(key, value) => {
+          if (key === 'search') setSearchQuery(value);
+          else if (key === 'dateFilter') setDateFilter(value);
+        }}
+        onClear={() => { setSearchQuery(''); setDateFilter('all'); }}
+        resultCount={filteredPayments.length}
+        totalCount={payments.length}
+        filters={[
+          {
+            key: 'dateFilter',
+            label: t('common.dateRange'),
+            allValue: 'all',
+            allLabel: t('common.all'),
+            type: 'select',
+            options: [
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This Week' },
+              { value: 'month', label: 'This Month' },
+            ],
+          },
+        ]}
+      />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Payment History</CardTitle>
               <CardDescription>Recent payments received</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search by student or reference..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
@@ -338,7 +355,10 @@ const PaymentsView = ({ role, currentUser }) => {
                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
                           <User className="h-4 w-4 text-slate-500" />
                         </div>
-                        <span>
+                        <span
+                          className={payment.student?.id ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}
+                          onClick={() => payment.student?.id && openProfile(payment.student.id)}
+                        >
                           {payment.student?.first_name} {payment.student?.last_name}
                         </span>
                       </div>
@@ -364,6 +384,11 @@ const PaymentsView = ({ role, currentUser }) => {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+        <TabsContent value="bulk" className="mt-2">
+          <BulkCollectionView currentUser={currentUser} />
+        </TabsContent>
+      </Tabs>
 
       {/* Student Lookup Modal */}
       <Dialog open={isStudentLookupOpen} onOpenChange={setIsStudentLookupOpen}>

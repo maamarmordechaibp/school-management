@@ -15,9 +15,36 @@ import { Mail } from 'lucide-react';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
+
+const ISSUE_STUDENT = (i) => i.student ? (i.student.hebrew_name || `${i.student.first_name || ''} ${i.student.last_name || ''}`.trim()) : '';
+const ISSUE_EXPORT_COLUMNS = [
+  { key: 'title', label: 'Title', accessor: (i) => i.title },
+  { key: 'student', label: 'Student', accessor: ISSUE_STUDENT },
+  { key: 'category', label: 'Category', accessor: (i) => i.category },
+  { key: 'severity', label: 'Severity', accessor: (i) => i.severity },
+  { key: 'status', label: 'Status', accessor: (i) => i.status },
+  { key: 'assignee', label: 'Assigned To', accessor: (i) => i.assignee ? `${i.assignee.first_name || ''} ${i.assignee.last_name || ''}`.trim() : '' },
+  { key: 'description', label: 'Description', accessor: (i) => i.description, default: false },
+  { key: 'created_at', label: 'Created', accessor: (i) => i.created_at ? new Date(i.created_at).toLocaleDateString('en-US') : '' },
+];
+const ISSUE_SORT_OPTIONS = [
+  { key: 'created_at', label: 'Date', accessor: (i) => i.created_at },
+  { key: 'title', label: 'Title', accessor: (i) => i.title },
+  { key: 'severity', label: 'Severity', accessor: (i) => i.severity },
+  { key: 'status', label: 'Status', accessor: (i) => i.status },
+];
+const ISSUE_GROUP_OPTIONS = [
+  { key: 'status', label: 'Status', accessor: (i) => i.status || 'Unknown' },
+  { key: 'category', label: 'Category', accessor: (i) => i.category || 'Uncategorized' },
+  { key: 'severity', label: 'Severity', accessor: (i) => i.severity || 'None' },
+];
 
 const IssuesView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { open: openProfile } = useStudentProfile();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [issues, setIssues] = useState([]);
@@ -27,6 +54,8 @@ const IssuesView = ({ role, currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,8 +152,33 @@ const IssuesView = ({ role, currentUser }) => {
       studentName.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
     const matchesCategory = categoryFilter === 'all' || issue.category === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+    const matchesSeverity = severityFilter === 'all' || issue.severity === severityFilter;
+    const matchesAssignee = assigneeFilter === 'all' || String(issue.assigned_to) === String(assigneeFilter);
+    return matchesSearch && matchesStatus && matchesCategory && matchesSeverity && matchesAssignee;
   });
+
+  // Adapter so the shared FilterBar can drive the existing filter states.
+  const filterValues = {
+    search: searchTerm,
+    status: statusFilter,
+    category: categoryFilter,
+    severity: severityFilter,
+    assigned_to: assigneeFilter,
+  };
+  const setFilterValue = (key, value) => {
+    if (key === 'search') setSearchTerm(value);
+    else if (key === 'status') setStatusFilter(value);
+    else if (key === 'category') setCategoryFilter(value);
+    else if (key === 'severity') setSeverityFilter(value);
+    else if (key === 'assigned_to') setAssigneeFilter(value);
+  };
+  const clearIssueFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setSeverityFilter('all');
+    setAssigneeFilter('all');
+  };
 
   // Stats
   const openCount = issues.filter(i => i.status === 'open').length;
@@ -331,13 +385,24 @@ const IssuesView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Student Issues</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">{t('menu.issues')}</h1>
           <p className="text-slate-500">Track and resolve student concerns</p>
         </div>
-        <Button onClick={() => openModal()} className="bg-amber-600 hover:bg-amber-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Report Issue
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title={t('menu.issues')}
+            filename="issues"
+            rows={filteredIssues}
+            columns={ISSUE_EXPORT_COLUMNS}
+            sortOptions={ISSUE_SORT_OPTIONS}
+            groupOptions={ISSUE_GROUP_OPTIONS}
+          />
+          <Button onClick={() => openModal()} className="bg-amber-600 hover:bg-amber-700 h-12 px-5 text-base font-semibold">
+            <Plus className="h-5 w-5 me-2" />
+            {t('issues.add')}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -389,45 +454,42 @@ const IssuesView = ({ role, currentUser }) => {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-64">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search by title or student..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {statuses.map(s => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(c => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('students.search')}
+        values={filterValues}
+        onChange={setFilterValue}
+        onClear={clearIssueFilters}
+        resultCount={filteredIssues.length}
+        totalCount={issues.length}
+        resultNoun={t('menu.issues')}
+        filters={[
+          {
+            key: 'status',
+            label: t('filterLabels.status'),
+            type: 'select',
+            options: statuses.map(s => ({ value: s.value, label: s.label })),
+          },
+          {
+            key: 'severity',
+            label: t('filterLabels.priority'),
+            type: 'select',
+            options: severities.map(s => ({ value: s.value, label: s.label })),
+          },
+          {
+            key: 'category',
+            label: t('issues.description'),
+            type: 'select',
+            options: categories.map(c => ({ value: c.value, label: c.label })),
+          },
+          {
+            key: 'assigned_to',
+            label: t('filterLabels.staffMember'),
+            type: 'select',
+            options: users.map(u => ({ value: u.id, label: `${u.first_name || ''} ${u.last_name || ''}`.trim() })),
+          },
+        ]}
+      />
 
       {/* Issues List */}
       <div className="space-y-4">

@@ -45,7 +45,7 @@ const StudentPlanModal = ({ isOpen, onClose, studentId, plan, onSuccess, current
   }, [isOpen, plan, studentId]);
 
   const loadStudent = async () => {
-    const { data } = await supabase.from('students').select('*').eq('id', studentId).single();
+    const { data } = await supabase.from('students').select('*').eq('id', studentId).maybeSingle();
     setStudent(data);
   };
 

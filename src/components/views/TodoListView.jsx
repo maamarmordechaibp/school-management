@@ -444,10 +444,14 @@ const TodoListView = ({ role, currentUser }) => {
           
           <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 flex-wrap">
             {todo.student_name && (
-              <span className="flex items-center gap-1 text-blue-600 hover:underline font-medium">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (todo.student_id) { setSelectedStudentId(todo.student_id); setIsStudentProfileOpen(true); } }}
+                className="flex items-center gap-1 text-blue-600 hover:underline font-medium"
+              >
                 <User className="h-3 w-3" /> {todo.student_name}
                 <ExternalLink className="h-3 w-3" />
-              </span>
+              </button>
             )}
             {todo.due_date && (
               <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>

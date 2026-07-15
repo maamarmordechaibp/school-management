@@ -88,16 +88,35 @@ export function buildLateLetterPage(late, opts = {}) {
   `;
 }
 
-// Receipt / 80mm thermal format — narrow, continuous roll, large readable text.
-const LETTER_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;700;900&family=Suez+One&display=swap');
-  @page { size: 80mm auto; margin: 3mm; }
+// Default print settings for the late-arrival letter (thermal / narrow roll).
+export const DEFAULT_LETTER_PRINT = {
+  paperWidth: 80,          // mm — physical paper width
+  margin: 3,               // mm — @page margin on all sides
+  fontFamily: 'Frank Ruhl Libre',
+  fontSize: 11,            // pt — base body font size
+};
+
+// Receipt / thermal format — narrow, continuous roll, large readable text.
+// Sizes are relative (em) to the configurable base font-size so the whole
+// letter scales when the principal changes the font size.
+function buildLetterStyles(print = {}) {
+  const p = { ...DEFAULT_LETTER_PRINT, ...print };
+  const paperWidth = Number(p.paperWidth) || DEFAULT_LETTER_PRINT.paperWidth;
+  const margin = Number(p.margin);
+  const marginMm = Number.isFinite(margin) ? margin : DEFAULT_LETTER_PRINT.margin;
+  const contentWidth = Math.max(10, paperWidth - marginMm * 2);
+  const fontFamily = (p.fontFamily || DEFAULT_LETTER_PRINT.fontFamily).trim();
+  const fontSize = Number(p.fontSize) || DEFAULT_LETTER_PRINT.fontSize;
+  const sigLineWidth = Math.min(50, contentWidth * 0.7);
+  return `
+  @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;700;900&family=Suez+One&family=David+Libre:wght@400;700&family=Noto+Serif+Hebrew:wght@400;700&family=Noto+Rashi+Hebrew&family=Miriam+Libre:wght@400;700&display=swap');
+  @page { size: ${paperWidth}mm auto; margin: ${marginMm}mm; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: 'Frank Ruhl Libre', 'David', 'Narkisim', 'Times New Roman', serif;
+    font-family: '${fontFamily}', 'David Libre', 'David', 'Narkisim', 'Times New Roman', serif;
     color: #000;
-    width: 74mm;
-    font-size: 11pt;
+    width: ${contentWidth}mm;
+    font-size: ${fontSize}pt;
     line-height: 1.45;
   }
   .slip {
@@ -113,12 +132,12 @@ const LETTER_STYLES = `
     margin: 0 auto 2mm auto;
   }
   .school-name {
-    font-size: 12pt;
+    font-size: 1.1em;
     font-weight: bold;
     line-height: 1.25;
   }
   .school-sub {
-    font-size: 8.5pt;
+    font-size: 0.77em;
     margin-top: 1mm;
     color: #000;
   }
@@ -127,33 +146,33 @@ const LETTER_STYLES = `
     margin: 2mm 0;
   }
   .title {
-    font-size: 10pt;
+    font-size: 0.91em;
     font-weight: bold;
   }
   .row {
     display: flex;
     justify-content: space-between;
     gap: 4mm;
-    font-size: 10.5pt;
+    font-size: 0.95em;
     margin: 1mm 0;
     border-bottom: 1px dotted #999;
     padding-bottom: 1mm;
   }
   .row .lbl { font-weight: bold; }
   .row.warn { color: #000; background: #000; color: #fff; padding: 1mm 2mm; border-radius: 1mm; }
-  .greet { margin: 3mm 0 2mm 0; font-weight: bold; font-size: 11pt; }
-  .body { margin: 0 0 2mm 0; font-size: 11pt; }
+  .greet { margin: 3mm 0 2mm 0; font-weight: bold; font-size: 1em; }
+  .body { margin: 0 0 2mm 0; font-size: 1em; }
   .note {
     margin-top: 3mm;
     padding: 2mm;
     border: 1px dashed #000;
-    font-size: 9.5pt;
+    font-size: 0.86em;
     text-align: center;
   }
   .sign { margin-top: 8mm; text-align: center; }
   .sig-name {
     font-family: 'Suez One', 'Frank Ruhl Libre', 'David', cursive;
-    font-size: 18pt;
+    font-size: 1.64em;
     font-weight: 500;
     font-style: italic;
     color: #1e3a8a;
@@ -162,10 +181,11 @@ const LETTER_STYLES = `
     display: inline-block;
     letter-spacing: 0.5px;
   }
-  .sig-line { width: 50mm; border-top: 1px solid #000; margin: 0 auto; }
-  .sig-label { font-size: 9pt; margin-top: 1mm; }
+  .sig-line { width: ${sigLineWidth}mm; border-top: 1px solid #000; margin: 0 auto; }
+  .sig-label { font-size: 0.82em; margin-top: 1mm; }
   @media print { body { background: white; } }
 `;
+}
 
 /**
  * Wrap one or more letter pages in a printable HTML document (Yiddish RTL).
@@ -182,7 +202,7 @@ export function buildLateLetterDocument(lates, opts = {}) {
 <head>
   <meta charset="UTF-8">
   <title>בריוו פאר א שפעטן קינד</title>
-  <style>${LETTER_STYLES}</style>
+  <style>${buildLetterStyles(opts.print)}</style>
 </head>
 <body onload="window.focus(); window.print(); setTimeout(function(){ try { window.close(); } catch(e){} }, 500);">
   ${pages}

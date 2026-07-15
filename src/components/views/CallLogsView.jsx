@@ -15,14 +15,43 @@ import { Mail } from 'lucide-react';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
+
+const CALL_STUDENT = (l) => l.student ? `${l.student.first_name || ''} ${l.student.last_name || ''}`.trim() : '';
+const CALL_EXPORT_COLUMNS = [
+  { key: 'call_date', label: 'Date', accessor: (l) => l.call_date ? new Date(l.call_date).toLocaleString('en-US') : '' },
+  { key: 'student', label: 'Student', accessor: CALL_STUDENT },
+  { key: 'contact_person', label: 'Contact', accessor: (l) => l.contact_person },
+  { key: 'phone_number', label: 'Phone', accessor: (l) => l.phone_number },
+  { key: 'call_type', label: 'Type', accessor: (l) => l.call_type || l.direction },
+  { key: 'outcome', label: 'Outcome', accessor: (l) => l.outcome },
+  { key: 'duration_minutes', label: 'Duration (min)', accessor: (l) => l.duration_minutes, default: false },
+  { key: 'caller', label: 'Logged By', accessor: (l) => l.caller ? `${l.caller.first_name || ''} ${l.caller.last_name || ''}`.trim() : '', default: false },
+  { key: 'notes', label: 'Notes', accessor: (l) => l.notes, default: false },
+];
+const CALL_SORT_OPTIONS = [
+  { key: 'call_date', label: 'Date', accessor: (l) => l.call_date },
+  { key: 'student', label: 'Student', accessor: CALL_STUDENT },
+  { key: 'call_type', label: 'Type', accessor: (l) => l.call_type },
+];
+const CALL_GROUP_OPTIONS = [
+  { key: 'call_type', label: 'Type', accessor: (l) => l.call_type || l.direction || 'Unknown' },
+  { key: 'student', label: 'Student', accessor: (l) => CALL_STUDENT(l) || 'No Student' },
+];
 
 const CallLogsView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { open: openProfile } = useStudentProfile();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [callLogs, setCallLogs] = useState([]);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [callTypeFilter, setCallTypeFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -278,15 +307,45 @@ const CallLogsView = ({ role, currentUser }) => {
       log.student?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.student?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.purpose?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const dir = log.call_type || log.direction;
+    const matchesType = callTypeFilter === 'all' || dir === callTypeFilter;
+    const callDay = log.call_date?.split('T')[0];
+    const matchesFrom = !dateFrom || (callDay && callDay >= dateFrom);
+    const matchesTo = !dateTo || (callDay && callDay <= dateTo);
+    const matchesRange = matchesFrom && matchesTo;
     
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'follow_up') return matchesSearch && log.follow_up_needed;
+    if (activeTab === 'all') return matchesSearch && matchesType && matchesRange;
+    if (activeTab === 'follow_up') return matchesSearch && matchesType && matchesRange && log.follow_up_needed;
     if (activeTab === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      return matchesSearch && log.call_date?.split('T')[0] === today;
+      return matchesSearch && matchesType && matchesRange && log.call_date?.split('T')[0] === today;
     }
-    return matchesSearch;
+    return matchesSearch && matchesType && matchesRange;
   });
+
+  // Adapter for the shared FilterBar (drives existing states, keeps quick tabs).
+  const callFilterValues = {
+    search: searchTerm,
+    view: activeTab,
+    call_type: callTypeFilter,
+    date_from: dateFrom,
+    date_to: dateTo,
+  };
+  const setCallFilterValue = (key, value) => {
+    if (key === 'search') setSearchTerm(value);
+    else if (key === 'view') setActiveTab(value === 'all' || !value ? 'all' : value);
+    else if (key === 'call_type') setCallTypeFilter(value);
+    else if (key === 'date_from') setDateFrom(value);
+    else if (key === 'date_to') setDateTo(value);
+  };
+  const clearCallFilters = () => {
+    setSearchTerm('');
+    setActiveTab('all');
+    setCallTypeFilter('all');
+    setDateFrom('');
+    setDateTo('');
+  };
 
   // Stats
   const todayCount = callLogs.filter(l => l.call_date?.split('T')[0] === new Date().toISOString().split('T')[0]).length;
@@ -305,13 +364,24 @@ const CallLogsView = ({ role, currentUser }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Call Logs</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">{t('menu.calls')}</h2>
           <p className="text-slate-600 mt-1">Track communication with parents and guardians</p>
         </div>
-        <Button onClick={() => openModal()} className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700">
-          <Plus size={20} className="mr-2" />
-          Log Call
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title={t('menu.calls')}
+            filename="phone-calls"
+            rows={filteredLogs}
+            columns={CALL_EXPORT_COLUMNS}
+            sortOptions={CALL_SORT_OPTIONS}
+            groupOptions={CALL_GROUP_OPTIONS}
+          />
+          <Button onClick={() => openModal()} className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 h-12 px-5 text-base font-semibold">
+            <Plus size={20} className="me-2" />
+            {t('calls.add')}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -363,29 +433,42 @@ const CallLogsView = ({ role, currentUser }) => {
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search by student, contact, or purpose..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="follow_up">Follow-up Needed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardContent>
-      </Card>
+      <FilterBar
+        searchKey="search"
+        searchPlaceholder={t('calls.search')}
+        values={callFilterValues}
+        onChange={setCallFilterValue}
+        onClear={clearCallFilters}
+        resultCount={filteredLogs.length}
+        totalCount={callLogs.length}
+        resultNoun={t('menu.calls')}
+        filters={[
+          {
+            key: 'view',
+            label: t('filterLabels.status'),
+            type: 'select',
+            options: [
+              { value: 'today', label: t('common.from') + ' ' + new Date().toLocaleDateString() },
+              { value: 'follow_up', label: t('calls.followUp') },
+            ],
+          },
+          {
+            key: 'call_type',
+            label: t('filterLabels.callType'),
+            type: 'select',
+            options: [
+              { value: 'outgoing', label: 'Outgoing' },
+              { value: 'incoming', label: 'Incoming' },
+            ],
+          },
+          {
+            label: t('common.dateRange'),
+            type: 'daterange',
+            fromKey: 'date_from',
+            toKey: 'date_to',
+          },
+        ]}
+      />
 
       {/* Call Logs List */}
       <div className="space-y-4">

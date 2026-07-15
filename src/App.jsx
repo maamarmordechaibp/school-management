@@ -43,7 +43,7 @@ function App() {
             <link rel="icon" type="image/png" href={SCHOOL_FAVICON_URL} />
           </Helmet>
           <IncomingCallProvider>
-            <div className="min-h-screen bg-slate-50 font-sans" dir="ltr">
+            <div className="min-h-screen bg-slate-50 font-sans">
               <AppContent />
             </div>
           </IncomingCallProvider>

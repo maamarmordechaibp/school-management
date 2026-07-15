@@ -17,9 +17,38 @@ import { Mail } from 'lucide-react';
 import StudentPicker from '@/components/ui/student-picker';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { useLanguage } from '@/contexts/LanguageContext';
+import FilterBar from '@/components/FilterBar';
+import ExportButton from '@/components/ExportButton';
+
+const MEETING_WHEN = (m) => {
+  const d = m.scheduled_date || m.meeting_date;
+  return d ? new Date(d).toLocaleString('en-US') : '';
+};
+const MEETING_STUDENT = (m) => m.student ? `${m.student.first_name || ''} ${m.student.last_name || ''}`.trim() : '';
+const MEETING_EXPORT_COLUMNS = [
+  { key: 'title', label: 'Title', accessor: (m) => m.title },
+  { key: 'when', label: 'Date & Time', accessor: MEETING_WHEN },
+  { key: 'meeting_type', label: 'Type', accessor: (m) => m.meeting_type },
+  { key: 'student', label: 'Student', accessor: MEETING_STUDENT },
+  { key: 'class', label: 'Class', accessor: (m) => m.student?.class?.name, default: false },
+  { key: 'location', label: 'Location', accessor: (m) => m.location },
+  { key: 'status', label: 'Status', accessor: (m) => m.status },
+  { key: 'notes', label: 'Notes', accessor: (m) => m.notes, default: false },
+];
+const MEETING_SORT_OPTIONS = [
+  { key: 'when', label: 'Date', accessor: (m) => m.scheduled_date || m.meeting_date },
+  { key: 'title', label: 'Title', accessor: (m) => m.title },
+  { key: 'meeting_type', label: 'Type', accessor: (m) => m.meeting_type },
+];
+const MEETING_GROUP_OPTIONS = [
+  { key: 'meeting_type', label: 'Type', accessor: (m) => m.meeting_type || 'Unknown' },
+  { key: 'status', label: 'Status', accessor: (m) => m.status || 'Unknown' },
+];
 
 const MeetingsView = ({ role, currentUser }) => {
   const { toast } = useToast();
+  const { t: tr } = useLanguage();
   const { open: openProfile } = useStudentProfile();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [meetings, setMeetings] = useState([]);
@@ -30,6 +59,9 @@ const MeetingsView = ({ role, currentUser }) => {
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(true);
+  const [meetingFilters, setMeetingFilters] = useState({
+    search: '', status: 'all', date_from: '', date_to: ''
+  });
 
   const [formData, setFormData] = useState({
     title: '',
@@ -296,6 +328,22 @@ const MeetingsView = ({ role, currentUser }) => {
   const overdueCount = meetings.filter(m => m.status === 'scheduled' && isPastMeeting(m.scheduled_date)).length;
   const completedCount = meetings.filter(m => m.status === 'completed').length;
 
+  // Client-side filtering for the shared FilterBar.
+  const filteredMeetings = meetings.filter(m => {
+    const q = meetingFilters.search.toLowerCase();
+    const studentName = `${m.student?.first_name || ''} ${m.student?.last_name || ''}`.toLowerCase();
+    const matchesSearch = !q ||
+      m.title?.toLowerCase().includes(q) ||
+      studentName.includes(q);
+    const matchesStatus = meetingFilters.status === 'all' || m.status === meetingFilters.status;
+    const day = m.scheduled_date ? new Date(m.scheduled_date).toISOString().split('T')[0] : '';
+    const matchesFrom = !meetingFilters.date_from || (day && day >= meetingFilters.date_from);
+    const matchesTo = !meetingFilters.date_to || (day && day <= meetingFilters.date_to);
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
+  });
+  const setMeetingFilter = (key, value) => setMeetingFilters(prev => ({ ...prev, [key]: value }));
+  const clearMeetingFilters = () => setMeetingFilters({ search: '', status: 'all', date_from: '', date_to: '' });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -308,13 +356,24 @@ const MeetingsView = ({ role, currentUser }) => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">Meetings & Calendar</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800">{tr('menu.meetings')}</h2>
           <p className="text-slate-600 mt-1">Schedule and manage meetings</p>
         </div>
-        <Button onClick={() => openModal()} className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700">
-          <Plus size={20} className="mr-2" />
-          Schedule Meeting
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton
+            className="h-12 px-4"
+            title={tr('menu.meetings')}
+            filename="meetings"
+            rows={filteredMeetings}
+            columns={MEETING_EXPORT_COLUMNS}
+            sortOptions={MEETING_SORT_OPTIONS}
+            groupOptions={MEETING_GROUP_OPTIONS}
+          />
+          <Button onClick={() => openModal()} className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 h-12 px-5 text-base font-semibold">
+            <Plus size={20} className="me-2" />
+            {tr('meetings.add')}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -369,11 +428,11 @@ const MeetingsView = ({ role, currentUser }) => {
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="list" className="flex items-center gap-2">
             <List size={16} />
-            List View
+            {tr('meetings.listView')}
           </TabsTrigger>
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarIcon size={16} />
-            Calendar View
+            {tr('meetings.calendarView')}
           </TabsTrigger>
         </TabsList>
 
@@ -381,7 +440,35 @@ const MeetingsView = ({ role, currentUser }) => {
           <CalendarView />
         </TabsContent>
 
-        <TabsContent value="list" className="mt-6">
+        <TabsContent value="list" className="mt-6 space-y-4">
+          <FilterBar
+            searchKey="search"
+            searchPlaceholder={tr('filterLabels.studentName')}
+            values={meetingFilters}
+            onChange={setMeetingFilter}
+            onClear={clearMeetingFilters}
+            resultCount={filteredMeetings.length}
+            totalCount={meetings.length}
+            resultNoun={tr('menu.meetings')}
+            filters={[
+              {
+                key: 'status',
+                label: tr('filterLabels.status'),
+                type: 'select',
+                options: [
+                  { value: 'scheduled', label: 'Upcoming' },
+                  { value: 'completed', label: 'Completed' },
+                  { value: 'cancelled', label: 'Cancelled' },
+                ],
+              },
+              {
+                label: tr('common.dateRange'),
+                type: 'daterange',
+                fromKey: 'date_from',
+                toKey: 'date_to',
+              },
+            ]}
+          />
           <div className="bg-white rounded-lg shadow border overflow-hidden">
             <Table>
               <TableHeader>
@@ -396,7 +483,7 @@ const MeetingsView = ({ role, currentUser }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {meetings.map((meeting) => {
+                {filteredMeetings.map((meeting) => {
                   const isPast = isPastMeeting(meeting.scheduled_date);
                   const meetingDate = new Date(meeting.scheduled_date);
                   

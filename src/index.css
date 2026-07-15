@@ -11,40 +11,46 @@
 
 @layer base {
   :root {
-    /* Surfaces */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* Surfaces — translucent by design (glassmorphism) */
+    --background: 240 60% 99%;
+    --foreground: 236 40% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 236 40% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 236 40% 14%;
 
-    /* Brand — refined indigo */
-    --primary: 243 75% 59%;
+    /* Brand — premium violet-indigo */
+    --primary: 255 88% 62%;
     --primary-foreground: 0 0% 100%;
 
     /* Neutrals */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 226 100% 97%;
-    --accent-foreground: 243 75% 45%;
+    --secondary: 240 30% 96%;
+    --secondary-foreground: 236 40% 14%;
+    --muted: 240 30% 96%;
+    --muted-foreground: 235 14% 46%;
+    --accent: 255 100% 97%;
+    --accent-foreground: 255 80% 52%;
 
     /* Feedback */
-    --destructive: 0 72% 51%;
+    --destructive: 350 80% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 60% 40%;
+    --success: 158 64% 40%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 33 95% 52%;
     --warning-foreground: 0 0% 100%;
 
     /* Lines & inputs */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 243 75% 59%;
+    --border: 240 24% 90%;
+    --input: 240 24% 90%;
+    --ring: 255 88% 62%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
+
+    /* Glass gradient stops */
+    --grad-1: 255 88% 62%;   /* violet */
+    --grad-2: 224 90% 60%;   /* indigo-blue */
+    --grad-3: 190 90% 55%;   /* sky/cyan */
+    --grad-4: 322 85% 62%;   /* pink */
   }
 }
 
@@ -113,29 +119,72 @@
     scrollbar-width: thin;
   }
 
-  /* Premium elevation scale — soft, layered shadows */
+  /* ===== Elevation — soft, layered, slightly tinted shadows ===== */
   .shadow-card {
-    box-shadow: 0 1px 2px -1px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.06);
+    box-shadow: 0 1px 2px -1px rgb(60 40 120 / 0.10), 0 6px 20px -8px rgb(60 40 120 / 0.14);
   }
   .shadow-card-hover {
-    box-shadow: 0 10px 30px -10px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
+    box-shadow: 0 12px 34px -12px rgb(76 46 150 / 0.30), 0 4px 10px -4px rgb(76 46 150 / 0.14);
   }
   .shadow-float {
-    box-shadow: 0 20px 48px -16px rgb(16 24 40 / 0.24), 0 6px 16px -8px rgb(16 24 40 / 0.12);
+    box-shadow: 0 28px 60px -18px rgb(60 36 130 / 0.36), 0 10px 24px -12px rgb(60 36 130 / 0.20);
+  }
+  /* Colored brand glow — used on primary CTAs / hero elements */
+  .shadow-glow {
+    box-shadow: 0 10px 30px -8px hsl(var(--primary) / 0.55), 0 2px 8px -2px hsl(var(--primary) / 0.35);
   }
 
-  /* Subtle glass surface used for sticky headers */
+  /* ===== Glassmorphism surfaces ===== */
+  /* Base frosted glass — translucent, blurred, luminous edge */
+  .glass {
+    background: linear-gradient(150deg, hsl(0 0% 100% / 0.78), hsl(0 0% 100% / 0.55));
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid hsl(0 0% 100% / 0.65);
+  }
+  /* Card-weight glass — a touch more opaque for dense content readability */
+  .glass-card {
+    background: linear-gradient(150deg, hsl(0 0% 100% / 0.82), hsl(255 60% 99% / 0.62));
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border: 1px solid hsl(255 60% 100% / 0.7);
+  }
+  /* Sidebar / rail glass — cooler, more solid */
+  .glass-rail {
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.82), hsl(240 50% 99% / 0.72));
+    backdrop-filter: saturate(180%) blur(22px);
+    -webkit-backdrop-filter: saturate(180%) blur(22px);
+  }
+  /* Sticky header glass */
   .surface-glass {
-    background-color: hsl(0 0% 100% / 0.8);
-    backdrop-filter: saturate(180%) blur(12px);
+    background-color: hsl(0 0% 100% / 0.7);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
   }
 
-  /* App canvas background — soft, high-end neutral */
+  /* Brand gradient text */
+  .text-gradient {
+    background: linear-gradient(120deg, hsl(var(--grad-1)), hsl(var(--grad-2)) 55%, hsl(var(--grad-3)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  /* Brand gradient fill (buttons, accents) */
+  .bg-brand-gradient {
+    background-image: linear-gradient(120deg, hsl(var(--grad-1)), hsl(var(--grad-2)));
+  }
+
+  /* App canvas — luminous animated gradient mesh so glass has something to refract */
   .app-canvas {
+    position: relative;
     background:
-      radial-gradient(60rem 60rem at 110% -10%, hsl(243 75% 59% / 0.06), transparent 60%),
-      radial-gradient(50rem 50rem at -10% 110%, hsl(243 75% 59% / 0.05), transparent 55%),
-      hsl(220 20% 98%);
+      radial-gradient(48rem 40rem at 82% -8%, hsl(var(--grad-1) / 0.20), transparent 60%),
+      radial-gradient(44rem 40rem at 108% 40%, hsl(var(--grad-4) / 0.16), transparent 58%),
+      radial-gradient(52rem 44rem at -12% 8%, hsl(var(--grad-2) / 0.18), transparent 60%),
+      radial-gradient(46rem 42rem at 12% 112%, hsl(var(--grad-3) / 0.16), transparent 58%),
+      linear-gradient(180deg, hsl(240 60% 99%), hsl(240 46% 97%));
+    background-attachment: fixed;
   }
 }
 
