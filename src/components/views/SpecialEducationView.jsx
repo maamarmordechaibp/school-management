@@ -30,6 +30,7 @@ const STATUS_OPTIONS = [
   { value: 'being_evaluated', label: 'Being Evaluated', color: 'bg-blue-100 text-blue-800' },
   { value: 'has_plan', label: 'Has Plan', color: 'bg-purple-100 text-purple-800' },
   { value: 'receiving_services', label: 'Receiving Services', color: 'bg-green-100 text-green-800' },
+  { value: 'out_of_school_services', label: 'Out of School Services', color: 'bg-teal-100 text-teal-800' },
   { value: 'discharged', label: 'Discharged', color: 'bg-gray-100 text-gray-800' },
 ];
 

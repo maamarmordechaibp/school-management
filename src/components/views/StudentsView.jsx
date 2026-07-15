@@ -356,16 +356,16 @@ const StudentsView = ({ role, currentUser }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this student? This cannot be undone.')) return;
+    if (!window.confirm('Delete this student and EVERYTHING linked to them (issues, calls, meetings, grades, assessments, fees, payments, reminders, tasks, documents, special-ed records)? This cannot be undone.')) return;
     
     try {
-      const { error } = await supabase.from('students').delete().eq('id', id);
+      const { error } = await supabase.rpc('delete_student_cascade', { p_student_id: id });
       if (error) throw error;
-      toast({ title: 'Success', description: 'Student deleted' });
+      toast({ title: 'Success', description: 'Student and all associated records deleted' });
       loadData();
     } catch (error) {
       console.error('Error deleting student:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not delete student' });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete student' });
     }
   };
 

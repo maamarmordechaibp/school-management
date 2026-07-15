@@ -103,6 +103,7 @@ const Dashboard = () => {
     { id: 'classes', label: 'Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
     { id: 'class-detail', label: 'Class Detail', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
     { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
+    { id: 'templates', label: 'Assessment Templates', icon: Edit3, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Create custom assessment forms' },
     
     // Issues & Communication
     { id: 'issues', label: 'Issues', icon: AlertTriangle, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },

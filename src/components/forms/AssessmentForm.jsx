@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Check, ArrowRight, FileText } from 'lucide-react';
+import { Save, Check, ArrowRight, FileText, MessageSquare } from 'lucide-react';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
 
 const StandardHebrewForm = ({ formData, handleChange }) => (
@@ -212,6 +212,9 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('standard');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [newNote, setNewNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   
   const [formData, setFormData] = useState({
     teacher_name: '',
@@ -247,6 +250,39 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
   const fetchTemplates = async () => {
     const { data } = await supabase.from('assessment_templates').select('*');
     setTemplates(data || []);
+  };
+
+  useEffect(() => {
+    if (assessment?.id) loadNotes();
+  }, [assessment?.id]);
+
+  const loadNotes = async () => {
+    const { data } = await supabase
+      .from('assessment_notes')
+      .select('*')
+      .eq('assessment_id', assessment.id)
+      .order('created_at', { ascending: true });
+    setNotes(data || []);
+  };
+
+  const addNote = async () => {
+    if (!newNote.trim() || !assessment?.id) return;
+    setSavingNote(true);
+    try {
+      const { error } = await supabase.from('assessment_notes').insert([{
+        assessment_id: assessment.id,
+        note: newNote.trim(),
+        author_id: currentUser?.id || null,
+        author_name: currentUser?.name || currentUser?.first_name || currentUser?.email || 'Unknown',
+      }]);
+      if (error) throw error;
+      setNewNote('');
+      loadNotes();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message || 'Failed to add note' });
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   useEffect(() => {
@@ -305,7 +341,11 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
     } else {
       result = await supabase
         .from('assessments')
-        .insert([dataToSave]);
+        .insert([{
+          ...dataToSave,
+          created_by: currentUser?.id || null,
+          created_by_name: currentUser?.name || currentUser?.first_name || currentUser?.email || null,
+        }]);
     }
 
     if (result.error) {
@@ -444,6 +484,32 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
              onChange={handleCustomDataChange} 
           />
         )
+      )}
+
+      {/* Notes & Comments — available once the assessment is saved */}
+      {assessment?.id && (
+        <div className="mb-8 border rounded-lg p-4 bg-slate-50">
+          <h3 className="font-bold flex items-center gap-2 mb-3"><MessageSquare size={16} /> Notes &amp; Comments</h3>
+          <div className="space-y-3 mb-4">
+            {notes.length === 0 && <p className="text-sm text-slate-400">No notes yet. Add the first comment below.</p>}
+            {notes.map(n => (
+              <div key={n.id} className="bg-white border rounded-md p-3">
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{n.note}</p>
+                <p className="text-xs text-slate-400 mt-1">{n.author_name || 'Unknown'} &bull; {new Date(n.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <textarea
+              className="flex-1 p-2 border border-slate-300 rounded-md text-sm"
+              rows={2}
+              placeholder="Add a note..."
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+            />
+            <Button onClick={addNote} disabled={savingNote || !newNote.trim()} className="self-end">Add</Button>
+          </div>
+        </div>
       )}
 
       {/* Actions */}

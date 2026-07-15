@@ -18,6 +18,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import AssessmentForm from '@/components/forms/AssessmentForm';
+import StudentDocuments from '@/components/StudentDocuments';
 import { WorkflowBadge } from '@/components/ui/workflow-badge';
 import StudentPlanModal from '@/components/modals/StudentPlanModal';
 import SendEmailModal from '@/components/modals/SendEmailModal';
@@ -849,6 +850,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <TabsTrigger value="late-arrivals" className="data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <Clock size={14} />
             Late Arrivals ({lateArrivals.length})
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="data-[state=active]:border-b-2 data-[state=active]:border-sky-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <FileText size={14} />
+            Documents
           </TabsTrigger>
           {specialEdData && (
             <TabsTrigger value="special-ed" className="data-[state=active]:border-b-2 data-[state=active]:border-pink-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
@@ -1969,7 +1974,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
                                  <span className="text-slate-400 mx-2">|</span>
                                  {new Date(assessment.date).toLocaleDateString()}
                                </p>
-                               <p className="text-xs text-slate-500">By {assessment.teacher_name}</p>
+                               <p className="text-xs text-slate-500">
+                                 {assessment.teacher_name ? `Teacher: ${assessment.teacher_name}` : ''}
+                                 {assessment.created_by_name ? `${assessment.teacher_name ? ' • ' : ''}Created by ${assessment.created_by_name}` : ''}
+                               </p>
                             </div>
                          </div>
                          <span className={`text-xs px-2 py-1 rounded capitalize ${
@@ -2168,6 +2176,11 @@ const StudentProfileView = ({ studentId, onBack }) => {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="mt-6">
+          <StudentDocuments studentId={studentId} currentUser={currentUser} />
         </TabsContent>
 
         {/* Special Education Tab */}

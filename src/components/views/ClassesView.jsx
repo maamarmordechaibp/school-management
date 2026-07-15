@@ -178,6 +178,24 @@ const ClassesView = ({ role, currentUser }) => {
     }
   };
 
+  const handleRemoveAllStudents = async (cls) => {
+    const count = cls.student_count || 0;
+    if (count === 0) {
+      toast({ title: 'No students', description: 'This class has no students to remove.' });
+      return;
+    }
+    if (!confirm(`Permanently delete ALL ${count} student(s) in "${cls.name}" and every record linked to them (issues, calls, grades, fees, documents, etc.)? Use this when a class leaves the school. This cannot be undone.`)) return;
+    try {
+      const { data, error } = await supabase.rpc('delete_class_students', { p_class_id: cls.id });
+      if (error) throw error;
+      toast({ title: 'Class emptied', description: `Removed ${data ?? count} student(s) and all their records.` });
+      loadData();
+    } catch (error) {
+      console.error('Error removing class students:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to remove students' });
+    }
+  };
+
   // Promotion Functions
   const openPromotionModal = (cls) => {
     setPromotionClass(cls);
@@ -383,6 +401,15 @@ const ClassesView = ({ role, currentUser }) => {
                               title="Promote students to next grade"
                             >
                               <ArrowUpCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-amber-600"
+                              onClick={() => handleRemoveAllStudents(cls)}
+                              title="Remove all students (class left school)"
+                            >
+                              <GraduationCap className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => openModal(cls)}>
                               <Edit className="h-4 w-4" />
