@@ -5,8 +5,32 @@ import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Check, ArrowRight, FileText, MessageSquare } from 'lucide-react';
+import { Save, Check, ArrowRight, FileText, MessageSquare, Award } from 'lucide-react';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { GRADE_SCALE, gradeSolidClass } from '@/lib/gradeColors';
+import { printCertificate } from '@/lib/certificateTemplate';
+
+const OVERALL_RATINGS = [
+  { value: 'strong', label: 'Strong', he: 'חזק', cls: 'bg-green-100 text-green-800 border-green-300' },
+  { value: 'mixed', label: 'Mixed', he: 'מעורב', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
+  { value: 'needs_reinforcement', label: 'Needs reinforcement', he: 'דארף חיזוק', cls: 'bg-red-100 text-red-800 border-red-300' },
+];
+const LEARNING_CRITERIA = [
+  { key: 'understanding', label: 'Understanding', he: 'הבנה' },
+  { key: 'listening', label: 'Listening', he: 'הקשבה' },
+  { key: 'diligence', label: 'Diligence', he: 'התמדה' },
+  { key: 'excellence', label: 'Excellence', he: 'הצטיינות' },
+  { key: 'participation', label: 'Participation', he: 'השתתפות' },
+  { key: 'review', label: 'Review', he: 'חזרה' },
+  { key: 'writing', label: 'Writing', he: 'כתיבה' },
+  { key: 'hebrew_reading', label: 'Hebrew reading', he: 'קריאה' },
+];
+const MIDOS_CRITERIA = [
+  { key: 'classroom_behavior', label: 'Classroom behavior', he: 'התנהגות בכיתה' },
+  { key: 'derech_eretz', label: 'Derech eretz', he: 'דרך ארץ' },
+  { key: 'sociability', label: 'Sociability', he: 'חברות' },
+  { key: 'joy', label: 'Joy', he: 'שמחה' },
+];
 
 const StandardHebrewForm = ({ formData, handleChange }) => (
   <div className="border border-slate-800 rounded-sm mb-6">
@@ -308,6 +332,33 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
     }));
   };
 
+  // Evaluation criteria live under custom_data.evaluation so they never clash
+  // with a custom template's own fields.
+  const evaluation = formData.custom_data?.evaluation || {};
+  const setEvaluation = (patch) => {
+    setFormData(prev => ({
+      ...prev,
+      custom_data: {
+        ...prev.custom_data,
+        evaluation: { ...(prev.custom_data?.evaluation || {}), ...patch },
+      },
+    }));
+  };
+  const setCriterion = (group, key, value) => {
+    const cur = evaluation[group] || {};
+    setEvaluation({ [group]: { ...cur, [key]: cur[key] === value ? undefined : value } });
+  };
+
+  const handleGenerateCertificate = () => {
+    const rating = OVERALL_RATINGS.find((r) => r.value === evaluation.overall_rating);
+    printCertificate(student, {
+      title: 'תעודת הצטיינות',
+      bodyText: evaluation.strengths || formData.summary || undefined,
+      ratingLabel: rating ? rating.he : '',
+      signatureName: currentUser?.name || '',
+    });
+  };
+
   const handleSubmit = async (status) => {
     if (!student?.id) {
       toast({ variant: 'destructive', title: 'Error', description: 'Missing student.' });
@@ -458,6 +509,103 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
           />
         )
       )}
+
+      {/* Evaluation & Certificate */}
+      <div className="mb-8 border rounded-lg p-4" dir="auto">
+        <h3 className="font-bold flex items-center gap-2 mb-4"><Award size={16} /> Evaluation</h3>
+
+        {/* Overall rating */}
+        <div className="mb-5">
+          <Label className="mb-1 block">Overall rating</Label>
+          <div className="flex flex-wrap gap-2">
+            {OVERALL_RATINGS.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setEvaluation({ overall_rating: evaluation.overall_rating === r.value ? undefined : r.value })}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                  evaluation.overall_rating === r.value ? r.cls : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {r.he} · {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Criteria grids */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p className="font-semibold text-sm text-slate-700 mb-2">Learning</p>
+            <div className="space-y-1.5">
+              {LEARNING_CRITERIA.map((c) => (
+                <div key={c.key} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm">{c.he} <span className="text-slate-400">/ {c.label}</span></span>
+                  <div className="flex gap-1">
+                    {GRADE_SCALE.map((g) => (
+                      <button
+                        key={g.value}
+                        type="button"
+                        onClick={() => setCriterion('learning', c.key, g.value)}
+                        className={`h-6 w-6 rounded text-xs font-bold border transition ${
+                          evaluation.learning?.[c.key] === g.value ? gradeSolidClass(g.value) + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >{g.value}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-slate-700 mb-2">Midos</p>
+            <div className="space-y-1.5">
+              {MIDOS_CRITERIA.map((c) => (
+                <div key={c.key} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm">{c.he} <span className="text-slate-400">/ {c.label}</span></span>
+                  <div className="flex gap-1">
+                    {GRADE_SCALE.map((g) => (
+                      <button
+                        key={g.value}
+                        type="button"
+                        onClick={() => setCriterion('midos', c.key, g.value)}
+                        className={`h-6 w-6 rounded text-xs font-bold border transition ${
+                          evaluation.midos?.[c.key] === g.value ? gradeSolidClass(g.value) + ' border-transparent' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >{g.value}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Free text */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+          <div>
+            <Label className="text-sm">Strengths</Label>
+            <textarea className="w-full p-2 border border-slate-300 rounded min-h-[70px] text-sm"
+              value={evaluation.strengths || ''} onChange={(e) => setEvaluation({ strengths: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-sm">Notes</Label>
+            <textarea className="w-full p-2 border border-slate-300 rounded min-h-[70px] text-sm"
+              value={evaluation.notes || ''} onChange={(e) => setEvaluation({ notes: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-sm">Recommendations</Label>
+            <textarea className="w-full p-2 border border-slate-300 rounded min-h-[70px] text-sm"
+              value={evaluation.recommendations || ''} onChange={(e) => setEvaluation({ recommendations: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <Button type="button" variant="outline" onClick={handleGenerateCertificate} className="flex items-center gap-2">
+            <Award size={16} /> Generate Certificate
+          </Button>
+        </div>
+      </div>
 
       {/* Notes & Comments — available once the assessment is saved */}
       {assessment?.id && (

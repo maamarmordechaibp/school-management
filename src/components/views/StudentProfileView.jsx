@@ -935,6 +935,8 @@ const StudentProfileView = ({ studentId, onBack }) => {
                   { v: 'reminder', label: 'Reminders' },
                   { v: 'grade', label: 'Grades' },
                   { v: 'assessment', label: 'Assessments' },
+                  { v: 'farher', label: 'Farhers' },
+                  { v: 'point', label: 'Points' },
                   { v: 'note', label: 'Notes' },
                 ].map(opt => (
                   <Button
@@ -967,6 +969,8 @@ const StudentProfileView = ({ studentId, onBack }) => {
                         reminder:   { color: 'bg-yellow-100 text-yellow-800', label: 'Reminder',   Icon: Bell },
                         grade:      { color: 'bg-sky-100 text-sky-700',       label: 'Grade',      Icon: TrendingUp },
                         assessment: { color: 'bg-indigo-100 text-indigo-700', label: 'Assessment', Icon: FileText },
+                        farher:     { color: 'bg-teal-100 text-teal-700',     label: 'Farher',     Icon: TrendingUp },
+                        point:      { color: 'bg-amber-100 text-amber-800',   label: 'Points',     Icon: TrendingUp },
                         note:       { color: 'bg-purple-100 text-purple-700', label: 'Note',       Icon: MessageSquare },
                       }[item.kind] || { color: 'bg-slate-100 text-slate-700', label: item.kind, Icon: FileText };
                       const Icon = config.Icon;

@@ -12,6 +12,24 @@ import {
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { GRADE_SCALE, gradeSolidClass, gradeSoftClass } from '@/lib/gradeColors';
+
+const GRADE_CATEGORIES = [
+  { value: 'learning', label: 'Learning', he: 'לימוד' },
+  { value: 'davening', label: 'Davening', he: 'דאווענען' },
+  { value: 'test', label: 'Test', he: 'טעסט' },
+  { value: 'farher', label: 'Farher', he: 'פארהער' },
+  { value: 'behavior', label: 'Behavior', he: 'התנהגות' },
+  { value: 'review', label: 'Review', he: 'חזרה' },
+  { value: 'midos', label: 'Midos', he: 'מידות' },
+];
+const categoryLabel = (v) => {
+  const c = GRADE_CATEGORIES.find((x) => x.value === v);
+  return c ? `${c.he} · ${c.label}` : v;
+};
 
 const GradesModal = ({ isOpen, onClose, student }) => {
   const { toast } = useToast();
@@ -19,8 +37,10 @@ const GradesModal = ({ isOpen, onClose, student }) => {
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [grades, setGrades] = useState([]);
   const [newGrade, setNewGrade] = useState({
+    category: 'learning',
     subject: '',
-    grade: '',
+    score: null,
+    note: '',
     date: new Date().toISOString().split('T')[0],
   });
 
@@ -51,19 +71,27 @@ const GradesModal = ({ isOpen, onClose, student }) => {
   const handleAddGrade = async (e) => {
     e.preventDefault();
 
-    if (!newGrade.subject || !newGrade.grade) {
+    if (!newGrade.category || !newGrade.score) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Please fill in all fields',
+        description: 'Please choose a category and a score (1-5)',
       });
       return;
     }
 
-    const { error } = await supabase.from('grades').insert([{
+    const payload = {
       student_id: student.id,
-      ...newGrade,
-    }]);
+      category: newGrade.category,
+      subject: newGrade.subject || categoryLabel(newGrade.category),
+      score: Number(newGrade.score),
+      grade: String(newGrade.score),
+      notes: newGrade.note || null,
+      date: newGrade.date,
+      entered_by: currentUser?.id || null,
+    };
+
+    const { error } = await supabase.from('grades').insert([payload]);
 
     if (error) {
       toast({
@@ -78,8 +106,10 @@ const GradesModal = ({ isOpen, onClose, student }) => {
       });
       const added = { ...newGrade };
       setNewGrade({
+        category: 'learning',
         subject: '',
-        grade: '',
+        score: null,
+        note: '',
         date: new Date().toISOString().split('T')[0],
       });
       loadGrades();
@@ -88,8 +118,8 @@ const GradesModal = ({ isOpen, onClose, student }) => {
         studentName: student.hebrew_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
         action: 'created',
         recordType: 'Grade',
-        title: `${added.subject}: ${added.grade}`,
-        details: `Subject: ${added.subject}\nGrade: ${added.grade}\nDate: ${added.date}`,
+        title: `${categoryLabel(added.category)}: ${added.score}`,
+        details: `Category: ${categoryLabel(added.category)}\nScore: ${added.score}\nDate: ${added.date}`,
         relatedType: 'grade',
       });
     }
@@ -124,26 +154,17 @@ const GradesModal = ({ isOpen, onClose, student }) => {
 
         <form onSubmit={handleAddGrade} className="space-y-4 border-b pb-4">
           <h3 className="font-semibold text-slate-800">Add New Grade</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="subject">Subject</Label>
-              <input
-                id="subject"
-                type="text"
-                value={newGrade.subject}
-                onChange={(e) => setNewGrade({ ...newGrade, subject: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="grade">Grade</Label>
-              <input
-                id="grade"
-                type="text"
-                value={newGrade.grade}
-                onChange={(e) => setNewGrade({ ...newGrade, grade: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <Label htmlFor="category">Category</Label>
+              <Select value={newGrade.category} onValueChange={(v) => setNewGrade({ ...newGrade, category: v })}>
+                <SelectTrigger id="category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {GRADE_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.he} · {c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="date">Date</Label>
@@ -155,6 +176,35 @@ const GradesModal = ({ isOpen, onClose, student }) => {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+          </div>
+          <div>
+            <Label>Score</Label>
+            <div className="flex gap-2 mt-1">
+              {GRADE_SCALE.map((g) => (
+                <button
+                  key={g.value}
+                  type="button"
+                  onClick={() => setNewGrade({ ...newGrade, score: newGrade.score === g.value ? null : g.value })}
+                  className={`h-10 w-12 rounded-lg text-base font-bold border transition ${
+                    newGrade.score === g.value ? gradeSolidClass(g.value) + ' border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title={`${g.value} — ${g.label} (${g.he})`}
+                >
+                  {g.value}
+                </button>
+              ))}
+              <span className="self-center text-xs text-slate-400 ms-2">5 = Excellent · 1 = Weak</span>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="note">Note (optional)</Label>
+            <Textarea
+              id="note"
+              rows={2}
+              value={newGrade.note}
+              onChange={(e) => setNewGrade({ ...newGrade, note: e.target.value })}
+              placeholder="Optional note about this grade…"
+            />
           </div>
           <Button type="submit" className="bg-gradient-to-r from-blue-500 to-blue-600">
             <Plus size={16} className="mr-2" />
@@ -174,10 +224,16 @@ const GradesModal = ({ isOpen, onClose, student }) => {
                   className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                 >
                   <div className="flex-1">
-                    <p className="font-medium text-slate-800">{grade.subject}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-slate-800">{grade.category ? categoryLabel(grade.category) : (grade.subject || 'Grade')}</p>
+                      {(grade.score ?? grade.grade) != null && (
+                        <Badge className={gradeSoftClass(grade.score ?? grade.grade)}>{grade.score ?? grade.grade}</Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-slate-600">
-                      Grade: {grade.grade} - {new Date(grade.date).toLocaleDateString()}
+                      {grade.date ? new Date(grade.date).toLocaleDateString() : ''}
                     </p>
+                    {grade.notes && <p className="text-xs text-slate-500 mt-0.5">{grade.notes}</p>}
                   </div>
                   <Button
                     variant="ghost"

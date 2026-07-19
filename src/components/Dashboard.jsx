@@ -46,6 +46,9 @@ import BusChangesView from '@/components/views/BusChangesView';
 import RemindersView from '@/components/views/RemindersView';
 import TodoListView from '@/components/views/TodoListView';
 import PhoneSystemView from '@/components/views/PhoneSystemView';
+import WeeklyReportView from '@/components/views/WeeklyReportView';
+import FarhersView from '@/components/views/FarhersView';
+import PointsView from '@/components/views/PointsView';
 
 const Dashboard = () => {
   const { t, isRTL, dir } = useLanguage();
@@ -103,6 +106,9 @@ const Dashboard = () => {
     { id: 'classes', label: 'Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
     { id: 'class-detail', label: 'Class Detail', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
     { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
+    { id: 'weekly-report', label: 'Weekly Report', icon: CalendarRange, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Weekly status by Parsha' },
+    { id: 'farhers', label: 'Farhers', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Oral tests (farher) log' },
+    { id: 'points', label: 'Points & Midos', icon: TrendingUp, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Encouragement points tracker' },
     { id: 'templates', label: 'Assessment Templates', icon: Edit3, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Create custom assessment forms' },
     
     // Issues & Communication
@@ -168,6 +174,9 @@ const Dashboard = () => {
       case 'special-ed': return <SpecialEducationView {...viewProps} />;
       case 'class-detail': return <ClassDetailView {...viewProps} />;
       case 'report-cards': return <ReportCardsView {...viewProps} />;
+      case 'weekly-report': return <WeeklyReportView {...viewProps} />;
+      case 'farhers': return <FarhersView {...viewProps} />;
+      case 'points': return <PointsView {...viewProps} />;
       case 'late-tracking': return <LateTrackingView {...viewProps} />;
       case 'bus-changes': return <BusChangesView {...viewProps} />;
       case 'reminders': return <RemindersView {...viewProps} />;

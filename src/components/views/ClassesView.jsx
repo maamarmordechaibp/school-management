@@ -6,10 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit, Users, GraduationCap, School, ArrowUpCircle, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Edit, Users, GraduationCap, School, ArrowUpCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { levelFromAverage, gradeSoftClass } from '@/lib/gradeColors';
+
+const studentDisplayName = (s) => s?.hebrew_name || `${s?.first_name || ''} ${s?.last_name || ''}`.trim();
 
 const ClassesView = ({ role, currentUser }) => {
   const { toast } = useToast();
@@ -18,6 +21,10 @@ const ClassesView = ({ role, currentUser }) => {
   const [teachers, setTeachers] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [classLevels, setClassLevels] = useState({}); // classId -> { avg, count }
+  const [studentLevels, setStudentLevels] = useState({}); // studentId -> { avg, count }
+  const [studentsByClass, setStudentsByClass] = useState({}); // classId -> [student]
+  const [expandedClass, setExpandedClass] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
@@ -93,11 +100,60 @@ const ClassesView = ({ role, currentUser }) => {
         console.log('Staff loaded:', staffData?.length, 'members');
       }
 
+      // Compute color-coded academic levels from grade scores + farher grades
+      await loadAcademicLevels();
+
     } catch (error) {
       console.error('Error loading data:', error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAcademicLevels = async () => {
+    try {
+      const [{ data: studs }, { data: gradeScores }, { data: farherScores }] = await Promise.all([
+        supabase.from('students').select('id, first_name, last_name, hebrew_name, class_id').eq('status', 'active'),
+        supabase.from('grades').select('student_id, score').not('student_id', 'is', null).not('score', 'is', null),
+        supabase.from('farhers').select('student_id, grade').not('grade', 'is', null),
+      ]);
+
+      // Accumulate all 1-5 scores per student
+      const acc = {}; // studentId -> { sum, n }
+      const add = (sid, val) => {
+        const v = Number(val);
+        if (!sid || !Number.isFinite(v)) return;
+        const a = acc[sid] || { sum: 0, n: 0 };
+        a.sum += v; a.n += 1; acc[sid] = a;
+      };
+      (gradeScores || []).forEach((g) => add(g.student_id, g.score));
+      (farherScores || []).forEach((f) => add(f.student_id, f.grade));
+
+      const sLevels = {};
+      Object.entries(acc).forEach(([sid, a]) => { sLevels[sid] = { avg: a.sum / a.n, count: a.n }; });
+
+      // Group students by class + roll averages up to the class
+      const byClass = {};
+      const classAcc = {};
+      (studs || []).forEach((s) => {
+        if (!s.class_id) return;
+        (byClass[s.class_id] = byClass[s.class_id] || []).push(s);
+        const sl = sLevels[s.id];
+        if (sl) {
+          const c = classAcc[s.class_id] || { sum: 0, n: 0 };
+          c.sum += sl.avg; c.n += 1; classAcc[s.class_id] = c;
+        }
+      });
+      const cLevels = {};
+      Object.entries(classAcc).forEach(([cid, c]) => { cLevels[cid] = { avg: c.sum / c.n, count: c.n }; });
+
+      setStudentLevels(sLevels);
+      setStudentsByClass(byClass);
+      setClassLevels(cLevels);
+    } catch (e) {
+      // grades.score / farhers may not exist before migration 047 — fail soft
+      console.log('Academic levels unavailable:', e?.message);
     }
   };
 
@@ -352,6 +408,7 @@ const ClassesView = ({ role, currentUser }) => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Class Name</TableHead>
+                      <TableHead>Level</TableHead>
                       <TableHead>Hebrew Teacher</TableHead>
                       <TableHead>English Teacher</TableHead>
                       <TableHead className="text-center">Students</TableHead>
@@ -360,9 +417,30 @@ const ClassesView = ({ role, currentUser }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {grade.classes.map((cls) => (
-                      <TableRow key={cls.id}>
-                        <TableCell className="font-semibold">{cls.name}</TableCell>
+                    {grade.classes.map((cls) => {
+                      const cl = classLevels[cls.id];
+                      const lvl = levelFromAverage(cl?.avg);
+                      const isExpanded = expandedClass === cls.id;
+                      return (
+                      <React.Fragment key={cls.id}>
+                      <TableRow>
+                        <TableCell className="font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedClass(isExpanded ? null : cls.id)}
+                            className="inline-flex items-center gap-1 hover:text-indigo-600"
+                            title="Show students & levels"
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            {cls.name}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${lvl.bg} ${lvl.text}`}>
+                            <span className={`h-2 w-2 rounded-full ${lvl.dot}`}></span>
+                            {lvl.label}{cl?.avg != null ? ` (${cl.avg.toFixed(1)})` : ''}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           {cls.hebrew_teacher ? (
                             <div className="flex items-center gap-2">
@@ -425,7 +503,32 @@ const ClassesView = ({ role, currentUser }) => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      {isExpanded && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="bg-slate-50/60">
+                            {(studentsByClass[cls.id] || []).length === 0 ? (
+                              <p className="text-sm text-slate-400 py-2">No students in this class.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2 py-1">
+                                {(studentsByClass[cls.id] || []).map((s) => {
+                                  const sl = studentLevels[s.id];
+                                  return (
+                                    <span
+                                      key={s.id}
+                                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs ${sl ? gradeSoftClass(Math.round(sl.avg)) : 'bg-slate-100 text-slate-500'}`}
+                                    >
+                                      {studentDisplayName(s)}{sl ? ` · ${sl.avg.toFixed(1)}` : ''}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </React.Fragment>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
