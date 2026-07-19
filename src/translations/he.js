@@ -166,7 +166,7 @@ export const hebrew = {
     classes: "כיתות",
     "class-detail": "פרטי כיתה",
     "report-cards": "תעודות",
-    "weekly-report": "דו"ח שבועי (פרשה)",
+    "weekly-report": "דו״ח שבועי (פרשה)",
     farhers: "פארהערן",
     points: "נקודות ומידות",
     templates: "תבניות הערכה",
