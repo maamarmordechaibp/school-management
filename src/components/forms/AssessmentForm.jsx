@@ -412,7 +412,9 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
         description: `Assessment for ${student.name} has been saved.`
       });
 
-      if (onSave) onSave();
+      // Prompt to email the assessment. We defer the parent's onSave (which
+      // usually refreshes data and closes this form) until the notify modal is
+      // dismissed — otherwise the form unmounts and the email prompt with it.
       notify({
         studentId: student.id,
         studentName: student.name,
@@ -424,6 +426,7 @@ const AssessmentForm = ({ student, assessment = null, onSave, onCancel, currentU
           (formData.plan ? `Plan: ${formData.plan}` : '') +
           `Status: ${status}`,
         relatedType: 'assessment',
+        onDone: onSave,
       });
     }
   };

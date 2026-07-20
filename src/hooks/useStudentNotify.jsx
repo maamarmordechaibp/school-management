@@ -14,6 +14,7 @@ import StudentNotifyModal from '@/components/modals/StudentNotifyModal';
  *     recordType: 'Issue',
  *     title, details,
  *     relatedType: 'issue', relatedId,
+ *     onDone,   // optional: called once the modal is closed (sent or dismissed)
  *   });
  *   // render once in the component tree:
  *   {notifyElement}
@@ -22,7 +23,12 @@ export function useStudentNotify(currentUser) {
   const [opts, setOpts] = useState(null);
 
   const notify = useCallback((options) => setOpts(options || {}), []);
-  const close = useCallback(() => setOpts(null), []);
+  const close = useCallback(() => {
+    setOpts((cur) => {
+      if (cur && typeof cur.onDone === 'function') cur.onDone();
+      return null;
+    });
+  }, []);
 
   const notifyElement = (
     <StudentNotifyModal opts={opts} onClose={close} currentUser={currentUser} />

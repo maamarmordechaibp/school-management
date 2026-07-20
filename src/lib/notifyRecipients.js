@@ -56,7 +56,7 @@ export const NOTIFY_GROUPS = [
   {
     key: 'special_ed',
     label: 'Special Education',
-    matchUserRole: () => false,
+    matchUserRole: (r) => has(r, ['special', 'sped', 'chinuch']),
     matchStaffPosition: (p) => has(p, ['special', 'chinuch', 'sped']),
     matchSped: true,
   },
