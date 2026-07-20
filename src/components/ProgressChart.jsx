@@ -19,12 +19,16 @@ const TrendIcon = ({ dir }) => {
  * Props:
  *   marks         normalised student marks (from normalizeMarks)
  *   classAverages { [category]: number } — optional class average per category
+ *   categoryMeta  { [category]: { label, color } } — optional custom overrides
  */
-const ProgressChart = ({ marks = [], classAverages = {} }) => {
+const ProgressChart = ({ marks = [], classAverages = {}, categoryMeta = null }) => {
   const [active, setActive] = useState('all'); // 'all' or a category key
   const cats = useMemo(() => categoriesPresent(marks), [marks]);
   const chartData = useMemo(() => buildChartData(marks), [marks]);
   const trends = useMemo(() => computeTrends(marks), [marks]);
+
+  const lbl = (c) => categoryMeta?.[c]?.label || categoryLabel(c);
+  const col = (c) => categoryMeta?.[c]?.color || categoryColor(c);
 
   if (!marks.length) {
     return <p className="text-sm text-slate-500 py-8 text-center">No marks recorded yet to chart.</p>;
@@ -45,7 +49,7 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
           All marks
         </button>
         {cats.map((c) => {
-          const color = categoryColor(c);
+          const color = col(c);
           const on = active === c;
           const t = trends[c];
           return (
@@ -58,7 +62,7 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
               style={on ? { backgroundColor: color } : {}}
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: on ? '#fff' : color }} />
-              {categoryLabel(c)}
+              {lbl(c)}
               {t && <TrendIcon dir={t.direction} />}
             </button>
           );
@@ -73,7 +77,7 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
             <XAxis dataKey="dateLabel" tick={{ fontSize: 11 }} />
             <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} />
             <Tooltip
-              formatter={(value, name) => [Number(value).toFixed(1), categoryLabel(name)]}
+              formatter={(value, name) => [Number(value).toFixed(1), lbl(name)]}
               labelStyle={{ fontSize: 12 }}
             />
             {visibleCats.map((c) => (
@@ -82,7 +86,7 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
                 type="monotone"
                 dataKey={c}
                 name={c}
-                stroke={categoryColor(c)}
+                stroke={col(c)}
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 connectNulls
@@ -93,9 +97,9 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
             {active !== 'all' && classAverages[active] != null && (
               <ReferenceLine
                 y={classAverages[active]}
-                stroke={categoryColor(active)}
+                stroke={col(active)}
                 strokeDasharray="6 4"
-                label={{ value: `Class avg ${Number(classAverages[active]).toFixed(1)}`, position: 'right', fontSize: 10, fill: categoryColor(active) }}
+                label={{ value: `Class avg ${Number(classAverages[active]).toFixed(1)}`, position: 'right', fontSize: 10, fill: col(active) }}
               />
             )}
           </LineChart>
@@ -110,8 +114,8 @@ const ProgressChart = ({ marks = [], classAverages = {} }) => {
           const classAvg = classAverages[c];
           return (
             <div key={c} className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 bg-white">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: categoryColor(c) }} />
-              <span className="text-xs font-medium text-slate-700">{categoryLabel(c)}</span>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: col(c) }} />
+              <span className="text-xs font-medium text-slate-700">{lbl(c)}</span>
               <span className="text-xs text-slate-500">{t.last?.toFixed?.(1) ?? t.last}</span>
               <TrendIcon dir={t.direction} />
               {classAvg != null && (

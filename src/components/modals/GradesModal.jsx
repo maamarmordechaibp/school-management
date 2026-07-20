@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { GRADE_SCALE, gradeSolidClass, gradeSoftClass } from '@/lib/gradeColors';
 import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
 import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
+import { loadMarkCategories } from '@/lib/markCategories';
 
 const GRADE_CATEGORIES = [
   { value: 'learning', label: 'Learning', he: 'לימוד' },
@@ -28,16 +29,17 @@ const GRADE_CATEGORIES = [
   { value: 'review', label: 'Review', he: 'חזרה' },
   { value: 'midos', label: 'Midos', he: 'מידות' },
 ];
-const categoryLabel = (v) => {
-  const c = GRADE_CATEGORIES.find((x) => x.value === v);
-  return c ? `${c.he} · ${c.label}` : v;
-};
 
 const GradesModal = ({ isOpen, onClose, student }) => {
   const { toast } = useToast();
   const { profile: currentUser } = useAuth();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [grades, setGrades] = useState([]);
+  const [categories, setCategories] = useState(GRADE_CATEGORIES);
+  const categoryLabel = (v) => {
+    const c = categories.find((x) => x.value === v);
+    return c ? `${c.he ? c.he + ' · ' : ''}${c.label}` : v;
+  };
   const [referralOpen, setReferralOpen] = useState(false);
   const [declineFlags, setDeclineFlags] = useState([]);
   const [newGrade, setNewGrade] = useState({
@@ -53,6 +55,14 @@ const GradesModal = ({ isOpen, onClose, student }) => {
       loadGrades();
     }
   }, [student, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadMarkCategories()
+        .then((rows) => setCategories(rows.map((r) => ({ value: r.key, label: r.label, he: r.he }))))
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   const loadGrades = async () => {
     const { data, error } = await supabase
@@ -173,8 +183,8 @@ const GradesModal = ({ isOpen, onClose, student }) => {
               <Select value={newGrade.category} onValueChange={(v) => setNewGrade({ ...newGrade, category: v })}>
                 <SelectTrigger id="category"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {GRADE_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.he} · {c.label}</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.he ? `${c.he} · ` : ''}{c.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

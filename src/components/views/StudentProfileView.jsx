@@ -30,6 +30,7 @@ import { useStudentNotify } from '@/hooks/useStudentNotify';
 import ProgressChart from '@/components/ProgressChart';
 import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
 import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
+import { loadMarkCategories, buildCategoryMeta } from '@/lib/markCategories';
 
 const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
@@ -105,6 +106,11 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [declineFlags, setDeclineFlags] = useState([]);
   const [referralOpen, setReferralOpen] = useState(false);
   const [referralAutoShown, setReferralAutoShown] = useState(false);
+  const [categoryMeta, setCategoryMeta] = useState(null);
+
+  useEffect(() => {
+    loadMarkCategories().then((rows) => setCategoryMeta(buildCategoryMeta(rows))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetchStudentData();
@@ -1116,6 +1122,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
               <ProgressChart
                 marks={normalizeMarks({ grades: data.grades, farhers, weekly: weeklyMarks })}
                 classAverages={classAverages}
+                categoryMeta={categoryMeta}
               />
             </CardContent>
           </Card>
