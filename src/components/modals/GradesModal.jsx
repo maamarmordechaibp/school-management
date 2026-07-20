@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { GRADE_SCALE, gradeSolidClass, gradeSoftClass } from '@/lib/gradeColors';
+import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
+import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
 
 const GRADE_CATEGORIES = [
   { value: 'learning', label: 'Learning', he: 'לימוד' },
@@ -36,6 +38,8 @@ const GradesModal = ({ isOpen, onClose, student }) => {
   const { profile: currentUser } = useAuth();
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [grades, setGrades] = useState([]);
+  const [referralOpen, setReferralOpen] = useState(false);
+  const [declineFlags, setDeclineFlags] = useState([]);
   const [newGrade, setNewGrade] = useState({
     category: 'learning',
     subject: '',
@@ -63,8 +67,10 @@ const GradesModal = ({ isOpen, onClose, student }) => {
         title: 'Error',
         description: 'Failed to load grades',
       });
+      return [];
     } else {
       setGrades(data || []);
+      return data || [];
     }
   };
 
@@ -112,7 +118,13 @@ const GradesModal = ({ isOpen, onClose, student }) => {
         note: '',
         date: new Date().toISOString().split('T')[0],
       });
-      loadGrades();
+      const freshGrades = await loadGrades();
+      // If this mark caused a repeated decline in its category, prompt a referral.
+      const flags = detectDeclines(normalizeMarks({ grades: freshGrades }), 2);
+      if (flags.some((f) => f.category === added.category)) {
+        setDeclineFlags(flags);
+        setReferralOpen(true);
+      }
       notify({
         studentId: student.id,
         studentName: student.hebrew_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
@@ -146,6 +158,7 @@ const GradesModal = ({ isOpen, onClose, student }) => {
   if (!student) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -251,6 +264,15 @@ const GradesModal = ({ isOpen, onClose, student }) => {
       </DialogContent>
       {notifyElement}
     </Dialog>
+    <SpecialEdReferralDialog
+      isOpen={referralOpen}
+      onClose={() => setReferralOpen(false)}
+      student={{ id: student.id, name: student.hebrew_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() }}
+      flagged={declineFlags}
+      currentUser={currentUser}
+      onSent={() => setReferralOpen(false)}
+    />
+    </>
   );
 };
 

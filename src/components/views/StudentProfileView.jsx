@@ -27,6 +27,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import ProgressChart from '@/components/ProgressChart';
+import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
+import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
 
 const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
@@ -95,6 +98,14 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState('all');
 
+  // Progress tracking + special-ed referral
+  const [farhers, setFarhers] = useState([]);
+  const [weeklyMarks, setWeeklyMarks] = useState([]);
+  const [classAverages, setClassAverages] = useState({});
+  const [declineFlags, setDeclineFlags] = useState([]);
+  const [referralOpen, setReferralOpen] = useState(false);
+  const [referralAutoShown, setReferralAutoShown] = useState(false);
+
   useEffect(() => {
     fetchStudentData();
     fetchAvailableFees();
@@ -141,6 +152,60 @@ const StudentProfileView = ({ studentId, onBack }) => {
     }
   };
 
+  const loadProgress = async (studentInfo, grades) => {
+    try {
+      const [farhersRes, weeklyRes, thrRes] = await Promise.all([
+        supabase.from('farhers').select('*').eq('student_id', studentId).order('farher_date', { ascending: true }),
+        supabase.from('weekly_reports').select('*').eq('student_id', studentId).order('week_start', { ascending: true }),
+        supabase.from('app_settings').select('value').eq('key', 'progress_decline_threshold').maybeSingle(),
+      ]);
+      const fh = farhersRes.data || [];
+      const wk = weeklyRes.data || [];
+      setFarhers(fh);
+      setWeeklyMarks(wk);
+
+      const threshold = Number(thrRes.data?.value) || 2;
+      const marks = normalizeMarks({ grades, farhers: fh, weekly: wk });
+      const flags = detectDeclines(marks, threshold);
+      setDeclineFlags(flags);
+
+      // Class averages per category (for comparison lines)
+      if (studentInfo?.class_id) {
+        const { data: classStudents } = await supabase
+          .from('students').select('id').eq('class_id', studentInfo.class_id);
+        const ids = (classStudents || []).map((s) => s.id);
+        if (ids.length) {
+          const [cg, cf, cw] = await Promise.all([
+            supabase.from('grades').select('category, score, grade, date, created_at, student_id').in('student_id', ids).not('student_id', 'is', null),
+            supabase.from('farhers').select('grade, farher_date, created_at, student_id').in('student_id', ids),
+            supabase.from('weekly_reports').select('grade, week_start, created_at, student_id').in('student_id', ids),
+          ]);
+          const classMarks = normalizeMarks({ grades: cg.data || [], farhers: cf.data || [], weekly: cw.data || [] });
+          const acc = {};
+          classMarks.forEach((m) => { const a = acc[m.category] || { s: 0, n: 0 }; a.s += m.score; a.n += 1; acc[m.category] = a; });
+          const avg = {};
+          Object.entries(acc).forEach(([c, a]) => { avg[c] = a.s / a.n; });
+          setClassAverages(avg);
+        }
+      }
+
+      // Auto-prompt referral once per profile visit, if declines exist and no
+      // active evaluation request is already open for this student.
+      if (flags.length && !referralAutoShown) {
+        const { data: existing } = await supabase
+          .from('special_ed_evaluation_requests')
+          .select('id').eq('student_id', studentId)
+          .in('status', ['pending', 'assigned', 'in_progress']).limit(1);
+        if (!existing || existing.length === 0) {
+          setReferralOpen(true);
+        }
+        setReferralAutoShown(true);
+      }
+    } catch (e) {
+      console.log('Progress load skipped:', e?.message);
+    }
+  };
+
   const fetchStudentData = async () => {
     try {
       // 1. Student Info
@@ -178,6 +243,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
         todos: todos.data || [],
         reminders: reminders.data || []
       });
+
+      // Progress marks (grades + farhers + weekly) and decline detection
+      loadProgress(studentInfo, grades.data || []);
 
       // Fetch student notes (communication log)
       try {
@@ -885,6 +953,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
             <Activity size={14} />
             Timeline ({timeline.length})
           </TabsTrigger>
+          <TabsTrigger value="progress" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <TrendingUp size={14} />
+            Progress{declineFlags.length ? ` (⚠${declineFlags.length})` : ''}
+          </TabsTrigger>
           <TabsTrigger value="financial" className="data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-2">
             <DollarSign size={16} />
             Financial
@@ -1014,6 +1086,37 @@ const StudentProfileView = ({ studentId, onBack }) => {
                     })}
                 </ol>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Progress Tab */}
+        <TabsContent value="progress" className="mt-6 space-y-4">
+          {declineFlags.length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <AlertTriangle className="text-amber-600 mt-0.5" size={20} />
+              <div className="flex-1">
+                <p className="font-semibold text-amber-800">This student is declining on {declineFlags.length} aspect(s).</p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  {declineFlags.map((f) => `${f.label} (↓${f.declines})`).join(', ')}. Consider a special-ed evaluation.
+                </p>
+              </div>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => setReferralOpen(true)}>
+                Refer to Special Ed
+              </Button>
+            </div>
+          )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp size={18} className="text-blue-600" /> Progress Graph
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProgressChart
+                marks={normalizeMarks({ grades: data.grades, farhers, weekly: weeklyMarks })}
+                classAverages={classAverages}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -2531,6 +2634,14 @@ const StudentProfileView = ({ studentId, onBack }) => {
         }}
       />
       {notifyElement}
+      <SpecialEdReferralDialog
+        isOpen={referralOpen}
+        onClose={() => setReferralOpen(false)}
+        student={student ? { id: student.id, name: student.name || student.hebrew_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() } : null}
+        flagged={declineFlags}
+        currentUser={currentUser}
+        onSent={() => setReferralOpen(false)}
+      />
     </div>
   );
 };
