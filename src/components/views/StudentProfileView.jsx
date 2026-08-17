@@ -22,6 +22,7 @@ import StudentDocuments from '@/components/StudentDocuments';
 import { WorkflowBadge } from '@/components/ui/workflow-badge';
 import StudentPlanModal from '@/components/modals/StudentPlanModal';
 import SendEmailModal from '@/components/modals/SendEmailModal';
+import GradesModal from '@/components/modals/GradesModal';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
@@ -83,6 +84,8 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [editingAssessment, setEditingAssessment] = useState(null);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [isGradesModalOpen, setIsGradesModalOpen] = useState(false);
+  const [quickAddBox, setQuickAddBox] = useState(null); // which role box's quick-add menu is open
 
   // Student notes, special ed & late arrivals state
   const [studentNotes, setStudentNotes] = useState([]);
@@ -950,6 +953,48 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setTimeout(() => win.print(), 300);
   };
 
+  // Quick-add options for each role box (all the things that go into it).
+  const openNewNote = () => {
+    setEditingNote(null);
+    setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
+    setIsNoteModalOpen(true);
+  };
+  const quickAddOptions = {
+    melamed: {
+      title: 'מלמד · Quick Add',
+      items: [
+        { label: 'Add grade / mark', icon: BookOpen, fn: () => setIsGradesModalOpen(true) },
+        { label: 'Add assessment / report', icon: FileText, fn: () => setIsAssessmentMode(true) },
+      ],
+    },
+    specialed: {
+      title: 'חינוך מיוחד · Quick Add',
+      items: [
+        { label: 'Refer / add evaluation', icon: Heart, fn: () => setReferralOpen(true) },
+        { label: 'Add note', icon: MessageSquare, fn: openNewNote },
+        { label: 'Add task / reminder', icon: ListTodo, fn: () => setActiveTab('tasks') },
+      ],
+    },
+    asst: {
+      title: 'Assistant Principal · Quick Add',
+      items: [
+        { label: 'Add charge (books / trip)', icon: Receipt, fn: () => { setActiveTab('financial'); openTransactionForm('debit'); } },
+        { label: 'Add payment', icon: DollarSign, fn: () => { setActiveTab('financial'); openTransactionForm('credit'); } },
+        { label: 'Late arrival / times', icon: Clock, fn: () => setActiveTab('late-arrivals') },
+      ],
+    },
+    principal: {
+      title: 'Principal · Quick Add',
+      items: [
+        { label: 'Add note', icon: MessageSquare, fn: openNewNote },
+        { label: 'Add task / reminder', icon: ListTodo, fn: () => setActiveTab('tasks') },
+        { label: 'Add phone call', icon: Phone, fn: () => setActiveTab('communication') },
+        { label: 'Create plan', icon: FileText, fn: () => setIsPlanModalOpen(true) },
+        { label: student.needs_elevation ? 'Clear elevation' : 'Flag needs elevation', icon: AlertTriangle, fn: toggleNeedsElevation },
+      ],
+    },
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
@@ -1198,7 +1243,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                  <CardHeader className="pb-2">
                    <CardTitle className="text-base flex items-center justify-between gap-2">
                      <span className="flex items-center gap-2"><BookOpen size={18} className="text-blue-600" /> מלמד · Melamed</span>
-                     <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" title="Quick add assessment / report" onClick={() => setIsAssessmentMode(true)}><Plus size={16} /></Button>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" title="Quick add" onClick={() => setQuickAddBox('melamed')}><Plus size={16} /></Button>
                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
@@ -1223,7 +1268,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                  <CardHeader className="pb-2">
                    <CardTitle className="text-base flex items-center justify-between gap-2">
                      <span className="flex items-center gap-2"><Heart size={18} className="text-pink-600" /> חינוך מיוחד · Special Ed</span>
-                     <Button size="icon" variant="ghost" className="h-7 w-7 text-pink-600" title="Quick add / refer to special ed" onClick={() => setReferralOpen(true)}><Plus size={16} /></Button>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-pink-600" title="Quick add" onClick={() => setQuickAddBox('specialed')}><Plus size={16} /></Button>
                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
@@ -1256,7 +1301,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                  <CardHeader className="pb-2">
                    <CardTitle className="text-base flex items-center justify-between gap-2">
                      <span className="flex items-center gap-2"><GraduationCap size={18} className="text-amber-600" /> Assistant Principal</span>
-                     <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600" title="Quick add charge / payment" onClick={() => { setActiveTab('financial'); openTransactionForm('debit'); }}><Plus size={16} /></Button>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600" title="Quick add" onClick={() => setQuickAddBox('asst')}><Plus size={16} /></Button>
                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
@@ -1280,7 +1325,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                  <CardHeader className="pb-2">
                    <CardTitle className="text-base flex items-center justify-between gap-2">
                      <span className="flex items-center gap-2"><AlertTriangle size={18} className="text-indigo-600" /> Principal</span>
-                     <Button size="icon" variant="ghost" className="h-7 w-7 text-indigo-600" title="Quick add note" onClick={() => { setEditingNote(null); setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' }); setIsNoteModalOpen(true); }}><Plus size={16} /></Button>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-indigo-600" title="Quick add" onClick={() => setQuickAddBox('principal')}><Plus size={16} /></Button>
                    </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
@@ -2820,6 +2865,37 @@ const StudentProfileView = ({ studentId, onBack }) => {
         currentUser={currentUser}
         onSent={() => setReferralOpen(false)}
       />
+
+      {/* Add a grade / mark (Melamed box) */}
+      <GradesModal
+        isOpen={isGradesModalOpen}
+        onClose={() => { setIsGradesModalOpen(false); fetchStudentData(); }}
+        student={student}
+      />
+
+      {/* Quick-add menu — all the things that go into a role box */}
+      <Dialog open={!!quickAddBox} onOpenChange={(o) => !o && setQuickAddBox(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{quickAddBox ? quickAddOptions[quickAddBox].title : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 pt-1">
+            {quickAddBox && quickAddOptions[quickAddBox].items.map((it) => {
+              const Icon = it.icon;
+              return (
+                <Button
+                  key={it.label}
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => { setQuickAddBox(null); it.fn(); }}
+                >
+                  <Icon size={16} /> {it.label}
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
