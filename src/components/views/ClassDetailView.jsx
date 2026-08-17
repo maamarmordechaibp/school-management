@@ -74,18 +74,32 @@ const ClassDetailView = ({ role, currentUser }) => {
   const loadClasses = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('classes')
         .select(`
           *,
           grade:grades(id, name, grade_number),
-          hebrew_staff:app_users!hebrew_teacher_id(id, first_name, last_name),
-          english_staff:app_users!english_teacher_id(id, first_name, last_name),
-          students:students!class_id(id)
+          students:students!class_id(id, status, is_active)
         `)
-        .eq('is_active', true)
         .order('name');
-      setClasses((data || []).map(c => ({ ...c, student_count: c.students?.length || 0 })));
+      if (error) throw error;
+
+      // Resolve teacher names separately to avoid fragile multi-FK embeds
+      // (a broken embed would otherwise fail the whole classes query).
+      const { data: staff } = await supabase
+        .from('app_users')
+        .select('id, first_name, last_name');
+      const staffMap = {};
+      (staff || []).forEach((u) => { staffMap[u.id] = u; });
+
+      setClasses((data || [])
+        .filter((c) => c.is_active !== false)
+        .map((c) => ({
+          ...c,
+          student_count: (c.students || []).filter((s) => s.is_active !== false && s.status !== 'inactive').length,
+          hebrew_staff: staffMap[c.hebrew_teacher_id] || null,
+          english_staff: staffMap[c.english_teacher_id] || null,
+        })));
 
       const { data: gradesData } = await supabase
         .from('grades')
@@ -94,6 +108,7 @@ const ClassDetailView = ({ role, currentUser }) => {
       setGrades(gradesData || []);
     } catch (error) {
       console.error('Error loading classes:', error);
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to load classes' });
     } finally {
       setLoading(false);
     }
@@ -109,9 +124,8 @@ const ClassDetailView = ({ role, currentUser }) => {
           class:classes!class_id(name, grade:grades(name))
         `)
         .eq('class_id', classId)
-        .eq('status', 'active')
         .order('last_name');
-      setStudents(studentsData || []);
+      setStudents((studentsData || []).filter((s) => s.is_active !== false && s.status !== 'inactive'));
 
       // Load class notes
       const { data: notesData } = await supabase
