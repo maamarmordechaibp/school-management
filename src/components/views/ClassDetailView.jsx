@@ -34,6 +34,8 @@ const ClassDetailView = ({ role, currentUser }) => {
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [selectedGrade, setSelectedGrade] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [students, setStudents] = useState([]);
   const [classNotes, setClassNotes] = useState([]);
@@ -84,6 +86,12 @@ const ClassDetailView = ({ role, currentUser }) => {
         .eq('is_active', true)
         .order('name');
       setClasses((data || []).map(c => ({ ...c, student_count: c.students?.length || 0 })));
+
+      const { data: gradesData } = await supabase
+        .from('grades')
+        .select('*')
+        .order('grade_number');
+      setGrades(gradesData || []);
     } catch (error) {
       console.error('Error loading classes:', error);
     } finally {
@@ -247,23 +255,78 @@ const ClassDetailView = ({ role, currentUser }) => {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
   }
 
-  // Class selection screen
-  if (!selectedClass) {
+  // Grade selection screen (top level)
+  if (!selectedGrade) {
+    const gradeCards = grades.map(g => {
+      const gradeClasses = classes.filter(c => c.grade_id === g.id);
+      return {
+        ...g,
+        classCount: gradeClasses.length,
+        studentCount: gradeClasses.reduce((sum, c) => sum + (c.student_count || 0), 0),
+      };
+    });
     return (
       <div className="space-y-6" dir="rtl">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Classes - Detail View</h1>
-          <p className="text-slate-500">Open a class to see all students with all information</p>
+          <h1 className="text-2xl font-bold text-slate-800">כיתות / Grades</h1>
+          <p className="text-slate-500">Open a grade to see its classes</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classes.map(cls => (
+          {gradeCards.map(g => (
+            <Card key={g.id} className="cursor-pointer hover:shadow-lg transition-all hover:border-blue-200"
+              onClick={() => setSelectedGrade(g)}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <School className="h-5 w-5 text-blue-600" />{g.name}
+                  </h3>
+                  <ChevronRight className="h-5 w-5 text-slate-400 rtl:rotate-180" />
+                </div>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Classes:</span>
+                    <Badge variant="outline">{g.classCount}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Students:</span>
+                    <Badge variant="secondary">{g.studentCount}</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {gradeCards.length === 0 && (
+            <p className="text-slate-400 italic">No grades found.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Class selection screen
+  if (!selectedClass) {
+    const gradeClasses = classes.filter(c => c.grade_id === selectedGrade.id);
+    return (
+      <div className="space-y-6" dir="rtl">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setSelectedGrade(null)}>
+            <ArrowRight className="h-4 w-4 ml-2 rtl:rotate-180" /> Back to Grades
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">{selectedGrade.name}</h1>
+            <p className="text-slate-500">Open a class to see all its students</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {gradeClasses.map(cls => (
             <Card key={cls.id} className="cursor-pointer hover:shadow-lg transition-all hover:border-blue-200"
               onClick={() => setSelectedClass(cls)}>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xl font-bold text-slate-800">{cls.name}</h3>
-                  <ChevronRight className="h-5 w-5 text-slate-400" />
+                  <ChevronRight className="h-5 w-5 text-slate-400 rtl:rotate-180" />
                 </div>
                 <Badge variant="outline" className="mb-3">{cls.grade?.name}</Badge>
                 <div className="space-y-2 text-sm text-slate-600">
@@ -287,6 +350,9 @@ const ClassDetailView = ({ role, currentUser }) => {
               </CardContent>
             </Card>
           ))}
+          {gradeClasses.length === 0 && (
+            <p className="text-slate-400 italic">No classes in this grade yet.</p>
+          )}
         </div>
       </div>
     );

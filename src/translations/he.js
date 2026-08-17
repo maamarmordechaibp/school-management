@@ -26,6 +26,8 @@ export const hebrew = {
     pendingCalls: "שיחות ממתינות",
     upcomingMeetings: "פגישות קרובות",
     emergency: "דחוף! פגישות שעבר זמנן",
+    browseClasses: "פתח כיתות",
+    browseClassesDesc: "ראה כל כיתה ← פתח כיתה לצפייה בתלמידים ← פתח תלמיד לפרטים מלאים",
   },
 
   // Students
@@ -163,8 +165,8 @@ export const hebrew = {
     todos: "רשימת משימות",
     students: "תלמידים",
     grades: "ציונים",
-    classes: "כיתות",
-    "class-detail": "פרטי כיתה",
+    classes: "ניהול כיתות",
+    "class-detail": "כיתות",
     "report-cards": "תעודות",
     "weekly-report": "דו״ח שבועי (פרשה)",
     farhers: "פארהערן",

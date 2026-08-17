@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, Phone, Calendar, UserPlus, PhoneCall, CalendarPlus, Bell, ArrowRight } from 'lucide-react';
+import { Users, AlertCircle, Phone, Calendar, UserPlus, PhoneCall, CalendarPlus, Bell, ArrowRight, School, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -102,6 +102,24 @@ const OverviewView = ({ role = 'principal', onNavigate }) => {
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('overview.title')}</h2>
         <p className="text-muted-foreground mt-1">{t('overview.subtitle')}</p>
       </div>
+
+      {/* Open Classes shortcut */}
+      <button
+        type="button"
+        onClick={() => onNavigate?.('class-detail')}
+        className="w-full text-start bg-gradient-to-r from-primary to-indigo-600 text-white p-6 rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      >
+        <div className="flex items-center gap-4">
+          <div className="inline-flex p-3 rounded-2xl bg-white/20 flex-shrink-0">
+            <School size={36} strokeWidth={1.75} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-xl font-bold">{t('overview.browseClasses')}</h3>
+            <p className="text-white/85 text-sm mt-1">{t('overview.browseClassesDesc')}</p>
+          </div>
+          <ChevronRight size={28} className="flex-shrink-0 opacity-80 rtl:rotate-180" />
+        </div>
+      </button>
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">

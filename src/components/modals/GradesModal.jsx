@@ -28,6 +28,9 @@ const GRADE_CATEGORIES = [
   { value: 'behavior', label: 'Behavior', he: 'התנהגות' },
   { value: 'review', label: 'Review', he: 'חזרה' },
   { value: 'midos', label: 'Midos', he: 'מידות' },
+  { value: 'understanding', label: 'Understanding', he: 'הבנה' },
+  { value: 'bein_adam_lachaveiro', label: 'Bein Adam LaChaveiro', he: 'בין אדם לחבירו' },
+  { value: 'bein_adam_lamakom', label: 'Bein Adam LaMakom', he: 'בין אדם למקום' },
 ];
 
 const GradesModal = ({ isOpen, onClose, student }) => {

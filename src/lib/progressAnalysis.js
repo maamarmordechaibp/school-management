@@ -16,6 +16,9 @@ export const MARK_CATEGORIES = {
   behavior: { label: 'Behavior', he: 'הנהגות', color: '#ea580c' },
   review: { label: 'Review', he: 'חזרה', color: '#65a30d' },
   midos: { label: 'Midos', he: 'מידות', color: '#ca8a04' },
+  understanding: { label: 'Understanding', he: 'הבנה', color: '#0284c7' },
+  bein_adam_lachaveiro: { label: 'Bein Adam LaChaveiro', he: 'בין אדם לחבירו', color: '#c026d3' },
+  bein_adam_lamakom: { label: 'Bein Adam LaMakom', he: 'בין אדם למקום', color: '#9333ea' },
   weekly: { label: 'Weekly (Parsha)', he: 'שבועי', color: '#0891b2' },
   other: { label: 'Other', he: 'אנדערש', color: '#64748b' },
 };

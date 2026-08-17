@@ -7,8 +7,8 @@
 import { supabase } from '@/lib/customSupabaseClient';
 import { MARK_CATEGORIES } from '@/lib/progressAnalysis';
 
-// Built-in fallback list (the 7 grade categories) derived from the colour map.
-const BUILTIN_KEYS = ['learning', 'davening', 'test', 'farher', 'behavior', 'review', 'midos'];
+// Built-in fallback list (the grade categories) derived from the colour map.
+const BUILTIN_KEYS = ['learning', 'davening', 'test', 'farher', 'behavior', 'review', 'midos', 'understanding', 'bein_adam_lachaveiro', 'bein_adam_lamakom'];
 export const BUILTIN_MARK_CATEGORIES = BUILTIN_KEYS.map((key, i) => ({
   key,
   label: MARK_CATEGORIES[key]?.label || key,

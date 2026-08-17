@@ -36,6 +36,19 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const { toast } = useToast();
   const { profile: currentUser } = useAuth();
   const { notify, notifyElement } = useStudentNotify(currentUser);
+
+  // Role-based section visibility. Principals & admins see everything;
+  // every other role sees only the boxes their rules allow.
+  const role = currentUser?.role || 'teacher';
+  const isPrincipal = ['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(role);
+  const roleKey = role.startsWith('teacher') ? 'teacher' : role;
+  const ROLE_TABS = {
+    teacher: ['overview', 'timeline', 'progress', 'academic', 'communication', 'tasks', 'intervention', 'notes', 'late-arrivals', 'documents', 'special-ed'],
+    tutor: ['overview', 'timeline', 'progress', 'academic', 'tasks', 'notes', 'documents'],
+    special_ed: ['overview', 'timeline', 'progress', 'intervention', 'tasks', 'notes', 'documents', 'special-ed'],
+  };
+  const canSee = (tab) => isPrincipal || (ROLE_TABS[roleKey] || ROLE_TABS.teacher).includes(tab);
+
   const [student, setStudent] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -322,6 +335,26 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setIsAssessmentMode(false);
     setEditingAssessment(null);
     fetchStudentData(); // Refresh list
+  };
+
+  // Principal-only escalation flag ("needs elevation").
+  const toggleNeedsElevation = async () => {
+    const next = !student?.needs_elevation;
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({
+          needs_elevation: next,
+          needs_elevation_at: next ? new Date().toISOString() : null,
+          needs_elevation_by: next ? (currentUser?.id || null) : null,
+        })
+        .eq('id', studentId);
+      if (error) throw error;
+      setStudent((prev) => (prev ? { ...prev, needs_elevation: next } : prev));
+      toast({ title: next ? 'Flagged for elevation' : 'Elevation cleared' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not update elevation flag' });
+    }
   };
 
   const handleDeleteAssessment = async (assessmentId) => {
@@ -928,10 +961,25 @@ const StudentProfileView = ({ studentId, onBack }) => {
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-slate-800">{student.name}</h1>
             {student.workflow_stage && <WorkflowBadge stage={student.workflow_stage} />}
+            {student.needs_elevation && (
+              <Badge className="bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
+                <AlertTriangle size={12} /> Needs Elevation
+              </Badge>
+            )}
           </div>
           <p className="text-slate-500">Class: {student.class} • Teacher: {student.teacher}</p>
         </div>
         <div className="ml-auto flex gap-2">
+           {isPrincipal && (
+             <Button
+               onClick={toggleNeedsElevation}
+               variant="outline"
+               className={student.needs_elevation ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-amber-600 border-amber-200 hover:bg-amber-50'}
+             >
+               <AlertTriangle size={16} className="mr-2" />
+               {student.needs_elevation ? 'Clear Elevation' : 'Needs Elevation'}
+             </Button>
+           )}
            <Button onClick={printFullProfile} variant="outline">
              <FileText size={16} className="mr-2" /> Full Report
            </Button>
@@ -963,31 +1011,43 @@ const StudentProfileView = ({ studentId, onBack }) => {
             <TrendingUp size={14} />
             Progress{declineFlags.length ? ` (⚠${declineFlags.length})` : ''}
           </TabsTrigger>
+          {canSee('financial') && (
           <TabsTrigger value="financial" className="data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-2">
             <DollarSign size={16} />
             Financial
           </TabsTrigger>
+          )}
+          {canSee('workflow') && (
           <TabsTrigger value="workflow" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Workflow & Plans</TabsTrigger>
+          )}
           <TabsTrigger value="academic" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Academic</TabsTrigger>
+          {canSee('communication') && (
           <TabsTrigger value="communication" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Communication</TabsTrigger>
+          )}
           <TabsTrigger value="tasks" className="data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <ListTodo size={14} />
             Tasks & Reminders ({data.todos.length + data.reminders.length})
           </TabsTrigger>
+          {canSee('intervention') && (
           <TabsTrigger value="intervention" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none px-6">Assessments</TabsTrigger>
+          )}
           <TabsTrigger value="notes" className="data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <MessageSquare size={14} />
             Notes ({studentNotes.length})
           </TabsTrigger>
+          {canSee('late-arrivals') && (
           <TabsTrigger value="late-arrivals" className="data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <Clock size={14} />
             Late Arrivals ({lateArrivals.length})
           </TabsTrigger>
+          )}
+          {canSee('documents') && (
           <TabsTrigger value="documents" className="data-[state=active]:border-b-2 data-[state=active]:border-sky-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <FileText size={14} />
             Documents
           </TabsTrigger>
-          {specialEdData && (
+          )}
+          {specialEdData && canSee('special-ed') && (
             <TabsTrigger value="special-ed" className="data-[state=active]:border-b-2 data-[state=active]:border-pink-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
               <HeartIcon size={14} />
               Special Education

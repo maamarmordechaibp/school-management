@@ -26,6 +26,8 @@ export const english = {
     pendingCalls: "Calls Pending",
     upcomingMeetings: "Upcoming Meetings",
     emergency: "Urgent! Past due meetings",
+    browseClasses: "Open Classes",
+    browseClassesDesc: "See every class → open a class to view its students → open a student for full details",
   },
 
   // Students
@@ -163,8 +165,8 @@ export const english = {
     todos: "To-Do List",
     students: "Students",
     grades: "Grades",
-    classes: "Classes",
-    "class-detail": "Class Detail",
+    classes: "Manage Classes",
+    "class-detail": "Classes",
     "report-cards": "Report Cards",
     "weekly-report": "Weekly Report",
     farhers: "Farhers",

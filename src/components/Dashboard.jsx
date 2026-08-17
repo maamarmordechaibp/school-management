@@ -97,14 +97,14 @@ const Dashboard = () => {
   // All menu items
   const menuItems = [
     // Main Sections
+    { id: 'class-detail', label: 'Classes', icon: School, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Browse classes → students → details' },
     { id: 'overview', label: 'Dashboard', icon: Layout, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
     { id: 'todos', label: 'To-Do List', icon: CheckSquare, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
     
     // Students & Classes
     { id: 'students', label: 'Students', icon: Users, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
     { id: 'grades', label: 'Grades', icon: Layers, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
-    { id: 'classes', label: 'Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
-    { id: 'class-detail', label: 'Class Detail', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Class info with notes' },
+    { id: 'classes', label: 'Manage Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
     { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
     { id: 'weekly-report', label: 'Weekly Report', icon: CalendarRange, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Weekly status by Parsha' },
     { id: 'farhers', label: 'Farhers', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Oral tests (farher) log' },
