@@ -4,7 +4,7 @@ import {
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
   CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
   DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift, X,
-  ListTodo, Bell
+  ListTodo, Bell, ChevronRight, Bus, GraduationCap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -1190,6 +1190,105 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="mt-6 space-y-6">
+           {/* Role boxes — the sections from the program layout sheet.
+               Principals see all four; each other role sees only its own box. */}
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+             {(isPrincipal || roleKey === 'teacher') && (
+               <Card className="border-blue-100">
+                 <CardHeader className="pb-2">
+                   <CardTitle className="text-base flex items-center gap-2"><BookOpen size={18} className="text-blue-600" /> מלמד · Melamed</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-2 space-y-0.5 text-sm">
+                   {[
+                     ['לימודים · Learning', () => setActiveTab('academic')],
+                     ['ריפאָרטס · Assessments', () => setActiveTab('intervention')],
+                     ['הבנה · Understanding', () => setActiveTab('progress')],
+                     ['התנהגות · Behavior', () => setActiveTab('progress')],
+                     ['בין אדם לחבירו', () => setActiveTab('progress')],
+                     ['בין אדם למקום', () => setActiveTab('progress')],
+                   ].map(([label, fn]) => (
+                     <button key={label} onClick={fn} className="w-full text-start px-2 py-1.5 rounded-md hover:bg-blue-50 flex items-center justify-between group">
+                       <span>{label}</span><ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 rtl:rotate-180" />
+                     </button>
+                   ))}
+                 </CardContent>
+               </Card>
+             )}
+
+             {(isPrincipal || roleKey === 'special_ed') && (
+               <Card className="border-pink-100">
+                 <CardHeader className="pb-2">
+                   <CardTitle className="text-base flex items-center gap-2"><Heart size={18} className="text-pink-600" /> חינוך מיוחד · Special Ed</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-2 space-y-0.5 text-sm">
+                   <div className="px-2 py-1.5">
+                     {specialEdData ? (
+                       <Badge className="bg-pink-100 text-pink-700 border border-pink-200">{specialEdData.status || 'active'}</Badge>
+                     ) : (
+                       <span className="text-slate-400 text-xs">Not flagged</span>
+                     )}
+                   </div>
+                   {[
+                     ['ריפאָרטס · Reports', () => specialEdData ? setActiveTab('special-ed') : setReferralOpen(true)],
+                     ['דארף עוועליואציע · Needs evaluation', () => setReferralOpen(true)],
+                     ['דארף הילף · Needs help', () => specialEdData ? setActiveTab('special-ed') : setReferralOpen(true)],
+                     ['האט הילף · Has help', () => setActiveTab('special-ed')],
+                     ['סדר · Schedule', () => setActiveTab('special-ed')],
+                     ['Tasks', () => setActiveTab('tasks')],
+                     ['Notes', () => setActiveTab('notes')],
+                   ].map(([label, fn]) => (
+                     <button key={label} onClick={fn} className="w-full text-start px-2 py-1.5 rounded-md hover:bg-pink-50 flex items-center justify-between group">
+                       <span>{label}</span><ChevronRight size={14} className="text-slate-300 group-hover:text-pink-500 rtl:rotate-180" />
+                     </button>
+                   ))}
+                 </CardContent>
+               </Card>
+             )}
+
+             {isPrincipal && (
+               <Card className="border-amber-100">
+                 <CardHeader className="pb-2">
+                   <CardTitle className="text-base flex items-center gap-2"><GraduationCap size={18} className="text-amber-600" /> Assistant Principal</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-2 space-y-0.5 text-sm">
+                   {[
+                     ['זמנים · Times / Late', () => setActiveTab('late-arrivals')],
+                     ['Book inventory · ספרים', () => setActiveTab('financial')],
+                     ['ספרים געלט · Books $', () => setActiveTab('financial')],
+                     ['טריפ געלט · Trip $', () => setActiveTab('financial')],
+                     ['Documents', () => setActiveTab('documents')],
+                   ].map(([label, fn]) => (
+                     <button key={label} onClick={fn} className="w-full text-start px-2 py-1.5 rounded-md hover:bg-amber-50 flex items-center justify-between group">
+                       <span>{label}</span><ChevronRight size={14} className="text-slate-300 group-hover:text-amber-500 rtl:rotate-180" />
+                     </button>
+                   ))}
+                 </CardContent>
+               </Card>
+             )}
+
+             {isPrincipal && (
+               <Card className="border-indigo-100">
+                 <CardHeader className="pb-2">
+                   <CardTitle className="text-base flex items-center gap-2"><AlertTriangle size={18} className="text-indigo-600" /> Principal</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-2 space-y-0.5 text-sm">
+                   {[
+                     ['Report', () => printFullProfile()],
+                     ['Tasks', () => setActiveTab('tasks')],
+                     ['Phone call', () => setActiveTab('communication')],
+                     ['Notes', () => setActiveTab('notes')],
+                     ['Reminders', () => setActiveTab('tasks')],
+                     [student.needs_elevation ? 'Clear elevation' : 'Needs elevation', () => toggleNeedsElevation()],
+                   ].map(([label, fn]) => (
+                     <button key={label} onClick={fn} className="w-full text-start px-2 py-1.5 rounded-md hover:bg-indigo-50 flex items-center justify-between group">
+                       <span>{label}</span><ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 rtl:rotate-180" />
+                     </button>
+                   ))}
+                 </CardContent>
+               </Card>
+             )}
+           </div>
+
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Info Card */}
               <Card>
