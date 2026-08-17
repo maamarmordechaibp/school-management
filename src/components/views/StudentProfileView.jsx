@@ -1196,7 +1196,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
              {(isPrincipal || roleKey === 'teacher') && (
                <Card className="border-blue-100">
                  <CardHeader className="pb-2">
-                   <CardTitle className="text-base flex items-center gap-2"><BookOpen size={18} className="text-blue-600" /> מלמד · Melamed</CardTitle>
+                   <CardTitle className="text-base flex items-center justify-between gap-2">
+                     <span className="flex items-center gap-2"><BookOpen size={18} className="text-blue-600" /> מלמד · Melamed</span>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" title="Quick add assessment / report" onClick={() => setIsAssessmentMode(true)}><Plus size={16} /></Button>
+                   </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
                    {[
@@ -1218,7 +1221,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
              {(isPrincipal || roleKey === 'special_ed') && (
                <Card className="border-pink-100">
                  <CardHeader className="pb-2">
-                   <CardTitle className="text-base flex items-center gap-2"><Heart size={18} className="text-pink-600" /> חינוך מיוחד · Special Ed</CardTitle>
+                   <CardTitle className="text-base flex items-center justify-between gap-2">
+                     <span className="flex items-center gap-2"><Heart size={18} className="text-pink-600" /> חינוך מיוחד · Special Ed</span>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-pink-600" title="Quick add / refer to special ed" onClick={() => setReferralOpen(true)}><Plus size={16} /></Button>
+                   </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
                    <div className="px-2 py-1.5">
@@ -1248,7 +1254,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
              {isPrincipal && (
                <Card className="border-amber-100">
                  <CardHeader className="pb-2">
-                   <CardTitle className="text-base flex items-center gap-2"><GraduationCap size={18} className="text-amber-600" /> Assistant Principal</CardTitle>
+                   <CardTitle className="text-base flex items-center justify-between gap-2">
+                     <span className="flex items-center gap-2"><GraduationCap size={18} className="text-amber-600" /> Assistant Principal</span>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600" title="Quick add charge / payment" onClick={() => { setActiveTab('financial'); openTransactionForm('debit'); }}><Plus size={16} /></Button>
+                   </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
                    {[
@@ -1269,7 +1278,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
              {isPrincipal && (
                <Card className="border-indigo-100">
                  <CardHeader className="pb-2">
-                   <CardTitle className="text-base flex items-center gap-2"><AlertTriangle size={18} className="text-indigo-600" /> Principal</CardTitle>
+                   <CardTitle className="text-base flex items-center justify-between gap-2">
+                     <span className="flex items-center gap-2"><AlertTriangle size={18} className="text-indigo-600" /> Principal</span>
+                     <Button size="icon" variant="ghost" className="h-7 w-7 text-indigo-600" title="Quick add note" onClick={() => { setEditingNote(null); setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' }); setIsNoteModalOpen(true); }}><Plus size={16} /></Button>
+                   </CardTitle>
                  </CardHeader>
                  <CardContent className="p-2 space-y-0.5 text-sm">
                    {[
