@@ -86,6 +86,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [editingPlan, setEditingPlan] = useState(null);
   const [isGradesModalOpen, setIsGradesModalOpen] = useState(false);
   const [quickAddBox, setQuickAddBox] = useState(null); // which role box's quick-add menu is open
+  const [directAdd, setDirectAdd] = useState(null); // 'task' | 'call' | 'late' — inline add dialog
+  const [savingDirect, setSavingDirect] = useState(false);
+  const [callForm, setCallForm] = useState({ contact_person: '', phone_number: '', notes: '', follow_up_date: '' });
+  const [lateForm, setLateForm] = useState({ arrival_time: new Date().toTimeString().slice(0, 5), minutes_late: '', reason: '', notes: '' });
 
   // Student notes, special ed & late arrivals state
   const [studentNotes, setStudentNotes] = useState([]);
@@ -466,12 +470,59 @@ const StudentProfileView = ({ studentId, onBack }) => {
         recurrence_end_date: '',
         priority: 'normal'
       });
+      setDirectAdd(null);
       fetchStudentData();
     } catch (e) {
       console.error(e);
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
       setSavingQuickTask(false);
+    }
+  };
+
+  const saveCall = async () => {
+    setSavingDirect(true);
+    try {
+      const { error } = await supabase.from('call_logs').insert([{
+        student_id: studentId,
+        contact_person: callForm.contact_person || null,
+        phone_number: callForm.phone_number || null,
+        notes: callForm.notes || null,
+        follow_up_date: callForm.follow_up_date || null,
+        completed: false,
+      }]);
+      if (error) throw error;
+      toast({ title: 'Saved', description: 'Phone call logged' });
+      setCallForm({ contact_person: '', phone_number: '', notes: '', follow_up_date: '' });
+      setDirectAdd(null);
+      fetchStudentData();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setSavingDirect(false);
+    }
+  };
+
+  const saveLate = async () => {
+    setSavingDirect(true);
+    try {
+      const { error } = await supabase.from('late_arrivals').insert([{
+        student_id: studentId,
+        date: new Date().toISOString().split('T')[0],
+        arrival_time: lateForm.arrival_time || null,
+        minutes_late: lateForm.minutes_late ? parseInt(lateForm.minutes_late) : null,
+        reason: lateForm.reason || null,
+        notes: lateForm.notes || null,
+      }]);
+      if (error) throw error;
+      toast({ title: 'Saved', description: 'Late arrival recorded' });
+      setLateForm({ arrival_time: new Date().toTimeString().slice(0, 5), minutes_late: '', reason: '', notes: '' });
+      setDirectAdd(null);
+      fetchStudentData();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setSavingDirect(false);
     }
   };
 
@@ -959,6 +1010,10 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
     setIsNoteModalOpen(true);
   };
+  const openTask = (type) => {
+    setQuickTask((p) => ({ ...p, type, title: '', description: '', is_recurring: false, start_date: new Date().toISOString().split('T')[0] }));
+    setDirectAdd('task');
+  };
   const quickAddOptions = {
     melamed: {
       title: 'מלמד · Quick Add',
@@ -972,7 +1027,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       items: [
         { label: 'Refer / add evaluation', icon: Heart, fn: () => setReferralOpen(true) },
         { label: 'Add note', icon: MessageSquare, fn: openNewNote },
-        { label: 'Add task / reminder', icon: ListTodo, fn: () => setActiveTab('tasks') },
+        { label: 'Add task / reminder', icon: ListTodo, fn: () => openTask('todo') },
       ],
     },
     asst: {
@@ -980,15 +1035,15 @@ const StudentProfileView = ({ studentId, onBack }) => {
       items: [
         { label: 'Add charge (books / trip)', icon: Receipt, fn: () => { setActiveTab('financial'); openTransactionForm('debit'); } },
         { label: 'Add payment', icon: DollarSign, fn: () => { setActiveTab('financial'); openTransactionForm('credit'); } },
-        { label: 'Late arrival / times', icon: Clock, fn: () => setActiveTab('late-arrivals') },
+        { label: 'Add late arrival', icon: Clock, fn: () => setDirectAdd('late') },
       ],
     },
     principal: {
       title: 'Principal · Quick Add',
       items: [
         { label: 'Add note', icon: MessageSquare, fn: openNewNote },
-        { label: 'Add task / reminder', icon: ListTodo, fn: () => setActiveTab('tasks') },
-        { label: 'Add phone call', icon: Phone, fn: () => setActiveTab('communication') },
+        { label: 'Add task / reminder', icon: ListTodo, fn: () => openTask('todo') },
+        { label: 'Add phone call', icon: Phone, fn: () => setDirectAdd('call') },
         { label: 'Create plan', icon: FileText, fn: () => setIsPlanModalOpen(true) },
         { label: student.needs_elevation ? 'Clear elevation' : 'Flag needs elevation', icon: AlertTriangle, fn: toggleNeedsElevation },
       ],
@@ -2894,6 +2949,102 @@ const StudentProfileView = ({ studentId, onBack }) => {
               );
             })}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline direct-add forms (add here instead of jumping to a tab) */}
+      <Dialog open={!!directAdd} onOpenChange={(o) => !o && setDirectAdd(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {directAdd === 'call' ? 'Add phone call' : directAdd === 'late' ? 'Add late arrival' : 'Add task / reminder'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {directAdd === 'task' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Type</Label>
+                  <Select value={quickTask.type} onValueChange={(v) => setQuickTask({ ...quickTask, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">To-Do</SelectItem>
+                      <SelectItem value="reminder">Reminder</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{quickTask.type === 'reminder' ? 'Reminder date' : 'Due date'}</Label>
+                  <Input type="date" value={quickTask.start_date} onChange={(e) => setQuickTask({ ...quickTask, start_date: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label>Title *</Label>
+                <Input value={quickTask.title} onChange={(e) => setQuickTask({ ...quickTask, title: e.target.value })} placeholder="e.g. Call parents" />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Textarea value={quickTask.description} onChange={(e) => setQuickTask({ ...quickTask, description: e.target.value })} rows={3} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDirectAdd(null)}>Cancel</Button>
+                <Button onClick={handleSaveQuickTask} disabled={savingQuickTask}>{savingQuickTask ? 'Saving…' : 'Save'}</Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {directAdd === 'call' && (
+            <div className="space-y-3">
+              <div>
+                <Label>Contact person</Label>
+                <Input value={callForm.contact_person} onChange={(e) => setCallForm({ ...callForm, contact_person: e.target.value })} placeholder="e.g. Father" />
+              </div>
+              <div>
+                <Label>Phone number</Label>
+                <Input value={callForm.phone_number} onChange={(e) => setCallForm({ ...callForm, phone_number: e.target.value })} />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Textarea value={callForm.notes} onChange={(e) => setCallForm({ ...callForm, notes: e.target.value })} rows={3} placeholder="What was discussed…" />
+              </div>
+              <div>
+                <Label>Follow-up date (optional)</Label>
+                <Input type="date" value={callForm.follow_up_date} onChange={(e) => setCallForm({ ...callForm, follow_up_date: e.target.value })} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDirectAdd(null)}>Cancel</Button>
+                <Button onClick={saveCall} disabled={savingDirect}>{savingDirect ? 'Saving…' : 'Save call'}</Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {directAdd === 'late' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Arrival time</Label>
+                  <Input type="time" value={lateForm.arrival_time} onChange={(e) => setLateForm({ ...lateForm, arrival_time: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Minutes late</Label>
+                  <Input type="number" value={lateForm.minutes_late} onChange={(e) => setLateForm({ ...lateForm, minutes_late: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <Label>Reason</Label>
+                <Input value={lateForm.reason} onChange={(e) => setLateForm({ ...lateForm, reason: e.target.value })} />
+              </div>
+              <div>
+                <Label>Notes</Label>
+                <Textarea value={lateForm.notes} onChange={(e) => setLateForm({ ...lateForm, notes: e.target.value })} rows={2} />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDirectAdd(null)}>Cancel</Button>
+                <Button onClick={saveLate} disabled={savingDirect}>{savingDirect ? 'Saving…' : 'Save'}</Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
