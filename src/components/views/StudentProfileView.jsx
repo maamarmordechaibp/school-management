@@ -354,7 +354,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       try {
         const { data: apptData } = await supabase
           .from('tutoring_schedule')
-          .select('*, staff:special_ed_staff(name, hebrew_name, role)')
+          .select('*')
           .eq('student_id', studentId)
           .eq('is_active', true);
         setTherapyAppts(apptData || []);

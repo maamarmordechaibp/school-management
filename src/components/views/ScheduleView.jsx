@@ -123,7 +123,7 @@ const ScheduleView = ({ currentUser }) => {
     try {
       let q = supabase
         .from('tutoring_schedule')
-        .select('*, student:students(id, name, hebrew_name, first_name, last_name, class), staff:special_ed_staff(id, name, hebrew_name, role)')
+        .select('*, student:students(id, name, hebrew_name, first_name, last_name, class)')
         .eq('is_active', true);
       q = mode === 'student' ? q.eq('student_id', filterId) : q.eq('staff_id', filterId);
       const { data, error } = await q;
