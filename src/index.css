@@ -11,46 +11,46 @@
 
 @layer base {
   :root {
-    /* Surfaces — translucent by design (glassmorphism) */
-    --background: 240 60% 99%;
-    --foreground: 236 40% 14%;
+    /* Surfaces — clean, cool, professional */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 236 40% 14%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 236 40% 14%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Brand — premium violet-indigo */
-    --primary: 255 88% 62%;
+    /* Brand — confident corporate indigo-blue */
+    --primary: 222 68% 48%;
     --primary-foreground: 0 0% 100%;
 
-    /* Neutrals */
-    --secondary: 240 30% 96%;
-    --secondary-foreground: 236 40% 14%;
-    --muted: 240 30% 96%;
-    --muted-foreground: 235 14% 46%;
-    --accent: 255 100% 97%;
-    --accent-foreground: 255 80% 52%;
+    /* Neutrals — cool slate */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 95% 95%;
+    --accent-foreground: 222 68% 45%;
 
-    /* Feedback */
-    --destructive: 350 80% 55%;
+    /* Feedback — muted, professional */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success: 158 64% 40%;
+    --success: 142 60% 38%;
     --success-foreground: 0 0% 100%;
-    --warning: 33 95% 52%;
+    --warning: 38 92% 48%;
     --warning-foreground: 0 0% 100%;
 
     /* Lines & inputs */
-    --border: 240 24% 90%;
-    --input: 240 24% 90%;
-    --ring: 255 88% 62%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 68% 48%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    /* Glass gradient stops */
-    --grad-1: 255 88% 62%;   /* violet */
-    --grad-2: 224 90% 60%;   /* indigo-blue */
-    --grad-3: 190 90% 55%;   /* sky/cyan */
-    --grad-4: 322 85% 62%;   /* pink */
+    /* Gradient stops — cohesive cool blue → indigo */
+    --grad-1: 222 68% 48%;   /* blue */
+    --grad-2: 243 52% 54%;   /* indigo */
+    --grad-3: 199 78% 48%;   /* sky/cyan */
+    --grad-4: 262 48% 55%;   /* muted violet */
   }
 }
 
@@ -121,13 +121,13 @@
 
   /* ===== Elevation — soft, layered, slightly tinted shadows ===== */
   .shadow-card {
-    box-shadow: 0 1px 2px -1px rgb(60 40 120 / 0.10), 0 6px 20px -8px rgb(60 40 120 / 0.14);
+    box-shadow: 0 1px 2px -1px rgb(15 23 42 / 0.08), 0 6px 20px -8px rgb(15 23 42 / 0.12);
   }
   .shadow-card-hover {
-    box-shadow: 0 12px 34px -12px rgb(76 46 150 / 0.30), 0 4px 10px -4px rgb(76 46 150 / 0.14);
+    box-shadow: 0 12px 34px -12px rgb(30 41 59 / 0.24), 0 4px 10px -4px rgb(30 41 59 / 0.12);
   }
   .shadow-float {
-    box-shadow: 0 28px 60px -18px rgb(60 36 130 / 0.36), 0 10px 24px -12px rgb(60 36 130 / 0.20);
+    box-shadow: 0 28px 60px -18px rgb(15 23 42 / 0.30), 0 10px 24px -12px rgb(15 23 42 / 0.18);
   }
   /* Colored brand glow — used on primary CTAs / hero elements */
   .shadow-glow {
@@ -144,14 +144,14 @@
   }
   /* Card-weight glass — a touch more opaque for dense content readability */
   .glass-card {
-    background: linear-gradient(150deg, hsl(0 0% 100% / 0.82), hsl(255 60% 99% / 0.62));
+    background: linear-gradient(150deg, hsl(0 0% 100% / 0.82), hsl(214 40% 99% / 0.62));
     backdrop-filter: saturate(180%) blur(18px);
     -webkit-backdrop-filter: saturate(180%) blur(18px);
-    border: 1px solid hsl(255 60% 100% / 0.7);
+    border: 1px solid hsl(214 40% 100% / 0.7);
   }
   /* Sidebar / rail glass — cooler, more solid */
   .glass-rail {
-    background: linear-gradient(180deg, hsl(0 0% 100% / 0.82), hsl(240 50% 99% / 0.72));
+    background: linear-gradient(180deg, hsl(0 0% 100% / 0.82), hsl(210 40% 99% / 0.72));
     backdrop-filter: saturate(180%) blur(22px);
     -webkit-backdrop-filter: saturate(180%) blur(22px);
   }
@@ -183,7 +183,7 @@
       radial-gradient(44rem 40rem at 108% 40%, hsl(var(--grad-4) / 0.16), transparent 58%),
       radial-gradient(52rem 44rem at -12% 8%, hsl(var(--grad-2) / 0.18), transparent 60%),
       radial-gradient(46rem 42rem at 12% 112%, hsl(var(--grad-3) / 0.16), transparent 58%),
-      linear-gradient(180deg, hsl(240 60% 99%), hsl(240 46% 97%));
+      linear-gradient(180deg, hsl(210 40% 99%), hsl(214 32% 97%));
     background-attachment: fixed;
   }
 }
