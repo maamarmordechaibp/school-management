@@ -86,22 +86,29 @@ const ScheduleView = ({ currentUser }) => {
   // ---------- load pickers ----------
   useEffect(() => {
     (async () => {
-      const [st, sed, sm, au] = await Promise.all([
+      // Which staff-directory positions count as "special education".
+      const { data: posData } = await supabase
+        .from('staff_positions')
+        .select('value')
+        .eq('is_special_ed', true);
+      const specialEdPositions = (posData || []).map((p) => p.value);
+
+      const [st, sed, sm] = await Promise.all([
         supabase.from('students').select('id, name, hebrew_name, first_name, last_name, class').order('name'),
         supabase.from('special_ed_staff').select('id, name, hebrew_name, role').eq('is_active', true),
-        supabase.from('staff_members').select('id, full_name, hebrew_name, position, is_active').eq('is_active', true),
-        supabase.from('app_users').select('id, name, first_name, last_name, role, is_active').eq('role', 'tutor').eq('is_active', true),
+        specialEdPositions.length
+          ? supabase.from('staff_members').select('id, full_name, hebrew_name, position, is_active').eq('is_active', true).in('position', specialEdPositions)
+          : Promise.resolve({ data: [] }),
       ]);
       setStudents(st.data || []);
 
-      // Merge tutors/mentors from all three sources into one list.
+      // Only special-education people: the special_ed_staff directory plus any
+      // staff member whose position is flagged special-ed.
       const merged = [];
       (sed.data || []).forEach((s) =>
         merged.push({ key: `special_ed:${s.id}`, id: s.id, source: 'special_ed', name: s.hebrew_name || s.name, role: s.role || 'special ed' }));
       (sm.data || []).forEach((s) =>
-        merged.push({ key: `staff_member:${s.id}`, id: s.id, source: 'staff_member', name: s.hebrew_name || s.full_name, role: s.position || 'staff' }));
-      (au.data || []).forEach((s) =>
-        merged.push({ key: `app_user:${s.id}`, id: s.id, source: 'app_user', name: s.name || [s.first_name, s.last_name].filter(Boolean).join(' '), role: 'tutor' }));
+        merged.push({ key: `staff_member:${s.id}`, id: s.id, source: 'staff_member', name: s.hebrew_name || s.full_name, role: s.position || 'special ed' }));
       merged.sort((a, b) => String(a.name).localeCompare(String(b.name)));
       setStaff(merged);
     })();

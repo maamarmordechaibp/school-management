@@ -67,6 +67,9 @@ const StaffView = ({ role, currentUser }) => {
   });
   
   const [saving, setSaving] = useState(false);
+  const [positions, setPositions] = useState(POSITION_OPTIONS.filter(p => p.value !== 'all'));
+  const [catForm, setCatForm] = useState(null); // inline add-category form
+  const [savingCat, setSavingCat] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginStaff, setLoginStaff] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: '', password: '', role: 'teacher' });
@@ -87,7 +90,43 @@ const StaffView = ({ role, currentUser }) => {
 
   useEffect(() => {
     fetchStaff();
+    fetchPositions();
   }, []);
+
+  const fetchPositions = async () => {
+    try {
+      const { data } = await supabase
+        .from('staff_positions')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (data && data.length) setPositions(data);
+    } catch (e) { /* staff_positions optional */ }
+  };
+
+  const handleAddCategory = async () => {
+    const label = (catForm?.label || '').trim();
+    if (!label) return;
+    setSavingCat(true);
+    try {
+      const { error } = await supabase.from('staff_positions').insert({
+        value: label,
+        label,
+        hebrew_label: catForm.hebrew_label || null,
+        category: catForm.is_special_ed ? 'special_ed' : 'teaching',
+        is_special_ed: !!catForm.is_special_ed,
+        sort_order: 200,
+      });
+      if (error) throw error;
+      await fetchPositions();
+      setFormData(f => ({ ...f, position: label }));
+      setCatForm(null);
+      toast({ title: 'Category added', description: catForm.is_special_ed ? 'Will appear in the scheduler.' : undefined });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    }
+    setSavingCat(false);
+  };
 
   const fetchStaff = async () => {
     try {
@@ -321,9 +360,9 @@ const StaffView = ({ role, currentUser }) => {
   };
 
   const getPositionBadge = (position) => {
-    const option = POSITION_OPTIONS.find(p => p.value === position);
+    const option = positions.find(p => p.value === position) || POSITION_OPTIONS.find(p => p.value === position);
     if (!option) return <Badge variant="outline">{position}</Badge>;
-    return <Badge className={option.color}>{option.label}</Badge>;
+    return <Badge className={option.color || 'bg-slate-100 text-slate-700'}>{option.label}</Badge>;
   };
 
   // Filter staff based on tab and search
@@ -636,17 +675,37 @@ const StaffView = ({ role, currentUser }) => {
             {/* Position & Title */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Position *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Position *</Label>
+                  <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={() => setCatForm({ label: '', hebrew_label: '', is_special_ed: true })}>+ Add category</button>
+                </div>
                 <Select value={formData.position} onValueChange={(v) => setFormData({ ...formData, position: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {POSITION_OPTIONS.filter(p => p.value !== 'all').map(pos => (
-                      <SelectItem key={pos.value} value={pos.value}>{pos.label}</SelectItem>
+                    {positions.map(pos => (
+                      <SelectItem key={pos.value} value={pos.value}>{pos.label}{pos.is_special_ed ? ' · special ed' : ''}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {catForm && (
+                  <div className="mt-2 p-2 border rounded-md space-y-2 bg-slate-50">
+                    <Input
+                      placeholder="New category (e.g. Reading Specialist)"
+                      value={catForm.label}
+                      onChange={(e) => setCatForm({ ...catForm, label: e.target.value })}
+                    />
+                    <label className="flex items-center gap-2 text-xs text-slate-600">
+                      <input type="checkbox" checked={catForm.is_special_ed} onChange={(e) => setCatForm({ ...catForm, is_special_ed: e.target.checked })} />
+                      Special education (show in appointment scheduler)
+                    </label>
+                    <div className="flex gap-2 justify-end">
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setCatForm(null)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={handleAddCategory} disabled={savingCat}>Add</Button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <Label>Title</Label>
