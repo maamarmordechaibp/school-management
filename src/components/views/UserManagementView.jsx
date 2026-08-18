@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { UserPlus, Shield, Trash2, Mail, User, CheckCircle, XCircle, Loader2, KeyRound, Edit, Search, Settings2, GripVertical, Plus, X, Lock, Unlock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { logActivity } from '@/lib/auditService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const ROLE_OPTIONS = [
@@ -259,6 +260,14 @@ const UserManagementView = () => {
         .eq('id', editingUser.id);
       
       if (permErr) console.error('Could not save custom_permissions:', permErr);
+
+      logActivity({
+        action: 'Permission changed',
+        details: `${editingUser.name || editingUser.email} → role: ${editingUser.role}`,
+        entityType: 'permission',
+        entityId: editingUser.id,
+        actor: currentUser,
+      });
 
       toast({ title: "User Updated", description: `${editingUser.name || editingUser.email}'s role and permissions updated.` });
       setIsEditRoleOpen(false);

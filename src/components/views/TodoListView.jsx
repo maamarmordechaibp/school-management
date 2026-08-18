@@ -13,11 +13,14 @@ import {
   Plus, CheckCircle2, Circle, Clock, Loader2, Trash2, Search, 
   AlertCircle, CalendarDays, User, Filter, ChevronDown, ChevronUp, 
   Mail, CheckSquare, ListTodo, ArrowUp, ArrowRight, ArrowDown,
-  Sun, Play, ExternalLink, Star, StarOff, Eye, RotateCcw, Repeat
+  Sun, Play, ExternalLink, Star, StarOff, Eye, RotateCcw, Repeat, MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
 import { sendEmail } from '@/lib/emailService';
+import { createNotification } from '@/lib/notificationService';
+import { logTaskActivity } from '@/lib/taskActivityService';
+import TaskDetailModal from '@/components/modals/TaskDetailModal';
 import StudentProfileModal from '@/components/modals/StudentProfileModal';
 import StudentPicker from '@/components/ui/student-picker';
 
@@ -74,6 +77,11 @@ const TodoListView = ({ role, currentUser }) => {
   // Student profile modal (for click-through)
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [isStudentProfileOpen, setIsStudentProfileOpen] = useState(false);
+
+  // Task detail (comments + history)
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+  const openTaskDetail = (todo) => { setSelectedTask(todo); setIsTaskDetailOpen(true); };
 
   // Today tracking (stored in localStorage per user per day)
   const todayKey = `todo_today_${currentUser?.id}_${new Date().toISOString().split('T')[0]}`;
@@ -193,6 +201,21 @@ const TodoListView = ({ role, currentUser }) => {
     try {
       const assigneeId = todo.assigned_to;
       if (!assigneeId || assigneeId === currentUser?.id) return;
+
+      // In-app notification (complements the email; best-effort).
+      createNotification({
+        userId: assigneeId,
+        title: `New task: ${todo.title}`,
+        body: [todo.student_name ? `Student: ${todo.student_name}` : null,
+               todo.due_date ? `Due: ${todo.due_date}` : null].filter(Boolean).join(' • '),
+        type: 'task_assigned',
+        priority: todo.priority === 'high' ? 'high' : 'normal',
+        linkType: 'todos',
+        linkId: todo.id || null,
+        studentId: todo.student_id || null,
+        createdBy: currentUser?.id || null,
+      });
+
       const assignee = users.find(u => u.id === assigneeId);
       if (!assignee?.email) return;
       const assignerName = currentUser?.name || currentUser?.email || 'A staff member';
@@ -254,7 +277,9 @@ const TodoListView = ({ role, currentUser }) => {
         setIsModalOpen(false);
         fetchTodos();
         promptTaskNotification({ ...payload, id: editingTodo.id }, 'updated');
+        logTaskActivity(editingTodo.id, 'edited', payload.title, currentUser);
         if (editingTodo.assigned_to !== payload.assigned_to) {
+          logTaskActivity(editingTodo.id, 'assigned', getUserName(payload.assigned_to), currentUser);
           emailAssignee({ ...payload, id: editingTodo.id });
         }
       } else {
@@ -268,6 +293,7 @@ const TodoListView = ({ role, currentUser }) => {
         setIsModalOpen(false);
         fetchTodos();
         promptTaskNotification(savedTodo, 'created');
+        logTaskActivity(savedTodo.id, 'created', savedTodo.title, currentUser);
         emailAssignee(savedTodo);
       }
     } catch (error) {
@@ -311,6 +337,7 @@ const TodoListView = ({ role, currentUser }) => {
       const { error } = await supabase.from('todos').update(updatePayload).eq('id', todo.id);
       if (error) throw error;
       setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, ...updatePayload } : t));
+      logTaskActivity(todo.id, newStatus === 'completed' ? 'completed' : 'status', newStatus, currentUser);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
     }
@@ -559,6 +586,11 @@ const TodoListView = ({ role, currentUser }) => {
           {/* Edit */}
           <Button variant="ghost" size="sm" onClick={() => openEdit(todo)} title="Edit" className="opacity-0 group-hover:opacity-100">
             <ListTodo className="h-4 w-4 text-blue-500" />
+          </Button>
+
+          {/* Comments & history */}
+          <Button variant="ghost" size="sm" onClick={() => openTaskDetail(todo)} title="Comments & history" className="opacity-0 group-hover:opacity-100">
+            <MessageSquare className="h-4 w-4 text-slate-500" />
           </Button>
 
           {/* Delete */}
@@ -1073,6 +1105,14 @@ const TodoListView = ({ role, currentUser }) => {
           studentId={selectedStudentId}
         />
       )}
+
+      {/* Task detail — comments & history */}
+      <TaskDetailModal
+        todo={selectedTask}
+        currentUser={currentUser}
+        open={isTaskDetailOpen}
+        onOpenChange={(o) => { setIsTaskDetailOpen(o); if (!o) setSelectedTask(null); }}
+      />
     </div>
   );
 };

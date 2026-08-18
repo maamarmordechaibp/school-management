@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Save, School, Globe, Calendar, Palette, Bell, Tags, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Save, School, Globe, Calendar, Palette, Bell, Tags, Plus, Trash2, Tag as TagIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { NOTIFY_GROUPS, loadNotifyGroupSettings, saveNotifyGroupSettings } from '@/lib/notifyRecipients';
+import TagManager from '@/components/tags/TagManager';
 
 const SettingsView = () => {
   const [loading, setLoading] = useState(true);
@@ -235,6 +236,9 @@ const SettingsView = () => {
           </TabsTrigger>
           <TabsTrigger value="tracking" className="flex items-center gap-2">
             <Tags className="w-4 h-4" /> Tracking
+          </TabsTrigger>
+          <TabsTrigger value="tags" className="flex items-center gap-2">
+            <TagIcon className="w-4 h-4" /> Tags
           </TabsTrigger>
         </TabsList>
         <TabsContent value="general">
@@ -492,6 +496,21 @@ const SettingsView = () => {
                 </div>
                 <Button onClick={addCategory}><Plus className="me-2 h-4 w-4" /> Add</Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tags">
+          <Card>
+            <CardHeader>
+              <CardTitle>Student Tags</CardTitle>
+              <CardDescription>
+                Create and manage labels for students (e.g. “Needs Follow-Up”, “At Risk”).
+                Assign them from any student profile and filter the student list by tag.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TagManager />
             </CardContent>
           </Card>
         </TabsContent>

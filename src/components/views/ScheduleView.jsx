@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, User, GraduationCap,
-  Plus, Trash2, Clock, MapPin, AlertTriangle, RefreshCw, Printer,
+  Plus, Trash2, Clock, MapPin, AlertTriangle, RefreshCw, Printer, CheckCircle2, Ban,
 } from 'lucide-react';
 
 // ---------- config ----------
@@ -180,6 +180,8 @@ const ScheduleView = ({ currentUser }) => {
         recurrence: 'weekly', // 'weekly' | 'once'
         appointment_date: isoDate(date),
         notes: '',
+        status: 'scheduled',
+        completion_notes: '',
       },
     });
   };
@@ -199,6 +201,8 @@ const ScheduleView = ({ currentUser }) => {
         recurrence: a.appointment_date ? 'once' : 'weekly',
         appointment_date: a.appointment_date ? a.appointment_date.slice(0, 10) : isoDate(new Date()),
         notes: a.notes || '',
+        status: a.status || 'scheduled',
+        completion_notes: a.completion_notes || a.cancel_reason || '',
       },
     });
   };
@@ -226,6 +230,10 @@ const ScheduleView = ({ currentUser }) => {
       day_of_week: once ? null : Number(f.day_of_week),
       appointment_date: once ? f.appointment_date : null,
       notes: f.notes || null,
+      status: f.status || 'scheduled',
+      completed_at: f.status === 'completed' ? (dialog.editing?.completed_at || new Date().toISOString()) : null,
+      completion_notes: f.status === 'completed' ? (f.completion_notes || null) : null,
+      cancel_reason: (f.status === 'cancelled' || f.status === 'no_show') ? (f.completion_notes || null) : null,
       is_active: true,
     };
     try {
@@ -408,16 +416,20 @@ const ScheduleView = ({ currentUser }) => {
                           const top = ((s - DAY_START) / SLOT_MIN) * ROW_H;
                           const height = Math.max(((a.duration_minutes || 30) / SLOT_MIN) * ROW_H - 2, 16);
                           const other = mode === 'student' ? tutorLabelOf(a) : studentName(a.student);
+                          const dimmed = a.status === 'cancelled' || a.status === 'no_show';
                           return (
                             <div
                               key={a.id}
                               onClick={(e) => { e.stopPropagation(); openEdit(a); }}
-                              className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 text-white text-[10px] overflow-hidden cursor-pointer shadow-sm ${colorFor(a)} ${a._conflict ? 'ring-2 ring-red-500' : ''}`}
+                              className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 text-white text-[10px] overflow-hidden cursor-pointer shadow-sm ${colorFor(a)} ${a._conflict ? 'ring-2 ring-red-500' : ''} ${dimmed ? 'opacity-50' : ''}`}
                               style={{ top, height }}
-                              title={`${other} · ${fmtTime(s)}–${fmtTime(s + (a.duration_minutes || 30))}${a.subject ? ` · ${a.subject}` : ''}`}
+                              title={`${other} · ${fmtTime(s)}–${fmtTime(s + (a.duration_minutes || 30))}${a.subject ? ` · ${a.subject}` : ''}${a.status && a.status !== 'scheduled' ? ` · ${a.status}` : ''}`}
                             >
-                              <div className="font-semibold truncate flex items-center gap-0.5">
-                                {a._conflict && <AlertTriangle size={9} />}{other}
+                              <div className={`font-semibold truncate flex items-center gap-0.5 ${dimmed ? 'line-through' : ''}`}>
+                                {a._conflict && <AlertTriangle size={9} />}
+                                {a.status === 'completed' && <CheckCircle2 size={9} />}
+                                {dimmed && <Ban size={9} />}
+                                {other}
                               </div>
                               <div className="opacity-90 truncate">{fmtTime(s)}{a.subject ? ` · ${a.subject}` : ''}</div>
                             </div>
@@ -537,6 +549,30 @@ const ScheduleView = ({ currentUser }) => {
               <div>
                 <Label>Notes</Label>
                 <Textarea rows={2} value={dialog.form.notes} onChange={(e) => setForm({ notes: e.target.value })} />
+              </div>
+
+              {/* status lifecycle */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Status</Label>
+                  <Select value={dialog.form.status} onValueChange={(v) => setForm({ status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="no_show">No-show</SelectItem>
+                      <SelectItem value="rescheduled">Rescheduled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(dialog.form.status === 'completed' || dialog.form.status === 'cancelled' || dialog.form.status === 'no_show') && (
+                  <div>
+                    <Label>{dialog.form.status === 'completed' ? 'Completion notes' : 'Reason'}</Label>
+                    <Input value={dialog.form.completion_notes} onChange={(e) => setForm({ completion_notes: e.target.value })} placeholder={dialog.form.status === 'completed' ? 'What was covered' : 'Why cancelled / missed'} />
+                  </div>
+                )}
               </div>
             </div>
           )}

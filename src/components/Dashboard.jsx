@@ -9,6 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { SCHOOL_NAME_YI, SCHOOL_SUBTITLE_YI, SCHOOL_LOGO_URL } from '@/lib/schoolConfig';
 import GlobalSearch from '@/components/GlobalSearch';
 import LanguageToggle from '@/components/LanguageToggle';
+import NotificationBell from '@/components/NotificationBell';
 import Footer from '@/components/Footer';
 
 // Views
@@ -50,6 +51,7 @@ import WeeklyReportView from '@/components/views/WeeklyReportView';
 import FarhersView from '@/components/views/FarhersView';
 import PointsView from '@/components/views/PointsView';
 import ScheduleView from '@/components/views/ScheduleView';
+import StaffWorkloadView from '@/components/views/StaffWorkloadView';
 
 const Dashboard = () => {
   const { t, isRTL, dir } = useLanguage();
@@ -116,6 +118,7 @@ const Dashboard = () => {
     { id: 'issues', label: 'Issues', icon: AlertTriangle, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
     { id: 'calls', label: 'Phone Calls', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
     { id: 'meetings', label: 'Meetings', icon: Calendar, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
+    { id: 'calendar', label: 'Calendar', icon: CalendarRange, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Unified calendar — meetings, therapy & follow-ups (day/week/month)' },
     { id: 'announcements', label: 'Announcements', icon: Megaphone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
     { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
     { id: 'phone-system', label: 'Phone System', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Extensions, IVR & voicemail' },
@@ -123,6 +126,7 @@ const Dashboard = () => {
     
     // Staff (admin only)
     { id: 'staff', label: 'Staff Directory', icon: Contact, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
+    { id: 'staff-workload', label: 'Staff Workload', icon: TrendingUp, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Open work per staff member' },
     { id: 'users', label: 'User Management', icon: Shield, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
     
     // Special Ed & Assistant Principal
@@ -155,10 +159,11 @@ const Dashboard = () => {
       case 'students': return <StudentsView {...viewProps} />;
       case 'issues': return <IssuesView {...viewProps} />;
       case 'staff': return <StaffView {...viewProps} />;
+      case 'staff-workload': return <StaffWorkloadView {...viewProps} />;
       case 'users': return <UserManagementView {...viewProps} />;
       case 'calls': return <CallLogsView {...viewProps} />;
       case 'meetings': return <MeetingsView {...viewProps} />;
-      case 'calendar': return <MeetingsView {...viewProps} />;
+      case 'calendar': return <CalendarView {...viewProps} />;
       case 'books': return <BooksView {...viewProps} />;
       case 'fees': return <FeesView {...viewProps} />;
       case 'payments': return <PaymentsView {...viewProps} />;
@@ -364,6 +369,7 @@ const Dashboard = () => {
 
           <div className="flex items-center gap-3 flex-shrink-0">
             <GlobalSearch />
+            <NotificationBell onNavigate={setActiveView} />
             <LanguageToggle className="hidden sm:inline-flex" />
             <div className="hidden md:flex flex-col items-end ps-3 border-s border-slate-200">
               <p className="text-sm font-semibold text-slate-700">

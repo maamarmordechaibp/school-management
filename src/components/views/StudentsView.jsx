@@ -11,6 +11,8 @@ import ImportStudentsModal from '@/components/modals/ImportStudentsModal';
 import StudentProfileView from '@/components/views/StudentProfileView';
 import FilterBar from '@/components/FilterBar';
 import ExportButton from '@/components/ExportButton';
+import TagBadge from '@/components/tags/TagBadge';
+import { fetchTags, fetchTagsForStudents } from '@/lib/tagService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -84,11 +86,13 @@ const StudentsView = ({ role, currentUser }) => {
     class_id: 'all',
     grade_id: 'all',
     hasOpenIssues: 'all',
-    status: 'all'
+    status: 'all',
+    tag_id: 'all'
   });
 
   const [classes, setClasses] = useState([]);
   const [grades, setGrades] = useState([]);
+  const [allTags, setAllTags] = useState([]);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -148,6 +152,8 @@ const StudentsView = ({ role, currentUser }) => {
         console.log('Loaded grades:', gradesData?.length);
         setGrades(gradesData || []);
       }
+
+      setAllTags(await fetchTags({ activeOnly: true }));
     } catch (error) {
       console.error('Error loading filters:', error);
     }
@@ -301,7 +307,9 @@ const StudentsView = ({ role, currentUser }) => {
           agg_special_ed_status: a.special_ed_status || null,
         };
       });
-      setStudents(studentsWithIssues);
+      const ids = studentsWithIssues.map((s) => s.id);
+      const tagsByStudent = await fetchTagsForStudents(ids);
+      setStudents(studentsWithIssues.map((s) => ({ ...s, tags: tagsByStudent[s.id] || [] })));
 
     } catch (error) {
       console.error('Error loading students:', error);
@@ -350,6 +358,11 @@ const StudentsView = ({ role, currentUser }) => {
         const active = s.is_active !== false && s.status !== 'inactive';
         return filters.status === 'active' ? active : !active;
       });
+    }
+
+    // Tag Filter
+    if (filters.tag_id !== 'all') {
+      result = result.filter(s => (s.tags || []).some(t => t.id === filters.tag_id));
     }
 
     setFilteredStudents(result);
@@ -502,6 +515,12 @@ const StudentsView = ({ role, currentUser }) => {
             ],
           },
           {
+            key: 'tag_id',
+            label: 'Tag',
+            type: 'select',
+            options: allTags.map(tg => ({ value: tg.id, label: tg.name })),
+          },
+          {
             key: 'hasOpenIssues',
             label: t('filterLabels.hasOpenIssues'),
             type: 'toggle',
@@ -576,6 +595,11 @@ const StudentsView = ({ role, currentUser }) => {
                         <Badge variant="default" className="text-xs"><Bell className="h-3 w-3 mr-0.5" />Auto-Email</Badge>
                       )}
                     </div>
+                    {student.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {student.tags.map((tg) => <TagBadge key={tg.id} tag={tg} size="xs" />)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -647,6 +671,11 @@ const StudentsView = ({ role, currentUser }) => {
                   </TableCell>
                   <TableCell className="font-medium cursor-pointer hover:text-primary" onClick={() => setViewingProfileId(student.id)}>
                     {getStudentDisplayName(student)}
+                    {student.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {student.tags.map((tg) => <TagBadge key={tg.id} tag={tg} size="xs" />)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell dir="rtl" className="text-slate-600">{student.hebrew_name || '-'}</TableCell>
                   <TableCell><Badge variant="outline">{student.class?.name || '-'}</Badge></TableCell>

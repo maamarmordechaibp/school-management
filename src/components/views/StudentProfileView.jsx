@@ -30,6 +30,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide, Send, CornerDownRight } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
+import StudentTagEditor from '@/components/tags/StudentTagEditor';
+import { logActivity } from '@/lib/auditService';
+import StudentCommunicationLog from '@/components/StudentCommunicationLog';
+import StudentSupportCases from '@/components/StudentSupportCases';
 import ProgressChart from '@/components/ProgressChart';
 import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
 import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
@@ -46,9 +50,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const isPrincipal = ['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(role);
   const roleKey = role.startsWith('teacher') ? 'teacher' : role;
   const ROLE_TABS = {
-    teacher: ['overview', 'timeline', 'progress', 'academic', 'communication', 'tasks', 'intervention', 'notes', 'late-arrivals', 'documents', 'special-ed', 'therapy', 'reports'],
-    tutor: ['overview', 'timeline', 'progress', 'academic', 'tasks', 'notes', 'documents'],
-    special_ed: ['overview', 'timeline', 'progress', 'intervention', 'tasks', 'notes', 'documents', 'special-ed', 'therapy', 'reports'],
+    teacher: ['overview', 'timeline', 'progress', 'academic', 'communication', 'tasks', 'intervention', 'notes', 'late-arrivals', 'documents', 'special-ed', 'therapy', 'reports', 'support'],
+    tutor: ['overview', 'timeline', 'progress', 'academic', 'tasks', 'notes', 'documents', 'support'],
+    special_ed: ['overview', 'timeline', 'progress', 'intervention', 'tasks', 'notes', 'documents', 'special-ed', 'therapy', 'reports', 'support'],
   };
   const canSee = (tab) => isPrincipal || (ROLE_TABS[roleKey] || ROLE_TABS.teacher).includes(tab);
 
@@ -434,6 +438,13 @@ const StudentProfileView = ({ studentId, onBack }) => {
       const { error } = await supabase.rpc('delete_student_cascade', { p_student_id: studentId });
       if (error) throw error;
       toast({ title: 'Student deleted', description: 'The student and all associated records were removed.' });
+      logActivity({
+        action: 'Student deleted',
+        details: `${student.name || student.hebrew_name || 'Student'} and all linked records`,
+        entityType: 'student',
+        entityId: studentId,
+        actor: currentUser,
+      });
       if (onBack) onBack();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not delete student' });
@@ -1116,8 +1127,95 @@ const StudentProfileView = ({ studentId, onBack }) => {
     setTimeout(() => win.print(), 300);
   };
 
-  // Quick-add options for each role box (all the things that go into it).
-  const openNewNote = () => {
+  // ---------- One-click PTA / Parent-meeting brief (Phase 11) ----------
+  // A clean, permission-safe summary. Sensitive special-education content is
+  // only included for principals/admins and special-ed staff.
+  const printPtaBrief = () => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      toast({ variant: 'destructive', title: 'Popup blocked', description: 'Allow popups for this site to print.' });
+      return;
+    }
+    const canSensitive = isPrincipal || role === 'special_ed';
+    const today = new Date().toISOString().split('T')[0];
+
+    const detailsHtml = buildTable(['Field', 'Value'], [
+      ['Name', student.name || student.hebrew_name],
+      ['Class', student.class],
+      ['Teacher', student.teacher],
+      ['Grade', student.grade],
+      ['Father', student.father_name],
+      ['Mother', student.mother_name],
+    ].filter((r) => r[1])).replace('<table>', '<table class="details">');
+
+    const notesHtml = buildTable(['Date', 'Type', 'Note'],
+      (studentNotes || []).filter((n) => !n.parent_note_id).slice(0, 5)
+        .map((n) => [fmtDate(n.created_at), n.note_type || '—', (n.content || '').slice(0, 200)]));
+
+    const concernsHtml = buildTable(['Date', 'Category', 'Concern', 'Status'],
+      (data.issues || []).filter((i) => i.status !== 'closed' && i.status !== 'resolved').slice(0, 8)
+        .map((i) => [fmtDate(i.created_at), i.category || '—', i.title || '—', i.status || '—']));
+
+    const assessHtml = buildTable(['Date', 'Type', 'Notes'],
+      (data.assessments || []).slice(0, 3)
+        .map((a) => [fmtDate(a.assessment_date || a.created_at), a.assessment_type || '—', a.overall_notes || '—']));
+
+    const commHtml = buildTable(['Date', 'Type', 'With / Subject'], [
+      ...(data.calls || []).slice(0, 5).map((c) => [fmtDate(c.call_date || c.created_at), 'Call', c.subject || c.contact_person || '—']),
+      ...(data.meetings || []).slice(0, 5).map((m) => [fmtDate(m.scheduled_date || m.meeting_date), 'Meeting', m.title || '—']),
+    ]);
+
+    const openTodos = (data.todos || []).filter((t) => t.status !== 'completed');
+    const tasksHtml = buildTable(['Task', 'Due', 'Priority'],
+      openTodos.slice(0, 10).map((t) => [t.title || '—', t.due_date || '—', t.priority || '—']));
+
+    const plan = (data.plans || [])[0];
+    const planHtml = plan ? `<p class="narrative">${escapeHtml(plan.goals || plan.social_emotional_notes || '—')}</p>` : '';
+
+    const followups = (data.reminders || [])
+      .filter((r) => (r.status === 'pending' || !r.status) && (!r.reminder_date || r.reminder_date >= today))
+      .slice(0, 5);
+    const nextStepsHtml = buildTable(['When', 'Follow-up'],
+      followups.map((r) => [r.reminder_date || '—', r.title || '—']));
+
+    let sensitiveHtml = '';
+    if (canSensitive && specialEdData) {
+      sensitiveHtml = section('Support / Special Education',
+        `<p class="narrative">${escapeHtml(specialEdData.current_plan || specialEdData.help_description || specialEdData.referral_reason || '—')}</p>`);
+    }
+
+    const body = `
+      <h1>${escapeHtml(student.name || student.hebrew_name || 'Student')}</h1>
+      <p class="meta">Parent / PTA Brief · ${escapeHtml(new Date().toLocaleDateString())}</p>
+      ${section('Student', detailsHtml)}
+      ${(studentNotes || []).length ? section('Important Notes', notesHtml) : ''}
+      ${concernsHtml.includes('No records') ? '' : section('Current Concerns', concernsHtml)}
+      ${(data.assessments || []).length ? section('Recent Assessments', assessHtml) : ''}
+      ${sensitiveHtml}
+      ${section('Recent Communication', commHtml)}
+      ${openTodos.length ? section('Outstanding Tasks', tasksHtml) : ''}
+      ${plan ? section('Current Plan', planHtml) : ''}
+      ${followups.length ? section('Next Steps', nextStepsHtml) : ''}
+    `;
+
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(student.name || 'Student')} — PTA Brief</title>
+      <style>
+        body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 24px; }
+        h1 { font-size: 22px; margin: 0 0 4px; }
+        h2 { font-size: 15px; margin: 20px 0 8px; color: #4f46e5; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+        .meta { color: #64748b; font-size: 12px; margin-bottom: 12px; }
+        .narrative { font-size: 13px; margin: 4px 0 10px; white-space: pre-wrap; }
+        .empty { color: #94a3b8; font-size: 12px; font-style: italic; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; }
+        th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: #f1f5f9; font-weight: 600; }
+        table.details th { width: 160px; white-space: nowrap; }
+        @media print { body { padding: 0; } }
+      </style></head><body>${body}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
     setEditingNote(null);
     setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
     setIsNoteModalOpen(true);
@@ -1180,6 +1278,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
             )}
           </div>
           <p className="text-slate-500">Class: {student.class} • Teacher: {student.teacher}</p>
+          <div className="mt-2">
+            <StudentTagEditor studentId={studentId} canEdit={true} />
+          </div>
         </div>
         <div className="ml-auto flex gap-2">
            {isPrincipal && (
@@ -1194,6 +1295,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
            )}
            <Button onClick={printFullProfile} variant="outline">
              <FileText size={16} className="mr-2" /> Full Report
+           </Button>
+           <Button onClick={printPtaBrief} variant="outline">
+             <FileText size={16} className="mr-2" /> PTA Brief
            </Button>
            <Button onClick={() => setIsAssessmentMode(true)} variant="outline">
              <Plus size={16} className="mr-2" /> New Assessment
@@ -1211,6 +1315,63 @@ const StudentProfileView = ({ studentId, onBack }) => {
            )}
         </div>
       </div>
+
+      {/* What needs to happen next? (Phase 1/25) */}
+      {(() => {
+        const today = new Date().toISOString().split('T')[0];
+        const openTodos = (data.todos || []).filter((t) => t.status !== 'completed');
+        const overdue = openTodos.filter((t) => t.due_date && t.due_date < today);
+        const openIssues = (data.issues || []).filter((i) => i.status !== 'closed' && i.status !== 'resolved');
+        const followups = (data.reminders || []).filter((r) => (r.status === 'pending' || !r.status));
+        const upcoming = (data.meetings || [])
+          .map((m) => ({ ...m, _d: m.scheduled_date || m.meeting_date }))
+          .filter((m) => m._d && m._d >= today && m.status !== 'cancelled')
+          .sort((a, b) => (a._d < b._d ? -1 : 1));
+        const nextMeeting = upcoming[0];
+        const responsible = student.assigned_to_name || student.teacher || '—';
+
+        const chips = [
+          { show: true, label: 'Open tasks', value: openTodos.length, sub: overdue.length ? `${overdue.length} overdue` : null, tone: overdue.length ? 'red' : 'slate', tab: 'tasks' },
+          { show: openIssues.length > 0, label: 'Open issues', value: openIssues.length, tone: 'amber', tab: 'timeline' },
+          { show: followups.length > 0, label: 'Follow-ups', value: followups.length, tone: 'blue', tab: 'tasks' },
+          { show: !!nextMeeting, label: 'Next meeting', value: nextMeeting?._d || '', isText: true, tone: 'indigo', tab: 'communication' },
+        ].filter((c) => c.show);
+
+        const TONES = {
+          red: 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100',
+          amber: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100',
+          blue: 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
+          indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100',
+          slate: 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100',
+        };
+
+        return (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <Activity size={16} className="text-primary" /> What needs to happen next?
+              </h3>
+              <span className="text-xs text-slate-500">Responsible: <strong className="text-slate-700">{responsible}</strong></span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {chips.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  onClick={() => setActiveTab(c.tab)}
+                  className={`text-start rounded-xl border p-3 transition-colors ${TONES[c.tone]}`}
+                >
+                  <p className={`font-bold tabular-nums leading-none ${c.isText ? 'text-sm mt-1' : 'text-2xl'}`}>
+                    {c.isText ? c.value : c.value}
+                  </p>
+                  <p className="text-xs font-medium mt-1.5">{c.label}</p>
+                  {c.sub && <p className="text-[11px] font-semibold mt-0.5">{c.sub}</p>}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 overflow-x-auto">
@@ -1247,6 +1408,12 @@ const StudentProfileView = ({ studentId, onBack }) => {
             <MessageSquare size={14} />
             Notes ({studentNotes.length})
           </TabsTrigger>
+          {canSee('support') && (
+          <TabsTrigger value="support" className="data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+            <Activity size={14} />
+            Support / Cases
+          </TabsTrigger>
+          )}
           {canSee('late-arrivals') && (
           <TabsTrigger value="late-arrivals" className="data-[state=active]:border-b-2 data-[state=active]:border-orange-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
             <Clock size={14} />
@@ -2240,6 +2407,12 @@ const StudentProfileView = ({ studentId, onBack }) => {
 
         {/* Communication Tab */}
         <TabsContent value="communication" className="mt-6 space-y-6">
+           <StudentCommunicationLog
+             studentId={studentId}
+             student={student}
+             calls={data.calls}
+             meetings={data.meetings}
+           />
            <div className="grid grid-cols-1 gap-6">
               <Card>
                  <CardHeader className="flex flex-row items-center justify-between">
@@ -2511,6 +2684,11 @@ const StudentProfileView = ({ studentId, onBack }) => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Support / Cases Tab */}
+        <TabsContent value="support" className="mt-6 space-y-6">
+           <StudentSupportCases studentId={studentId} currentUser={currentUser} />
         </TabsContent>
 
         {/* Intervention Tab */}

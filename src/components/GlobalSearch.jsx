@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, User, AlertTriangle, Phone, Loader2 } from 'lucide-react';
+import { Search, X, User, AlertTriangle, Phone, Loader2, CheckSquare, StickyNote, FileText } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useStudentProfile } from '@/contexts/StudentProfileContext';
+
+const EMPTY_RESULTS = { students: [], issues: [], calls: [], tasks: [], notes: [], documents: [] };
 
 /**
  * GlobalSearch — a single search box (in the app header) that queries the
@@ -16,7 +18,7 @@ import { useStudentProfile } from '@/contexts/StudentProfileContext';
 const GlobalSearch = () => {
   const { open: openStudentProfile } = useStudentProfile();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState({ students: [], issues: [], calls: [] });
+  const [results, setResults] = useState(EMPTY_RESULTS);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -51,7 +53,7 @@ const GlobalSearch = () => {
   const runSearch = useCallback(async (term) => {
     const q = term.trim();
     if (q.length < 2) {
-      setResults({ students: [], issues: [], calls: [] });
+      setResults(EMPTY_RESULTS);
       setLoading(false);
       return;
     }
@@ -62,7 +64,7 @@ const GlobalSearch = () => {
       const safe = q.replace(/[%,()]/g, ' ');
       const like = `%${safe}%`;
 
-      const [studentsRes, issuesRes, callsRes] = await Promise.all([
+      const [studentsRes, issuesRes, callsRes, tasksRes, notesRes, docsRes] = await Promise.all([
         supabase
           .from('students')
           .select('id, first_name, last_name, hebrew_name, father_name, mother_name, father_phone, mother_phone, class:classes!class_id(name)')
@@ -85,16 +87,37 @@ const GlobalSearch = () => {
           .or(`contact_person.ilike.${like},phone_number.ilike.${like},notes.ilike.${like}`)
           .order('created_at', { ascending: false })
           .limit(5),
+        supabase
+          .from('todos')
+          .select('id, title, status, due_date, student_id, student_name, student:students(id, first_name, last_name, hebrew_name)')
+          .or(`title.ilike.${like},description.ilike.${like}`)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('student_notes')
+          .select('id, title, content, created_at, student:students(id, first_name, last_name, hebrew_name)')
+          .or(`title.ilike.${like},content.ilike.${like}`)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('student_documents')
+          .select('id, file_name, description, folder, student:students(id, first_name, last_name, hebrew_name)')
+          .or(`file_name.ilike.${like},description.ilike.${like}`)
+          .order('created_at', { ascending: false })
+          .limit(5),
       ]);
 
       setResults({
         students: studentsRes.data || [],
         issues: issuesRes.data || [],
         calls: callsRes.data || [],
+        tasks: tasksRes.data || [],
+        notes: notesRes.data || [],
+        documents: docsRes.data || [],
       });
     } catch (err) {
       console.error('Global search failed:', err);
-      setResults({ students: [], issues: [], calls: [] });
+      setResults(EMPTY_RESULTS);
     } finally {
       setLoading(false);
     }
@@ -113,13 +136,14 @@ const GlobalSearch = () => {
     openStudentProfile(studentId);
     setIsOpen(false);
     setQuery('');
-    setResults({ students: [], issues: [], calls: [] });
+    setResults(EMPTY_RESULTS);
   };
 
   const displayName = (s) =>
     s?.hebrew_name || `${s?.first_name || ''} ${s?.last_name || ''}`.trim() || 'Unnamed';
 
-  const totalResults = results.students.length + results.issues.length + results.calls.length;
+  const totalResults = results.students.length + results.issues.length + results.calls.length +
+    results.tasks.length + results.notes.length + results.documents.length;
   const hasQuery = query.trim().length >= 2;
 
   return (
@@ -132,12 +156,12 @@ const GlobalSearch = () => {
           value={query}
           onChange={handleChange}
           onFocus={() => setIsOpen(true)}
-          placeholder="Search students, issues, calls…  (Ctrl+K)"
+          placeholder="Search students, tasks, notes, docs…  (Ctrl+K)"
           className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
         />
         {query && (
           <button
-            onClick={() => { setQuery(''); setResults({ students: [], issues: [], calls: [] }); inputRef.current?.focus(); }}
+            onClick={() => { setQuery(''); setResults(EMPTY_RESULTS); inputRef.current?.focus(); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
           >
             <X className="h-4 w-4" />
@@ -228,6 +252,78 @@ const GlobalSearch = () => {
                         </div>
                         <div className="text-xs text-slate-500 truncate">
                           {c.student ? `${displayName(c.student)} · ` : ''}{c.notes || ''}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Tasks */}
+              {results.tasks.length > 0 && (
+                <div>
+                  <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50">
+                    Tasks
+                  </div>
+                  {results.tasks.map((tk) => (
+                    <button
+                      key={tk.id}
+                      onClick={() => selectStudent(tk.student?.id || tk.student_id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left transition-colors"
+                    >
+                      <CheckSquare className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-slate-800 truncate">{tk.title}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {[tk.student ? displayName(tk.student) : tk.student_name, tk.status, tk.due_date ? `Due ${tk.due_date}` : null].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Notes */}
+              {results.notes.length > 0 && (
+                <div>
+                  <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50">
+                    Notes
+                  </div>
+                  {results.notes.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => selectStudent(n.student?.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left transition-colors"
+                    >
+                      <StickyNote className="h-4 w-4 text-slate-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-slate-800 truncate">{n.title || (n.content || '').slice(0, 40) || 'Note'}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {[n.student ? displayName(n.student) : null, (n.content || '').slice(0, 60)].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Documents */}
+              {results.documents.length > 0 && (
+                <div>
+                  <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50">
+                    Documents
+                  </div>
+                  {results.documents.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => selectStudent(d.student?.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 text-left transition-colors"
+                    >
+                      <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-slate-800 truncate">{d.file_name}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {[d.student ? displayName(d.student) : null, d.folder, d.description].filter(Boolean).join(' · ')}
                         </div>
                       </div>
                     </button>

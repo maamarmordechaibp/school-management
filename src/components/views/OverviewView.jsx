@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, Phone, Calendar, UserPlus, PhoneCall, CalendarPlus, Bell, ArrowRight, School, ChevronRight } from 'lucide-react';
+import { Users, AlertCircle, Phone, Calendar, UserPlus, PhoneCall, CalendarPlus, Bell, ArrowRight, School, ChevronRight, AlertTriangle, Clock, CheckSquare, CalendarClock } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const OverviewView = ({ role = 'principal', onNavigate }) => {
+const OverviewView = ({ role = 'principal', currentUser, onNavigate }) => {
   const { toast } = useToast();
   const { t, isRTL } = useLanguage();
   const [stats, setStats] = useState({
@@ -14,10 +14,18 @@ const OverviewView = ({ role = 'principal', onNavigate }) => {
     upcomingMeetings: 0,
     emergencyMeetings: 0,
   });
+  const [attention, setAttention] = useState({
+    overdueTasks: 0,
+    dueTodayTasks: 0,
+    needsElevation: 0,
+    meetingsToday: 0,
+  });
 
   useEffect(() => {
     loadStats();
-  }, []);
+    loadAttention();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   const loadStats = async () => {
     try {
@@ -45,6 +53,37 @@ const OverviewView = ({ role = 'principal', onNavigate }) => {
         title: 'Error',
         description: 'Failed to load statistics',
       });
+    }
+  };
+
+  const loadAttention = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const uid = currentUser?.id;
+
+      const [overdueRes, dueTodayRes, elevationRes, meetingsTodayRes] = await Promise.all([
+        uid
+          ? supabase.from('todos').select('id', { count: 'exact', head: true })
+              .eq('assigned_to', uid).neq('status', 'completed').lt('due_date', today)
+          : Promise.resolve({ count: 0 }),
+        uid
+          ? supabase.from('todos').select('id', { count: 'exact', head: true })
+              .eq('assigned_to', uid).neq('status', 'completed').eq('due_date', today)
+          : Promise.resolve({ count: 0 }),
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('needs_elevation', true),
+        supabase.from('meetings').select('id', { count: 'exact', head: true })
+          .eq('status', 'scheduled').eq('scheduled_date', today),
+      ]);
+
+      setAttention({
+        overdueTasks: overdueRes.count || 0,
+        dueTodayTasks: dueTodayRes.count || 0,
+        needsElevation: elevationRes.count || 0,
+        meetingsToday: meetingsTodayRes.count || 0,
+      });
+    } catch (error) {
+      // Non-fatal: the dashboard still renders its other sections.
+      console.error('Failed to load attention items:', error);
     }
   };
 
@@ -102,6 +141,93 @@ const OverviewView = ({ role = 'principal', onNavigate }) => {
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{t('overview.title')}</h2>
         <p className="text-muted-foreground mt-1">{t('overview.subtitle')}</p>
       </div>
+
+      {/* Needs Attention — the morning command center (Phase 4) */}
+      {(() => {
+        const items = [
+          {
+            key: 'overdue',
+            show: attention.overdueTasks > 0,
+            count: attention.overdueTasks,
+            label: isRTL ? 'משימות באיחור' : 'Overdue tasks',
+            icon: AlertTriangle,
+            tone: 'red',
+            view: 'todos',
+          },
+          {
+            key: 'dueToday',
+            show: attention.dueTodayTasks > 0,
+            count: attention.dueTodayTasks,
+            label: isRTL ? 'משימות להיום' : 'Tasks due today',
+            icon: CheckSquare,
+            tone: 'amber',
+            view: 'todos',
+          },
+          {
+            key: 'elevation',
+            show: attention.needsElevation > 0,
+            count: attention.needsElevation,
+            label: isRTL ? 'תלמידים לתשומת לב' : 'Students need attention',
+            icon: AlertCircle,
+            tone: 'red',
+            view: 'students',
+          },
+          {
+            key: 'meetingsToday',
+            show: attention.meetingsToday > 0,
+            count: attention.meetingsToday,
+            label: isRTL ? 'פגישות היום' : "Today's meetings",
+            icon: CalendarClock,
+            tone: 'blue',
+            view: 'meetings',
+          },
+        ].filter((i) => i.show);
+
+        const TONES = {
+          red: 'bg-red-50 border-red-200 hover:bg-red-100 text-red-700',
+          amber: 'bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-700',
+          blue: 'bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700',
+        };
+
+        if (items.length === 0) {
+          return (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <CheckSquare className="text-emerald-600 flex-shrink-0" size={22} />
+              <p className="text-emerald-800 text-sm font-medium">
+                {isRTL ? 'הכול תחת שליטה — אין פריטים דחופים.' : "You're all caught up — nothing urgent right now."}
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <AlertTriangle size={18} className="text-red-500" />
+              {isRTL ? 'דורש תשומת לב' : 'Needs attention'}
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onNavigate?.(item.view)}
+                    className={`text-start rounded-2xl border p-4 transition-all duration-150 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${TONES[item.tone]}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Icon size={22} className="flex-shrink-0" />
+                      <span className="text-3xl font-bold tabular-nums leading-none">{item.count}</span>
+                    </div>
+                    <p className="text-sm font-semibold mt-2">{item.label}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Open Classes shortcut */}
       <button

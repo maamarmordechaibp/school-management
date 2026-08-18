@@ -47,6 +47,7 @@ const ChildReports = ({ studentId, student, currentUser }) => {
       id: null,
       template_id: template?.id || null,
       title: template?.name || 'Report',
+      category: template?.category || null,
       report_date: new Date().toISOString().slice(0, 10),
       content: sections.length ? sections : [{ heading: 'באריכט · Report', prompt: '', text: '' }],
       summary: '',
@@ -59,6 +60,7 @@ const ChildReports = ({ studentId, student, currentUser }) => {
       id: report.id,
       template_id: report.template_id,
       title: report.title || 'Report',
+      category: report.category || null,
       report_date: (report.report_date || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
       content: Array.isArray(report.content) && report.content.length ? report.content : [{ heading: 'באריכט · Report', prompt: '', text: '' }],
       summary: report.summary || '',
@@ -77,11 +79,13 @@ const ChildReports = ({ studentId, student, currentUser }) => {
       student_id: studentId,
       template_id: editing.template_id,
       title: editing.title || 'Report',
+      category: editing.category || null,
       report_date: editing.report_date,
       content: editing.content.map(({ heading, text }) => ({ heading, text })),
       summary: editing.summary || null,
       status: status || editing.status || 'draft',
       created_by: currentUser?.id || null,
+      created_by_name: currentUser?.name || currentUser?.first_name || currentUser?.email || null,
     };
     try {
       let error;
@@ -162,6 +166,20 @@ const ChildReports = ({ studentId, student, currentUser }) => {
               <Label>Date</Label>
               <Input type="date" value={editing.report_date} onChange={(e) => setEditing((s) => ({ ...s, report_date: e.target.value }))} />
             </div>
+            <div>
+              <Label>Category</Label>
+              <Select value={editing.category || 'none'} onValueChange={(v) => setEditing((s) => ({ ...s, category: v === 'none' ? null : v }))}>
+                <SelectTrigger><SelectValue placeholder="Uncategorized" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Uncategorized</SelectItem>
+                  <SelectItem value="PTA">PTA</SelectItem>
+                  <SelectItem value="Special-Ed">Special-Ed</SelectItem>
+                  <SelectItem value="Academic">Academic</SelectItem>
+                  <SelectItem value="Behavioral">Behavioral</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {editing.content.map((sec, idx) => (
@@ -237,11 +255,16 @@ const ChildReports = ({ studentId, student, currentUser }) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-slate-800 truncate">{r.title}</p>
+                    {r.category && (
+                      <Badge variant="secondary" className="text-[10px]">{r.category}</Badge>
+                    )}
                     <Badge variant={r.status === 'final' ? 'default' : 'outline'} className="text-[10px]">
                       {r.status}
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-500">{(r.report_date || '').slice(0, 10)}</p>
+                  <p className="text-xs text-slate-500">
+                    {(r.report_date || '').slice(0, 10)}{r.created_by_name ? ` · ${r.created_by_name}` : ''}
+                  </p>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => printReport(r)} title="Print">
                   <Printer size={16} />

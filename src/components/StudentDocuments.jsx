@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Upload, FileText, Image as ImageIcon, File, Download, Trash2, Loader2, FolderOpen } from 'lucide-react';
+import { Upload, FileText, Image as ImageIcon, File, Download, Trash2, Loader2, FolderOpen, Search, Eye } from 'lucide-react';
+import { logActivity } from '@/lib/auditService';
 
 const BUCKET = 'student-documents';
 
@@ -39,6 +42,8 @@ const StudentDocuments = ({ studentId, currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadFolder, setUploadFolder] = useState('evaluations');
+  const [search, setSearch] = useState('');
+  const [preview, setPreview] = useState(null); // { doc, url, loading }
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -91,6 +96,13 @@ const StudentDocuments = ({ studentId, currentUser }) => {
         if (dbErr) throw dbErr;
       }
       toast({ title: 'Uploaded', description: `${files.length} file(s) added to ${folderLabel(uploadFolder)}.` });
+      logActivity({
+        action: 'Document uploaded',
+        details: `${files.length} file(s) to ${folderLabel(uploadFolder)}`,
+        entityType: 'document',
+        studentId,
+        actor: currentUser,
+      });
       loadDocs();
     } catch (err) {
       console.error('Upload failed:', err);
@@ -111,6 +123,22 @@ const StudentDocuments = ({ studentId, currentUser }) => {
     }
   };
 
+  // In-app preview (PDF / image) without leaving the profile.
+  const previewDoc = async (doc) => {
+    setPreview({ doc, url: null, loading: true });
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(doc.file_path, 3600);
+      if (error) throw error;
+      setPreview({ doc, url: data.signedUrl, loading: false });
+    } catch (err) {
+      setPreview(null);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not open the file.' });
+    }
+  };
+
+  const isImage = (t) => (t || '').startsWith('image/');
+  const isPdf = (t) => t === 'application/pdf';
+
   const deleteDoc = async (doc) => {
     if (!window.confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
     try {
@@ -118,6 +146,14 @@ const StudentDocuments = ({ studentId, currentUser }) => {
       const { error } = await supabase.from('student_documents').delete().eq('id', doc.id);
       if (error) throw error;
       toast({ title: 'Deleted', description: 'Document removed.' });
+      logActivity({
+        action: 'Document deleted',
+        details: `${doc.file_name} (${folderLabel(doc.folder)})`,
+        entityType: 'document',
+        entityId: doc.id,
+        studentId,
+        actor: currentUser,
+      });
       setDocs(prev => prev.filter(d => d.id !== doc.id));
     } catch (err) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the document.' });
@@ -126,8 +162,15 @@ const StudentDocuments = ({ studentId, currentUser }) => {
 
   const grouped = DOC_FOLDERS.map(f => ({
     ...f,
-    items: docs.filter(d => (d.folder || 'other') === f.value),
+    items: docs
+      .filter(d => (d.folder || 'other') === f.value)
+      .filter(d => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return (d.file_name || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q);
+      }),
   }));
+  const anyMatches = grouped.some(g => g.items.length > 0);
 
   return (
     <div className="space-y-6">
@@ -159,11 +202,28 @@ const StudentDocuments = ({ studentId, currentUser }) => {
         <p className="text-xs text-slate-400">PDF, images, Word, Excel — files are stored per student and organized by folder.</p>
       </div>
 
+      {/* Search */}
+      {docs.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search documents…"
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>
       ) : docs.length === 0 ? (
         <div className="border-2 border-dashed border-slate-200 rounded-lg p-10 text-center text-slate-400">
           No documents uploaded yet.
+        </div>
+      ) : !anyMatches ? (
+        <div className="border-2 border-dashed border-slate-200 rounded-lg p-10 text-center text-slate-400">
+          No documents match “{search}”.
         </div>
       ) : (
         <div className="space-y-6">
@@ -180,7 +240,7 @@ const StudentDocuments = ({ studentId, currentUser }) => {
                     <div key={doc.id} className="border rounded-lg p-3 flex items-start gap-3 bg-white hover:shadow-sm transition-shadow">
                       <div className="p-2 bg-slate-100 rounded-lg"><Icon className="h-5 w-5 text-slate-500" /></div>
                       <div className="min-w-0 flex-1">
-                        <button onClick={() => openDoc(doc)} className="text-sm font-medium text-blue-600 hover:underline truncate block text-left w-full" title={doc.file_name}>
+                        <button onClick={() => previewDoc(doc)} className="text-sm font-medium text-blue-600 hover:underline truncate block text-left w-full" title={doc.file_name}>
                           {doc.file_name}
                         </button>
                         <p className="text-xs text-slate-400">
@@ -189,6 +249,9 @@ const StudentDocuments = ({ studentId, currentUser }) => {
                         <p className="text-xs text-slate-400">{new Date(doc.created_at).toLocaleDateString()}</p>
                       </div>
                       <div className="flex flex-col gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => previewDoc(doc)} title="Preview">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDoc(doc)} title="Open / download">
                           <Download className="h-4 w-4" />
                         </Button>
@@ -204,6 +267,34 @@ const StudentDocuments = ({ studentId, currentUser }) => {
           ))}
         </div>
       )}
+
+      {/* In-app preview */}
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-4xl w-[92vw] h-[88vh] p-0 flex flex-col">
+          <DialogHeader className="px-4 py-3 border-b">
+            <DialogTitle className="text-base truncate pr-8">{preview?.doc?.file_name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center">
+            {preview?.loading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            ) : preview?.url && isImage(preview.doc.file_type) ? (
+              <img src={preview.url} alt={preview.doc.file_name} className="max-h-full max-w-full object-contain" />
+            ) : preview?.url && isPdf(preview.doc.file_type) ? (
+              <iframe src={preview.url} title={preview.doc.file_name} className="w-full h-full border-0" />
+            ) : (
+              <div className="text-center text-slate-500 p-8">
+                <File className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Preview isn’t available for this file type.</p>
+                {preview?.url && (
+                  <Button className="mt-3" onClick={() => window.open(preview.url, '_blank', 'noopener')}>
+                    <Download className="h-4 w-4 mr-2" /> Download instead
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

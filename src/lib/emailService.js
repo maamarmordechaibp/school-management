@@ -6,10 +6,45 @@
 
 import { supabase } from '@/lib/customSupabaseClient';
 
+/**
+ * Best-effort: find the single student a set of recipient emails belongs to,
+ * by matching father_email / mother_email. Returns the student id ONLY when
+ * exactly one distinct student matches (no dangerous guesses); otherwise null.
+ */
+async function resolveStudentByEmails(recipients) {
+  const emails = (recipients || []).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+  if (emails.length === 0) return null;
+  try {
+    const orFilter = emails
+      .map((e) => `father_email.ilike.${e},mother_email.ilike.${e}`)
+      .join(',');
+    const { data, error } = await supabase
+      .from('students')
+      .select('id')
+      .or(orFilter)
+      .limit(2);
+    if (error) throw error;
+    const ids = [...new Set((data || []).map((s) => s.id))];
+    return ids.length === 1 ? ids[0] : null;
+  } catch (err) {
+    console.error('resolveStudentByEmails failed:', err);
+    return null;
+  }
+}
+
 export async function sendEmail({ to, subject, body, from, replyTo, relatedType, relatedId, sentBy }) {
   // Ensure 'to' is always an array
   const recipients = Array.isArray(to) ? to : [to];
   const htmlBody = body.replace(/\n/g, '<br>');
+
+  // Auto-link to a student when the caller didn't specify a relation and the
+  // recipient uniquely maps to one student's parent email (Phase 13).
+  let linkType = relatedType || null;
+  let linkId = relatedId || null;
+  if (!linkId) {
+    const studentId = await resolveStudentByEmails(recipients);
+    if (studentId) { linkType = 'student'; linkId = studentId; }
+  }
 
   // Send via Supabase RPC → http extension → Resend API
   const { data, error } = await supabase.rpc('send_email', {
@@ -19,8 +54,8 @@ export async function sendEmail({ to, subject, body, from, replyTo, relatedType,
     p_text: body,
     p_from: from || 'TYY Monsey <send@tyymonsey.com>',
     p_reply_to: replyTo || 'info@tyymonsey.com',
-    p_related_type: relatedType || null,
-    p_related_id: relatedId || null,
+    p_related_type: linkType,
+    p_related_id: linkId,
     p_sent_by: sentBy || null
   });
 

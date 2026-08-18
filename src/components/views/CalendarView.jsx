@@ -19,6 +19,18 @@ import {
 import MeetingModal from '@/components/modals/MeetingModal';
 import StudentProfileModal from '@/components/modals/StudentProfileModal';
 
+// Unified event colours by kind (meeting / therapy / follow-up), with status overrides.
+const EVENT_STYLES = {
+  meeting: 'bg-blue-100 border-blue-200 text-blue-800',
+  therapy: 'bg-purple-100 border-purple-200 text-purple-800',
+  followup: 'bg-amber-100 border-amber-200 text-amber-800',
+};
+const eventClasses = (ev) => {
+  if (ev.status === 'completed') return 'bg-green-100 border-green-200 text-green-800';
+  if (ev.status === 'cancelled' || ev.status === 'no_show') return 'bg-red-50 border-red-200 text-red-400 line-through';
+  return EVENT_STYLES[ev._type] || EVENT_STYLES.meeting;
+};
+
 const CalendarView = () => {
   const { toast } = useToast();
   
@@ -41,7 +53,7 @@ const CalendarView = () => {
   }, [currentDate, viewMode]);
 
   const fetchStudents = async () => {
-    const { data } = await supabase.from('students').select('id, name, class');
+    const { data } = await supabase.from('students').select('id, name, first_name, last_name, hebrew_name');
     setStudents(data || []);
   };
 
@@ -62,17 +74,74 @@ const CalendarView = () => {
       end = addDays(start, 1);
     }
 
-    const { data, error } = await supabase
-      .from('meetings')
-      .select('*, students(name, class)')
-      .gte('meeting_date', start.toISOString())
-      .lte('meeting_date', end.toISOString());
+    const sName = (s) =>
+      s ? (s.hebrew_name || s.name || [s.first_name, s.last_name].filter(Boolean).join(' ')) : '';
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
+    const startDay = format(start, 'yyyy-MM-dd');
+    const endDay = format(end, 'yyyy-MM-dd');
 
-    if (error) {
+    try {
+      const [meetingsRes, apptRes, remindRes] = await Promise.all([
+        supabase.from('meetings').select('*, students(name, class)')
+          .gte('meeting_date', startISO).lte('meeting_date', endISO),
+        supabase.from('tutoring_schedule')
+          .select('id, student_id, tutor_name, subject, location, start_time, duration_minutes, day_of_week, appointment_date, is_recurring, status, student:students(id, name, first_name, last_name, hebrew_name)')
+          .eq('is_active', true),
+        supabase.from('reminders')
+          .select('id, title, reminder_date, reminder_time, status, related_student_id, related_student_name')
+          .not('reminder_date', 'is', null)
+          .gte('reminder_date', startDay).lte('reminder_date', endDay),
+      ]);
+
+      const evs = [];
+
+      for (const m of meetingsRes.data || []) {
+        if (!m.meeting_date) continue;
+        evs.push({ ...m, _type: 'meeting', _studentId: m.student_id, title: m.title });
+      }
+
+      const days = eachDayOfInterval({ start, end });
+      for (const a of apptRes.data || []) {
+        const time = (a.start_time || '08:00').slice(0, 5);
+        const label = [a.tutor_name, a.subject].filter(Boolean).join(' · ') || 'Appointment';
+        const mk = (dateStr) => ({
+          id: `appt-${a.id}-${dateStr}`,
+          _type: 'therapy',
+          _studentId: a.student?.id || a.student_id,
+          meeting_date: `${dateStr}T${time}:00`,
+          duration: a.duration_minutes || 30,
+          status: a.status,
+          title: label,
+          students: { name: sName(a.student) },
+        });
+        if (a.appointment_date) {
+          const d = a.appointment_date.slice(0, 10);
+          if (d >= startDay && d <= endDay) evs.push(mk(d));
+        } else if (a.is_recurring && a.day_of_week != null) {
+          for (const day of days) {
+            if (day.getDay() === a.day_of_week) evs.push(mk(format(day, 'yyyy-MM-dd')));
+          }
+        }
+      }
+
+      for (const r of remindRes.data || []) {
+        const time = (r.reminder_time || '09:00').slice(0, 5);
+        evs.push({
+          id: `rem-${r.id}`,
+          _type: 'followup',
+          _studentId: r.related_student_id,
+          meeting_date: `${r.reminder_date.slice(0, 10)}T${time}:00`,
+          status: r.status,
+          title: r.title || 'Follow-up',
+          students: { name: r.related_student_name || '' },
+        });
+      }
+
+      setEvents(evs);
+    } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load calendar events' });
-    } else {
-      setEvents(data || []);
     }
   };
 
@@ -103,19 +172,14 @@ const CalendarView = () => {
 
   const handleEventClick = (e, event) => {
     e.stopPropagation();
-    // Show details via profile or meeting modal
-    // Let's open student profile directly if quick view, or meeting details.
-    // User asked: "show the student details"
-    
-    // We'll show a small dialog or just open MeetingModal in edit mode?
-    // Let's use Profile modal since "student details" was requested, 
-    // but maybe we want to edit the meeting too. 
-    // Let's open Profile. But we also need a way to edit meeting.
-    // Let's open MeetingModal, which links to student.
-    
-    setSelectedEvent(event);
-    setNewMeetingData(null);
-    setIsMeetingModalOpen(true);
+    // Meetings open the meeting editor; therapy/follow-up open the student.
+    if (event._type === 'meeting') {
+      setSelectedEvent(event);
+      setNewMeetingData(null);
+      setIsMeetingModalOpen(true);
+    } else if (event._studentId) {
+      setSelectedStudentId(event._studentId);
+    }
   };
 
   // --- Render Helpers ---
@@ -163,11 +227,7 @@ const CalendarView = () => {
                   <div 
                     key={ev.id}
                     onClick={(e) => handleEventClick(e, ev)}
-                    className={`text-xs px-2 py-1 rounded truncate border shadow-sm ${
-                        ev.status === 'completed' ? 'bg-green-100 border-green-200 text-green-800' :
-                        ev.status === 'cancelled' ? 'bg-red-50 text-red-400 line-through' :
-                        'bg-blue-100 border-blue-200 text-blue-800'
-                    }`}
+                    className={`text-xs px-2 py-1 rounded truncate border shadow-sm ${eventClasses(ev)}`}
                     title={`${format(parseISO(ev.meeting_date), 'h:mm a')} - ${ev.title}`}
                   >
                      <span className="font-semibold mr-1">{format(parseISO(ev.meeting_date), 'h:mm a')}</span>
@@ -251,15 +311,12 @@ const CalendarView = () => {
                             <div
                                key={ev.id}
                                onClick={(e) => handleEventClick(e, ev)}
-                               className={`absolute left-1 right-1 rounded p-2 text-xs border shadow-sm cursor-pointer hover:brightness-95 transition-all z-10 overflow-hidden ${
-                                 ev.status === 'completed' ? 'bg-green-100 border-green-300 text-green-900' : 
-                                 'bg-blue-100 border-blue-300 text-blue-900'
-                               }`}
+                               className={`absolute left-1 right-1 rounded p-2 text-xs border shadow-sm cursor-pointer hover:brightness-95 transition-all z-10 overflow-hidden ${eventClasses(ev)}`}
                                style={{ top: `${top}px`, height: `${height}px` }}
                             >
                                <div className="font-bold">{format(eventDate, 'h:mm a')}</div>
                                <div className="truncate font-medium">{ev.students?.name}</div>
-                               <div className="truncate text-blue-800/70">{ev.title}</div>
+                               <div className="truncate opacity-70">{ev.title}</div>
                             </div>
                          );
                       })}
