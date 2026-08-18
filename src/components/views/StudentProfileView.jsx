@@ -19,13 +19,15 @@ import {
 } from 'recharts';
 import AssessmentForm from '@/components/forms/AssessmentForm';
 import StudentDocuments from '@/components/StudentDocuments';
+import TherapySchedule from '@/components/TherapySchedule';
+import ChildReports from '@/components/ChildReports';
 import { WorkflowBadge } from '@/components/ui/workflow-badge';
 import StudentPlanModal from '@/components/modals/StudentPlanModal';
 import SendEmailModal from '@/components/modals/SendEmailModal';
 import GradesModal from '@/components/modals/GradesModal';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide } from 'lucide-react';
+import { MessageSquare, Edit, Trash2, Heart as HeartIcon, Activity, Phone as PhoneIcon, Calendar as CalendarIconLucide, Send, CornerDownRight } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useStudentNotify } from '@/hooks/useStudentNotify';
 import ProgressChart from '@/components/ProgressChart';
@@ -44,9 +46,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const isPrincipal = ['principal', 'principal_hebrew', 'principal_english', 'admin'].includes(role);
   const roleKey = role.startsWith('teacher') ? 'teacher' : role;
   const ROLE_TABS = {
-    teacher: ['overview', 'timeline', 'progress', 'academic', 'communication', 'tasks', 'intervention', 'notes', 'late-arrivals', 'documents', 'special-ed'],
+    teacher: ['overview', 'timeline', 'progress', 'academic', 'communication', 'tasks', 'intervention', 'notes', 'late-arrivals', 'documents', 'special-ed', 'therapy', 'reports'],
     tutor: ['overview', 'timeline', 'progress', 'academic', 'tasks', 'notes', 'documents'],
-    special_ed: ['overview', 'timeline', 'progress', 'intervention', 'tasks', 'notes', 'documents', 'special-ed'],
+    special_ed: ['overview', 'timeline', 'progress', 'intervention', 'tasks', 'notes', 'documents', 'special-ed', 'therapy', 'reports'],
   };
   const canSee = (tab) => isPrincipal || (ROLE_TABS[roleKey] || ROLE_TABS.teacher).includes(tab);
 
@@ -94,10 +96,14 @@ const StudentProfileView = ({ studentId, onBack }) => {
   // Student notes, special ed & late arrivals state
   const [studentNotes, setStudentNotes] = useState([]);
   const [specialEdData, setSpecialEdData] = useState(null);
+  const [childReports, setChildReports] = useState([]);
   const [lateArrivals, setLateArrivals] = useState([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [noteForm, setNoteForm] = useState({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
+  const [replyingTo, setReplyingTo] = useState(null); // thread root id currently being replied to
+  const [replyText, setReplyText] = useState('');
+  const [savingReply, setSavingReply] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailContext, setEmailContext] = useState({});
 
@@ -332,6 +338,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
           setSpecialEdData(null);
         }
       } catch (e) { console.log('special_ed tables not available yet', e); }
+
+      // Fetch narrative child reports (for the Full Report printout)
+      try {
+        const { data: reportsData } = await supabase
+          .from('child_reports')
+          .select('*')
+          .eq('student_id', studentId)
+          .order('report_date', { ascending: false });
+        setChildReports(reportsData || []);
+      } catch (e) { console.log('child_reports not available yet'); }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load student profile' });
@@ -773,6 +789,36 @@ const StudentProfileView = ({ studentId, onBack }) => {
     { value: 'other', label: 'Other' },
   ];
 
+  // Group notes into conversation threads: a root note plus its chronological replies.
+  const noteThreads = (() => {
+    const byParent = new Map();
+    const roots = [];
+    const chronological = [...studentNotes].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    chronological.forEach((n) => {
+      if (n.parent_note_id) {
+        if (!byParent.has(n.parent_note_id)) byParent.set(n.parent_note_id, []);
+        byParent.get(n.parent_note_id).push(n);
+      } else {
+        roots.push(n);
+      }
+    });
+    const threads = roots.map((root) => ({ root, replies: byParent.get(root.id) || [] }));
+    // Most recently active conversation first.
+    threads.sort((a, b) => {
+      const aLast = a.replies.length ? a.replies[a.replies.length - 1].created_at : a.root.created_at;
+      const bLast = b.replies.length ? b.replies[b.replies.length - 1].created_at : b.root.created_at;
+      return new Date(bLast) - new Date(aLast);
+    });
+    return threads;
+  })();
+
+  const noteInitials = (name) => {
+    if (!name) return '•';
+    const parts = String(name).trim().split(/\s+/);
+    return (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+  };
+  const isMyNote = (n) => !!(n.created_by_name && currentUser?.name && n.created_by_name === currentUser.name);
+
   const handleSaveNote = async () => {
     if (!noteForm.content) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter content' });
@@ -788,7 +834,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
       } else {
         await supabase.from('student_notes').insert([{
           student_id: studentId, title: noteForm.title || null, content: noteForm.content,
-          note_type: noteForm.note_type, edit_mode: 'update'
+          note_type: noteForm.note_type, edit_mode: 'update', created_by_name: currentUser?.name || null
         }]);
         toast({ title: 'Added', description: 'Note has been added' });
       }
@@ -808,6 +854,40 @@ const StudentProfileView = ({ studentId, onBack }) => {
       });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  // Post a reply inside an existing note thread (chat-style conversation).
+  const handleSendReply = async (root) => {
+    const text = replyText.trim();
+    if (!text || savingReply) return;
+    setSavingReply(true);
+    try {
+      const { error } = await supabase.from('student_notes').insert([{
+        student_id: studentId,
+        parent_note_id: root.id,
+        content: text,
+        note_type: root.note_type,
+        edit_mode: 'update',
+        created_by_name: currentUser?.name || null,
+      }]);
+      if (error) throw error;
+      setReplyText('');
+      setReplyingTo(null);
+      fetchStudentData();
+      notify({
+        studentId,
+        studentName: student?.hebrew_name || `${student?.first_name || ''} ${student?.last_name || ''}`.trim(),
+        action: 'created',
+        recordType: 'Note reply',
+        title: root.title || root.note_type || 'Note',
+        details: text,
+        relatedType: 'student_note',
+      });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+      setSavingReply(false);
     }
   };
 
@@ -964,13 +1044,33 @@ const StudentProfileView = ({ studentId, onBack }) => {
       const tutoringTable = (specialEdData.tutoring || []).length
         ? buildTable(['Tutor', 'Subject', 'Days', 'Time', 'Frequency'], specialEdData.tutoring.map((tu) => [tu.tutor_name || '—', tu.subject || '—', Array.isArray(tu.schedule_days) ? tu.schedule_days.join(', ') : (tu.schedule_days || '—'), tu.schedule_time || '—', tu.frequency || '—']))
         : '';
-      specialEdHtml = sedInfo + (evalsTable ? `<h3>Evaluations</h3>${evalsTable}` : '') + (tutoringTable ? `<h3>Tutoring</h3>${tutoringTable}` : '');
+      const sessionsTable = (specialEdData.session_logs || []).length
+        ? buildTable(['Date', 'With', 'Subject', 'Progress'], specialEdData.session_logs.slice(0, 12).map((s) => [fmtDate(s.session_date), (s.staff && (s.staff.hebrew_name || s.staff.name)) || s.tutor_name || '—', s.subject || '—', s.progress_notes || s.content || '—']))
+        : '';
+      specialEdHtml = sedInfo
+        + (evalsTable ? `<h3>Evaluations</h3>${evalsTable}` : '')
+        + (tutoringTable ? `<h3>Therapy / Tutoring Schedule</h3>${tutoringTable}` : '')
+        + (sessionsTable ? `<h3>Recent Therapy Sessions</h3>${sessionsTable}` : '');
+    }
+
+    // Latest narrative report (most recent, prefer a finalized one)
+    let reportHtml = '';
+    const latestReport = (childReports || []).find((r) => r.status === 'final') || (childReports || [])[0];
+    if (latestReport) {
+      const secs = (latestReport.content || [])
+        .filter((s) => (s.text || '').trim())
+        .map((s) => `<h3>${escapeHtml(s.heading)}</h3><p class="narrative">${escapeHtml(s.text).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+      reportHtml = `<div class="meta">${escapeHtml(latestReport.title || 'Report')} · ${escapeHtml((latestReport.report_date || '').slice(0, 10))} · ${escapeHtml(latestReport.status || '')}</div>`
+        + (latestReport.summary ? `<p class="narrative"><b>${escapeHtml(latestReport.summary)}</b></p>` : '')
+        + (secs || '<p class="empty">No content.</p>');
     }
 
     const body = `
       <h1>${escapeHtml(student.name || 'Student')}</h1>
       <div class="meta">Full Student Report · Generated ${new Date().toLocaleString()}</div>
       <h2>Student Details</h2>${detailsHtml}
+      ${reportHtml ? `<h2>Report</h2>${reportHtml}` : ''}
       <h2>Financial</h2>${finSummary}<h3>Charges</h3>${feesTable}<h3>Payments</h3>${paymentsTable}
       ${section('Academic', gradeAvgHtml + gradesTable)}
       ${data.plans.length || data.progress_reviews.length ? `<h2>Workflow &amp; Plans</h2><h3>Plans</h3>${plansTable}<h3>Progress Reviews</h3>${reviewsTable}` : ''}
@@ -993,6 +1093,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
         .summary { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; margin: 6px 0 10px; }
         .summary b { color: #4338ca; }
         .empty { color: #94a3b8; font-size: 12px; font-style: italic; margin: 4px 0; }
+        .narrative { font-size: 13px; margin: 4px 0 10px; white-space: pre-wrap; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; }
         th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; vertical-align: top; }
         th { background: #f1f5f9; font-weight: 600; }
@@ -1151,6 +1252,18 @@ const StudentProfileView = ({ studentId, onBack }) => {
             <TabsTrigger value="special-ed" className="data-[state=active]:border-b-2 data-[state=active]:border-pink-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
               <HeartIcon size={14} />
               Special Education
+            </TabsTrigger>
+          )}
+          {specialEdData && canSee('therapy') && (
+            <TabsTrigger value="therapy" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+              <CalendarIconLucide size={14} />
+              Therapy
+            </TabsTrigger>
+          )}
+          {canSee('reports') && (
+            <TabsTrigger value="reports" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
+              <FileText size={14} />
+              Reports
             </TabsTrigger>
           )}
         </TabsList>
@@ -2493,53 +2606,105 @@ const StudentProfileView = ({ studentId, onBack }) => {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {studentNotes.map(note => (
-                <Card key={note.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <Badge variant="outline" className="text-xs">
-                            {NOTE_TYPES.find(t => t.value === note.note_type)?.label || note.note_type}
+            <div className="space-y-4">
+              {noteThreads.map(({ root, replies }) => {
+                const messages = [root, ...replies];
+                return (
+                  <Card key={root.id} className="overflow-hidden">
+                    <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b bg-slate-50/70">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs">
+                          {NOTE_TYPES.find(t => t.value === root.note_type)?.label || root.note_type}
+                        </Badge>
+                        {root.title && <span className="font-semibold text-sm text-slate-800">{root.title}</span>}
+                        <span className="text-xs text-slate-400">
+                          {new Date(root.created_at).toLocaleDateString('he-IL')}
+                        </span>
+                        {replies.length > 0 && (
+                          <Badge className="bg-slate-100 text-slate-500 text-[11px]">
+                            {messages.length} messages
                           </Badge>
-                          {note.title && <span className="font-bold">{note.title}</span>}
-                          {note.edit_mode === 'edit' && (
-                            <Badge className="bg-orange-100 text-orange-800 text-xs">Edited</Badge>
-                          )}
-                        </div>
-                        <p className="text-slate-700 mt-1">{note.content}</p>
-                        {note.previous_content && (
-                          <details className="mt-2">
-                            <summary className="text-xs text-orange-600 cursor-pointer">Previous version</summary>
-                            <p className="text-xs text-slate-400 mt-1 p-2 bg-slate-50 rounded">{note.previous_content}</p>
-                          </details>
                         )}
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-                          <span>{new Date(note.created_at).toLocaleDateString('he-IL')}</span>
-                          <span>{new Date(note.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
-                          {note.created_by_name && <span>By: {note.created_by_name}</span>}
-                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" onClick={() => {
-                          setEditingNote(note);
+                          setEditingNote(root);
                           setNoteForm({
-                            title: note.title || '', content: note.content,
-                            note_type: note.note_type, edit_mode: 'edit'
+                            title: root.title || '', content: root.content,
+                            note_type: root.note_type, edit_mode: 'edit'
                           });
                           setIsNoteModalOpen(true);
-                        }}>
+                        }} title="Edit">
                           <Edit size={14} />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-600" onClick={() => handleDeleteNote(note.id)} title="Delete note">
+                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-600" onClick={() => handleDeleteNote(root.id)} title="Delete conversation">
                           <Trash2 size={14} />
                         </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+
+                    <CardContent className="p-4 space-y-3">
+                      {messages.map((msg) => {
+                        const mine = isMyNote(msg);
+                        return (
+                          <div key={msg.id} className={`flex items-end gap-2 ${mine ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-[11px] font-semibold uppercase ${mine ? 'bg-primary/15 text-primary' : 'bg-slate-200 text-slate-600'}`}>
+                              {noteInitials(msg.created_by_name)}
+                            </div>
+                            <div className={`group max-w-[80%] ${mine ? 'items-end text-right' : 'items-start'} flex flex-col`}>
+                              <div className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed shadow-sm ${mine ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-slate-100 text-slate-800 rounded-bl-sm'}`}>
+                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                              </div>
+                              {msg.previous_content && (
+                                <details className="mt-1">
+                                  <summary className="text-[11px] text-orange-600 cursor-pointer">Previous version</summary>
+                                  <p className="text-[11px] text-slate-400 mt-1 p-2 bg-slate-50 rounded">{msg.previous_content}</p>
+                                </details>
+                              )}
+                              <div className={`mt-1 flex items-center gap-2 text-[11px] text-slate-400 ${mine ? 'flex-row-reverse' : ''}`}>
+                                <span>{msg.created_by_name || 'Staff'}</span>
+                                <span>{new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                                {msg.id !== root.id && (
+                                  <button
+                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-600 transition"
+                                    onClick={() => handleDeleteNote(msg.id)}
+                                    title="Delete message"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <CornerDownRight size={16} className="text-slate-300 shrink-0" />
+                        <Input
+                          value={replyingTo === root.id ? replyText : ''}
+                          onFocus={() => { setReplyingTo(root.id); }}
+                          onChange={(e) => { setReplyingTo(root.id); setReplyText(e.target.value); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply(root); }
+                          }}
+                          placeholder="Write a reply..."
+                          className="h-9 rounded-full bg-slate-50"
+                        />
+                        <Button
+                          size="sm"
+                          className="rounded-full h-9 w-9 p-0 shrink-0"
+                          disabled={savingReply || !(replyingTo === root.id && replyText.trim())}
+                          onClick={() => handleSendReply(root)}
+                          title="Send reply"
+                        >
+                          <Send size={15} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -2822,6 +2987,23 @@ const StudentProfileView = ({ studentId, onBack }) => {
                 No detailed records yet. Go to the Special Education view to add info sources, evaluations, tutoring or session logs.
               </div>
             )}
+          </TabsContent>
+        )}
+
+        {/* Therapy Tab — weekly schedule + calendar */}
+        {specialEdData && canSee('therapy') && (
+          <TabsContent value="therapy" className="mt-6 space-y-6">
+            <TherapySchedule
+              tutoring={specialEdData.tutoring || []}
+              sessionLogs={specialEdData.session_logs || []}
+            />
+          </TabsContent>
+        )}
+
+        {/* Reports Tab — narrative write-ups with templates */}
+        {canSee('reports') && (
+          <TabsContent value="reports" className="mt-6 space-y-6">
+            <ChildReports studentId={studentId} student={student} currentUser={currentUser} />
           </TabsContent>
         )}
 
