@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail, PhoneCall } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, CalendarClock, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail, PhoneCall } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -49,6 +49,7 @@ import PhoneSystemView from '@/components/views/PhoneSystemView';
 import WeeklyReportView from '@/components/views/WeeklyReportView';
 import FarhersView from '@/components/views/FarhersView';
 import PointsView from '@/components/views/PointsView';
+import ScheduleView from '@/components/views/ScheduleView';
 
 const Dashboard = () => {
   const { t, isRTL, dir } = useLanguage();
@@ -126,6 +127,7 @@ const Dashboard = () => {
     
     // Special Ed & Assistant Principal
     { id: 'special-ed', label: 'Special Education', icon: Heart, group: 'Operations', roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
+    { id: 'schedule', label: 'Appointment Schedule', icon: CalendarClock, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin', 'special_ed'], description: 'Per-student & per-tutor appointment scheduling' },
     { id: 'late-tracking', label: 'Late Tracking', icon: Clock, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
     { id: 'bus-changes', label: 'Bus Changes', icon: Bus, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
     { id: 'reminders', label: 'Reminders', icon: Bell, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
@@ -172,6 +174,7 @@ const Dashboard = () => {
       case 'activity': return <ActivityLogView {...viewProps} />;
       case 'settings': return <SettingsView {...viewProps} />;
       case 'special-ed': return <SpecialEducationView {...viewProps} />;
+      case 'schedule': return <ScheduleView {...viewProps} />;
       case 'class-detail': return <ClassDetailView {...viewProps} />;
       case 'report-cards': return <ReportCardsView {...viewProps} />;
       case 'weekly-report': return <WeeklyReportView {...viewProps} />;

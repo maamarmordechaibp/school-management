@@ -97,6 +97,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [studentNotes, setStudentNotes] = useState([]);
   const [specialEdData, setSpecialEdData] = useState(null);
   const [childReports, setChildReports] = useState([]);
+  const [therapyAppts, setTherapyAppts] = useState([]);
   const [lateArrivals, setLateArrivals] = useState([]);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
@@ -348,6 +349,16 @@ const StudentProfileView = ({ studentId, onBack }) => {
           .order('report_date', { ascending: false });
         setChildReports(reportsData || []);
       } catch (e) { console.log('child_reports not available yet'); }
+
+      // Fetch this student's tutoring/therapy appointments (works for any student)
+      try {
+        const { data: apptData } = await supabase
+          .from('tutoring_schedule')
+          .select('*, staff:special_ed_staff(name, hebrew_name, role)')
+          .eq('student_id', studentId)
+          .eq('is_active', true);
+        setTherapyAppts(apptData || []);
+      } catch (e) { console.log('tutoring_schedule not available yet'); }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load student profile' });
@@ -1254,7 +1265,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
               Special Education
             </TabsTrigger>
           )}
-          {specialEdData && canSee('therapy') && (
+          {canSee('therapy') && (
             <TabsTrigger value="therapy" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-500 data-[state=active]:shadow-none rounded-none px-6 flex items-center gap-1">
               <CalendarIconLucide size={14} />
               Therapy
@@ -2991,11 +3002,24 @@ const StudentProfileView = ({ studentId, onBack }) => {
         )}
 
         {/* Therapy Tab — weekly schedule + calendar */}
-        {specialEdData && canSee('therapy') && (
+        {canSee('therapy') && (
           <TabsContent value="therapy" className="mt-6 space-y-6">
             <TherapySchedule
-              tutoring={specialEdData.tutoring || []}
-              sessionLogs={specialEdData.session_logs || []}
+              tutoring={
+                therapyAppts.length
+                  ? therapyAppts.map((a) => ({
+                      id: a.id,
+                      tutor_name: a.staff ? (a.staff.hebrew_name || a.staff.name) : (a.tutor_name || 'Tutor'),
+                      subject: a.subject,
+                      schedule_days: a.appointment_date ? '' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][a.day_of_week ?? -1] || '',
+                      schedule_time: a.start_time ? String(a.start_time).slice(0, 5) : '',
+                      frequency: a.appointment_date ? 'one-time' : 'weekly',
+                      session_duration_minutes: a.duration_minutes,
+                      location: a.location,
+                    }))
+                  : (specialEdData?.tutoring || [])
+              }
+              sessionLogs={specialEdData?.session_logs || []}
             />
           </TabsContent>
         )}
