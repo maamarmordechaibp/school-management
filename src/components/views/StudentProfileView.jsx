@@ -3009,7 +3009,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
                 therapyAppts.length
                   ? therapyAppts.map((a) => ({
                       id: a.id,
-                      tutor_name: a.staff ? (a.staff.hebrew_name || a.staff.name) : (a.tutor_name || 'Tutor'),
+                      tutor_name: a.tutor_name || (a.staff ? (a.staff.hebrew_name || a.staff.name) : 'Tutor'),
                       subject: a.subject,
                       schedule_days: a.appointment_date ? '' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][a.day_of_week ?? -1] || '',
                       schedule_time: a.start_time ? String(a.start_time).slice(0, 5) : '',

@@ -86,18 +86,31 @@ const ScheduleView = ({ currentUser }) => {
   // ---------- load pickers ----------
   useEffect(() => {
     (async () => {
-      const [st, sf] = await Promise.all([
+      const [st, sed, sm, au] = await Promise.all([
         supabase.from('students').select('id, name, hebrew_name, first_name, last_name, class').order('name'),
-        supabase.from('special_ed_staff').select('id, name, hebrew_name, role').eq('is_active', true).order('name'),
+        supabase.from('special_ed_staff').select('id, name, hebrew_name, role').eq('is_active', true),
+        supabase.from('staff_members').select('id, full_name, hebrew_name, position, is_active').eq('is_active', true),
+        supabase.from('app_users').select('id, name, first_name, last_name, role, is_active').eq('role', 'tutor').eq('is_active', true),
       ]);
       setStudents(st.data || []);
-      setStaff(sf.data || []);
+
+      // Merge tutors/mentors from all three sources into one list.
+      const merged = [];
+      (sed.data || []).forEach((s) =>
+        merged.push({ key: `special_ed:${s.id}`, id: s.id, source: 'special_ed', name: s.hebrew_name || s.name, role: s.role || 'special ed' }));
+      (sm.data || []).forEach((s) =>
+        merged.push({ key: `staff_member:${s.id}`, id: s.id, source: 'staff_member', name: s.hebrew_name || s.full_name, role: s.position || 'staff' }));
+      (au.data || []).forEach((s) =>
+        merged.push({ key: `app_user:${s.id}`, id: s.id, source: 'app_user', name: s.name || [s.first_name, s.last_name].filter(Boolean).join(' '), role: 'tutor' }));
+      merged.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      setStaff(merged);
     })();
   }, []);
 
   // ---------- load appointments for the current selection ----------
   const load = useCallback(async () => {
-    const filterId = mode === 'student' ? selectedStudent : selectedStaff;
+    const staffId = selectedStaff ? selectedStaff.split(':')[1] : '';
+    const filterId = mode === 'student' ? selectedStudent : staffId;
     if (!filterId) { setAppts([]); return; }
     setLoading(true);
     try {
@@ -150,7 +163,7 @@ const ScheduleView = ({ currentUser }) => {
       editing: null,
       form: {
         student_id: mode === 'student' ? selectedStudent : '',
-        staff_id: mode === 'staff' ? selectedStaff : '',
+        staffKey: mode === 'staff' ? selectedStaff : 'none',
         tutor_name: '',
         subject: '',
         location: '',
@@ -169,7 +182,7 @@ const ScheduleView = ({ currentUser }) => {
       editing: a,
       form: {
         student_id: a.student_id || '',
-        staff_id: a.staff_id || '',
+        staffKey: a.staff_id ? `${a.staff_source || 'special_ed'}:${a.staff_id}` : 'none',
         tutor_name: a.tutor_name || '',
         subject: a.subject || '',
         location: a.location || '',
@@ -191,10 +204,13 @@ const ScheduleView = ({ currentUser }) => {
     if (!f.start_time) { toast({ variant: 'destructive', title: 'A start time is required' }); return; }
     setSaving(true);
     const once = f.recurrence === 'once';
+    const picked = f.staffKey && f.staffKey !== 'none' ? staff.find((s) => s.key === f.staffKey) : null;
+    const tutorLabel = picked ? picked.name : (f.tutor_name || null);
     const payload = {
       student_id: f.student_id,
-      staff_id: f.staff_id || null,
-      tutor_name: f.tutor_name || null,
+      staff_id: picked ? picked.id : null,
+      staff_source: picked ? picked.source : null,
+      tutor_name: tutorLabel,
       subject: f.subject || null,
       location: f.location || null,
       start_time: f.start_time.length === 5 ? `${f.start_time}:00` : f.start_time,
@@ -241,9 +257,12 @@ const ScheduleView = ({ currentUser }) => {
 
   const selectionLabel = mode === 'student'
     ? studentName(students.find((s) => s.id === selectedStudent))
-    : staffName(staff.find((s) => s.id === selectedStaff));
+    : (staff.find((s) => s.key === selectedStaff)?.name || '');
 
   const hasSelection = mode === 'student' ? !!selectedStudent : !!selectedStaff;
+
+  // Label for the tutor side of an appointment (denormalized name preferred).
+  const tutorLabelOf = (a) => a.tutor_name || staffName(a.staff) || 'Tutor';
 
   const printSchedule = () => {
     if (!hasSelection) return;
@@ -253,7 +272,7 @@ const ScheduleView = ({ currentUser }) => {
       const list = withOverlapFlags(apptsForDate(date)).sort((a, b) => toMin(a.start_time) - toMin(b.start_time));
       if (!list.length) return '';
       const items = list.map((a) => {
-        const other = mode === 'student' ? (staffName(a.staff) || a.tutor_name || '—') : studentName(a.student);
+        const other = mode === 'student' ? tutorLabelOf(a) : studentName(a.student);
         const s = toMin(a.start_time);
         return `<tr><td>${fmtTime(s)}–${fmtTime(s + (a.duration_minutes || 30))}</td><td>${other}</td><td>${a.subject || ''}</td><td>${a.location || ''}</td></tr>`;
       }).join('');
@@ -302,7 +321,7 @@ const ScheduleView = ({ currentUser }) => {
             <SelectTrigger className="w-64"><SelectValue placeholder="Select a tutor / staff…" /></SelectTrigger>
             <SelectContent>
               {staff.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{staffName(s)}{s.role ? ` · ${s.role.replace(/_/g, ' ')}` : ''}</SelectItem>
+                <SelectItem key={s.key} value={s.key}>{s.name}{s.role ? ` · ${String(s.role).replace(/_/g, ' ')}` : ''}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -381,7 +400,7 @@ const ScheduleView = ({ currentUser }) => {
                           const s = toMin(a.start_time);
                           const top = ((s - DAY_START) / SLOT_MIN) * ROW_H;
                           const height = Math.max(((a.duration_minutes || 30) / SLOT_MIN) * ROW_H - 2, 16);
-                          const other = mode === 'student' ? (staffName(a.staff) || a.tutor_name || 'Tutor') : studentName(a.student);
+                          const other = mode === 'student' ? tutorLabelOf(a) : studentName(a.student);
                           return (
                             <div
                               key={a.id}
@@ -432,17 +451,17 @@ const ScheduleView = ({ currentUser }) => {
                 </div>
                 <div>
                   <Label>Tutor / Staff</Label>
-                  <Select value={dialog.form.staff_id || 'none'} onValueChange={(v) => setForm({ staff_id: v === 'none' ? '' : v })} disabled={mode === 'staff'}>
+                  <Select value={dialog.form.staffKey} onValueChange={(v) => setForm({ staffKey: v })} disabled={mode === 'staff'}>
                     <SelectTrigger><SelectValue placeholder="Staff…" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">— none / free text —</SelectItem>
-                      {staff.map((s) => <SelectItem key={s.id} value={s.id}>{staffName(s)}</SelectItem>)}
+                      {staff.map((s) => <SelectItem key={s.key} value={s.key}>{s.name}{s.role ? ` · ${String(s.role).replace(/_/g, ' ')}` : ''}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {!dialog.form.staff_id && (
+              {dialog.form.staffKey === 'none' && (
                 <div>
                   <Label>Tutor name (free text)</Label>
                   <Input value={dialog.form.tutor_name} onChange={(e) => setForm({ tutor_name: e.target.value })} placeholder="e.g. Rabbi Klein" />
