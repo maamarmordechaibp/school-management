@@ -54,6 +54,10 @@ const YIDDISH_STYLE =
   '(9) Transliterate English terms into Hebrew letters rather than Germanizing them: services → סערוויסעס ' +
   '(not דינסטן), study/studies → לימודים (not שטודיום), age → עידזש, vision → וויזשן. Spell loshn-koidesh and ' +
   'Yiddish learning terms correctly (טייטש, אוצר המילים, פרק). ' +
+  '(10) When the source data says "Rabbi", "the Rabbi" or "Rebbi", it means the classroom TEACHER — write ' +
+  'דער מלמד (NOT דער רב). Write Jewish first names in loshn-koidesh spelling (משה not מאישע, יעקב, יצחק, שמעון). ' +
+  'Prefer a natural loshn-koidesh word over transliterating English when one exists: future → עתיד (not פוטור), ' +
+  'take action → טון למעשה; only transliterate English when there is truly no natural heimishe word. ' +
   'Never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
