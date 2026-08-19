@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Sparkles, Loader2, Copy, Printer, Save, RefreshCw } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Printer, Save, RefreshCw, Mail } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { generateAIReport } from '@/lib/aiReportService';
+import { sendEmail } from '@/lib/emailService';
 
 const AUDIENCES = [
   { value: 'parents', label: 'Parents' },
@@ -31,6 +32,7 @@ const AIReportModal = ({ open, onOpenChange, studentId, studentName, currentUser
   const [language, setLanguage] = useState('yi');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState('');
+  const [emailing, setEmailing] = useState(false);
   const rtl = language === 'yi' || language === 'he';
 
   const generate = async () => {
@@ -59,6 +61,37 @@ const AIReportModal = ({ open, onOpenChange, studentId, studentName, currentUser
       <style>body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.7;color:#1e293b;max-width:800px;margin:0 auto;padding:32px;white-space:pre-wrap;font-size:15px;}h1{font-size:20px;}@media print{body{padding:0;}}</style>
       </head><body><h1>${esc(studentName || '')}</h1>${esc(report)}</body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  };
+
+  const emailToParents = async () => {
+    setEmailing(true);
+    try {
+      const { data: s } = await supabase
+        .from('students')
+        .select('father_email, mother_email')
+        .eq('id', studentId)
+        .maybeSingle();
+      const recipients = [s?.father_email, s?.mother_email].filter(Boolean);
+      if (recipients.length === 0) {
+        toast({ variant: 'destructive', title: 'No parent email', description: 'This student has no father/mother email on file.' });
+        return;
+      }
+      const subject = language === 'yi' ? `באריכט וועגן ${studentName}`
+        : language === 'he' ? `דו״ח על ${studentName}` : `Report about ${studentName}`;
+      await sendEmail({
+        to: recipients,
+        subject,
+        body: report,
+        relatedType: 'student',
+        relatedId: studentId,
+        sentBy: currentUser?.id || null,
+      });
+      toast({ title: 'Email sent', description: `Sent to ${recipients.join(', ')}` });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Email failed', description: err.message });
+    } finally {
+      setEmailing(false);
+    }
   };
 
   const saveToReports = async () => {
@@ -133,6 +166,9 @@ const AIReportModal = ({ open, onOpenChange, studentId, studentName, currentUser
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={copy}><Copy size={14} className="mr-1" /> Copy</Button>
             <Button variant="outline" size="sm" onClick={print}><Printer size={14} className="mr-1" /> Print</Button>
+            <Button variant="outline" size="sm" onClick={emailToParents} disabled={emailing}>
+              {emailing ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Mail size={14} className="mr-1" />} Email to parents
+            </Button>
             <Button variant="outline" size="sm" onClick={saveToReports}><Save size={14} className="mr-1" /> Save to Reports</Button>
           </div>
         )}
