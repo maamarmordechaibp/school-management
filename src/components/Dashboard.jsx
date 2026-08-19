@@ -197,7 +197,7 @@ const Dashboard = () => {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
         <div className="animate-pulse flex flex-col items-center">
-           <div className="h-12 w-12 bg-blue-200 rounded-full mb-4"></div>
+           <div className="h-12 w-12 bg-primary/20 rounded-full mb-4"></div>
            <div className="h-4 w-32 bg-slate-200 rounded"></div>
            <p className="text-slate-400 text-sm mt-2">Loading profile...</p>
         </div>
@@ -269,16 +269,16 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+            <nav className="flex-1 px-2.5 py-3 space-y-3.5 overflow-y-auto">
               {MENU_GROUP_ORDER.map((groupName) => {
                 const groupItems = allowedMenuItems.filter((i) => i.group === groupName);
                 if (groupItems.length === 0) return null;
                 return (
                   <div key={groupName}>
-                    <p className="px-3 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400/90">
+                    <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400/80">
                       {groupLabel(groupName)}
                     </p>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       {groupItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeView === item.id;
@@ -290,14 +290,14 @@ const Dashboard = () => {
                               if (window.innerWidth < 1024) setSidebarOpen(false);
                             }}
                             title={item.description}
-                            className={`w-full group relative flex items-center gap-3 px-3 min-h-[48px] rounded-xl text-[15px] transition-all duration-200 ${
+                            className={`w-full group relative flex items-center gap-2.5 px-3 min-h-[38px] rounded-lg text-[13.5px] transition-all duration-200 ${
                               isActive
-                                ? 'bg-brand-gradient text-white font-bold shadow-glow'
-                                : 'text-slate-600 hover:bg-white/70 hover:text-slate-900 font-medium'
+                                ? 'bg-brand-gradient text-white font-semibold shadow-glow'
+                                : 'text-slate-600 hover:bg-accent hover:text-accent-foreground font-medium'
                             }`}
                           >
                             <Icon
-                              size={20}
+                              size={18}
                               className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary'}
                             />
                             <span className="truncate text-start">{menuLabel(item)}</span>
