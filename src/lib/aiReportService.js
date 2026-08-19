@@ -9,7 +9,6 @@ import { apiFetch } from '@/lib/apiClient';
  */
 export async function gatherStudentBundle(studentId, { audience = 'staff', canSensitive = false } = {}) {
   const short = (s, n = 400) => (s ? String(s).slice(0, n) : undefined);
-  const isStaffSide = audience === 'staff' || audience === 'principal';
 
   const [
     studentRes, notesRes, assessRes, gradesRes, callsRes, meetingsRes,
@@ -38,13 +37,16 @@ export async function gatherStudentBundle(studentId, { audience = 'staff', canSe
 
   const s = studentRes.data || {};
   const bundle = {
-    basic: {
+    // Identity fields for the HEADER block only (not the narrative). Mother's name is intentionally excluded.
+    header: {
       name: s.hebrew_name || s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+      today: new Date().toISOString().slice(0, 10),
+      date_of_birth: s.date_of_birth || undefined,
+      address: [s.address, s.city].filter(Boolean).join(', ') || undefined,
+      father_name: s.father_name || undefined,
       class: s.class || undefined,
       status: s.status || undefined,
-      date_of_birth: s.date_of_birth || undefined,
     },
-    family: isStaffSide ? { father_name: s.father_name, mother_name: s.mother_name } : undefined,
     notes: (notesRes.data || []).map((n) => ({ date: n.created_at, type: n.note_type, by: n.created_by_name, text: short(n.content) })),
     assessments: (assessRes.data || []).map((a) => ({ date: a.assessment_date, type: a.assessment_type, notes: short(a.overall_notes), ratings: { social_emotional: a.social_emotional, kriah: a.kriah, limud: a.limud } })),
     grades: (gradesRes.data || []).map((g) => ({ subject: g.subject, grade: g.grade, quarter: g.quarter, year: g.school_year, notes: short(g.notes, 120) })),

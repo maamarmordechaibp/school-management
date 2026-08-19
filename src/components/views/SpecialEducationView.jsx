@@ -20,8 +20,9 @@ import { useStudentProfile } from '@/contexts/StudentProfileContext';
 import {
   Plus, Search, Edit, Trash2, User, Users, Calendar, Clock,
   FileText, ClipboardList, BookOpen, UserCheck, AlertCircle,
-  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, Mail, RefreshCw, Loader2
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, Mail, RefreshCw, Loader2, Sparkles
 } from 'lucide-react';
+import AIReportModal from '@/components/modals/AIReportModal';
 
 const STATUS_OPTIONS = [
   { value: 'monitoring', label: 'Monitoring', color: 'bg-yellow-100 text-yellow-800' },
@@ -120,6 +121,8 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const { toast } = useToast();
   const { open: openProfile } = useStudentProfile();
   const { t } = useLanguage();
+  const [aiReport, setAiReport] = useState(null); // { studentId, name }
+  const canSensitiveAI = ['principal', 'principal_hebrew', 'principal_english', 'admin', 'special_ed'].includes(role);
   const { notify, notifyElement } = useStudentNotify(currentUser);
   const [activeTab, setActiveTab] = useState('students');
   const [loading, setLoading] = useState(true);
@@ -1043,6 +1046,16 @@ const SpecialEducationView = ({ role, currentUser }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {specEd.student?.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                          onClick={(e) => { e.stopPropagation(); setAiReport({ studentId: specEd.student.id, name: specEd.student.hebrew_name || `${specEd.student.first_name || ''} ${specEd.student.last_name || ''}`.trim() }); }}
+                        >
+                          <Sparkles className="h-4 w-4 me-1" /> AI Report
+                        </Button>
+                      )}
                       {getStatusBadge(specEd.status)}
                       {specEd.referral_date && (
                         <span className="text-xs text-slate-400">
@@ -2322,6 +2335,17 @@ const SpecialEducationView = ({ role, currentUser }) => {
       />
       {/* Notification prompt (create + update) */}
       {notifyElement}
+
+      {aiReport && (
+        <AIReportModal
+          open={!!aiReport}
+          onOpenChange={(o) => !o && setAiReport(null)}
+          studentId={aiReport.studentId}
+          studentName={aiReport.name}
+          currentUser={currentUser}
+          canSensitive={canSensitiveAI}
+        />
+      )}
     </div>
   );
 };

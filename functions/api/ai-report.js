@@ -130,7 +130,11 @@ function buildMessages({ student, bundle, audience, language }) {
     `for staff and principal in full detail (the evaluations, session progress, monthly reports and plan). ` +
     `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
     `If a section has no data, omit it rather than guessing. ` +
-    `Organize with short headed sections and a brief summary at the top and a clear "next steps" at the end. ` +
+    `Begin with a short HEADER block at the very top — labeled lines for the student's name, today's date, ` +
+    `date of birth, address and father's name (omit any line whose data is missing). NEVER include the mother's ` +
+    `name anywhere in the report. Do NOT repeat the date of birth inside the narrative prose — it belongs ONLY in ` +
+    `the header. After the header, write the full report nicely organized, with short headed sections, a brief ` +
+    `summary and a clear "next steps" at the end. ` +
     `Keep it honest, kind and actionable.`;
 
   const userMsg =
