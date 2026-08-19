@@ -1216,6 +1216,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
     win.focus();
     setTimeout(() => win.print(), 300);
   };
+
+  // Quick-add options for each role box (all the things that go into it).
+  const openNewNote = () => {
     setEditingNote(null);
     setNoteForm({ title: '', content: '', note_type: 'general', edit_mode: 'update' });
     setIsNoteModalOpen(true);
