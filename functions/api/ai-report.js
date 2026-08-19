@@ -39,19 +39,31 @@ const YIDDISH_STYLE =
 
 const AUDIENCE_GUIDES = {
   parents:
-    'The reader is the student\'s PARENTS. Warm, respectful and encouraging. Lead with strengths and growth. ' +
-    'Explain concerns gently and constructively, with concrete ways the parents can help at home. ' +
-    'Avoid clinical jargon, internal staff-only remarks, and raw diagnostic labels.',
+    'The reader is the student\'s PARENTS. Give the BIG PICTURE, not every detail. Warm, respectful and ' +
+    'encouraging. Lead with the child\'s overall matzav and main strengths, then the 1–3 most important points ' +
+    'and concrete ways the parents can help at home. Summarize — do NOT list every call, note or meeting. ' +
+    'Keep it readable and relatively short. Avoid clinical jargon, internal staff-only remarks and raw diagnostic labels.',
   tutor:
     'The reader is a TUTOR / mentor who works with the student. Focus on the academic/learning picture: current level, ' +
-    'what is working, specific skills to target next, recent session progress, and the current plan. Practical and specific.',
+    'what is working, the specific skills to target next, recent session progress, and the current plan. Practical and specific.',
   staff:
-    'The reader is SCHOOL STAFF (teacher / coordinator). A complete, professional picture: strengths, concerns, ' +
-    'interventions, communication history, open tasks and clear next steps.',
+    'The reader is SCHOOL STAFF (teacher / coordinator) who needs the FULL nitty-gritty. Be thorough and specific: ' +
+    'go through every discussion we had (each call and meeting with its date and what was said/decided), every concern ' +
+    'or issue and its current status, all assessments, interventions, open tasks and follow-ups. Do not omit details that ' +
+    'appear in the data — but keep it organized under clear headed sections, and end with concrete next steps and who is responsible.',
   principal:
-    'The reader is the PRINCIPAL / administration. A concise executive summary: the situation, what has been done, ' +
-    'who is responsible, risks, and the recommended next steps.',
+    'The reader is the PRINCIPAL / administration. A thorough but organized executive picture: the situation, exactly what ' +
+    'has been done (with specifics and dates), who is responsible, the open risks, and the recommended next steps.',
 };
+
+// When writing Yiddish, keep natural English terms in English (Latin) letters, iVelt-style.
+const YIDDISH_ENGLISH_MIX =
+  'IMPORTANT for the English words: heimishe people mix English words into Yiddish and write those words in ENGLISH ' +
+  '(Latin letters) right inside the Yiddish sentence — exactly like posts on iVelt. When a term is one that heimishe ' +
+  'people normally say in English, keep it in English letters; do NOT translate it into Yiddish and do NOT spell it in ' +
+  'Hebrew letters. This applies to people\'s and places\' names and to everyday terms such as evaluation, IEP, speech, OT, ' +
+  'reading level, principal, meeting, appointment, behavior, test, grade, progress, schedule, phone, email. Keep the ' +
+  'sentence flowing naturally with the English word embedded (e.g., "מ\'האט געהאט א meeting וועגן זיין reading level").';
 
 function buildMessages({ student, bundle, audience, language }) {
   const langName = LANGUAGES[language] || LANGUAGES.yi;
@@ -62,7 +74,7 @@ function buildMessages({ student, bundle, audience, language }) {
   const system =
     `You are an experienced, warm school administrator who writes clear, fluent, well-structured student reports. ` +
     `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
-    (language === 'yi' ? YIDDISH_STYLE + ' ' : '') +
+    (language === 'yi' ? YIDDISH_STYLE + ' ' + YIDDISH_ENGLISH_MIX + ' ' : '') +
     `${guide} ` +
     `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
     `If a section has no data, omit it rather than guessing. ` +
