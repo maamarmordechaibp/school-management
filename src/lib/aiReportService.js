@@ -74,17 +74,23 @@ export async function gatherStudentBundle(studentId, { audience = 'staff', canSe
   // Sensitive special-education — gathered whenever the CALLER is authorized
   // (any audience). How much of it surfaces in the text is decided by the prompt.
   if (canSensitive) {
-    const { data: sed } = await supabase.from('special_ed_students').select('*').eq('student_id', studentId).maybeSingle();
+    // Evaluation requests are gathered independently — a student may have a
+    // referral/request WITHOUT a formal special_ed_students enrollment yet.
+    const [{ data: sed }, evalReqRes] = await Promise.all([
+      supabase.from('special_ed_students').select('*').eq('student_id', studentId).maybeSingle(),
+      supabase.from('special_ed_evaluation_requests').select('reason, evaluation_type, priority, status').eq('student_id', studentId).order('created_at', { ascending: false }).limit(10),
+    ]);
+    const evalRequests = (evalReqRes.data || []).map((r) => ({ reason: short(r.reason), type: r.evaluation_type, priority: r.priority, status: r.status }));
+    if (evalRequests.length) bundle.evaluation_requests = evalRequests;
     if (sed) {
       bundle.receives_special_ed = true;
       const seId = sed.id;
-      const [evalsRes, sourcesRes, logsRes, monthlyRes, sedTutRes, evalReqRes] = await Promise.all([
+      const [evalsRes, sourcesRes, logsRes, monthlyRes, sedTutRes] = await Promise.all([
         supabase.from('special_ed_evaluations').select('evaluation_type, evaluator_name, evaluation_date, results, recommendations, plan, actual_actions').eq('special_ed_student_id', seId).order('evaluation_date', { ascending: false }).limit(15),
         supabase.from('special_ed_info_sources').select('source_type, content, date_gathered').eq('special_ed_student_id', seId).order('date_gathered', { ascending: false }).limit(20),
         supabase.from('special_ed_session_logs').select('session_date, subject, content, progress_notes, goals_worked_on').eq('special_ed_student_id', seId).order('session_date', { ascending: false }).limit(25),
         supabase.from('special_ed_monthly_reports').select('report_month, what_was_done, progress, challenges, goals_next_month, recommendations').eq('special_ed_student_id', seId).order('report_month', { ascending: false }).limit(12),
         supabase.from('special_ed_tutoring').select('tutor_name, tutor_type, subject, schedule_days, schedule_time, frequency, start_date, end_date').eq('special_ed_student_id', seId).limit(15),
-        supabase.from('special_ed_evaluation_requests').select('reason, evaluation_type, priority, status').eq('student_id', studentId).order('created_at', { ascending: false }).limit(10),
       ]);
       bundle.special_education = {
         status: sed.status, referral_reason: short(sed.referral_reason), referral_date: sed.referral_date,
@@ -96,7 +102,9 @@ export async function gatherStudentBundle(studentId, { audience = 'staff', canSe
         monthly_reports: (monthlyRes.data || []).map((m) => ({ month: m.report_month, done: short(m.what_was_done), progress: short(m.progress), challenges: short(m.challenges), next_goals: short(m.goals_next_month), recommendations: short(m.recommendations) })),
         therapy: (sedTutRes.data || []).map((t) => ({ tutor: t.tutor_name, type: t.tutor_type, subject: t.subject, days: t.schedule_days, time: t.schedule_time, frequency: t.frequency, start: t.start_date, end: t.end_date })),
       };
-      bundle.evaluation_requests = (evalReqRes.data || []).map((r) => ({ reason: short(r.reason), type: r.evaluation_type, priority: r.priority, status: r.status }));
+    } else if (evalRequests.length) {
+      // Referred / evaluation requested but not yet formally enrolled.
+      bundle.special_ed_pending = true;
     }
     if (s.medical_notes) bundle.medical_notes = short(s.medical_notes);
   }
