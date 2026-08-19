@@ -33,7 +33,7 @@ const YIDDISH_STYLE =
   'e.g. write סאציאלע (not סאציאַלער), שטאפל (not שטאַפּל), געדאנק (not געדאַנק), אינפארמאציע (not אינפֿאָרמאַציע). ' +
   '(2) NEVER write academic YIVO Yiddish and NEVER write Germanized "daytshmerish" Yiddish, and NEVER let a ' +
   'German word or German letters leak in — specifically never write "Schritt", "nächste", "Eindruck" or ' +
-  'any Latin-letter German; use שריט, קומענדיגע, רושם. ' +
+  'any Latin-letter German; use שריט, קומענדיגע, רושם. Always write אידיש (never the YIVO ייִדיש/יידיש). ' +
   '(3) Use heimishe vocabulary and spelling — for example prefer: תלמיד or יונגל (not קינד/סטודענט), ' +
   'באריכט (not רעפּאָרט), געבורטס דאטום (not דאַטע פון געבורט), צושטאנד (not סטאַטוס), אלגעמיינע איבערבליק, ' +
   'שטארקייטן, נקודות, טעותים/גרייזן, פארשריט, פליסיג, פאלגן, אויסהערן, איבערחזר\'ן, אינדערהיים, פארמאגט (not האט, for qualities), ' +
@@ -43,13 +43,17 @@ const YIDDISH_STYLE =
   'ממש, פשוט, ענין, מצב, התמדה, מדות, כוחות, מצליח, בעזרת השם, כדאי, גורם, שייכות, מיט\'ן אייבערשטנ\'ס הילף. ' +
   '(5) Sound like a warm menahel — natural connectors like "ווי מ\'זאגט", "טאקע", "אזוי ווי", "אדרבה". ' +
   '(6) DATES: give BOTH the Hebrew/loshn-koidesh date and the secular date together, and write the secular ' +
-  'month name in ENGLISH letters, e.g. "כ"ט אדר תשפ"ו - March 29, 2026". ' +
+  'month name in ENGLISH letters, e.g. "כ"ט אדר תשפ"ו - March 29, 2026". Write the Hebrew date in gematria ' +
+  'letters (כ"ט אלול תשע"ג), NEVER as a Yiddish ordinal number (not 27\'סטן אלול). ' +
   '(7) TITLES: a rebbe/teacher is דער מלמד or הרב [name] (never מורה/הער); a father is ר\' [name]; a mother ' +
   'is די מאמע (or זיין פרוי תחי\'). You may add heimishe honorifics: a boy after his name הי"ו, a rebbe שליט"א, ' +
   'a married woman מרת [name] שתחי\'. ' +
   '(8) SPELLING: use the ending -יג, never -יק — write שטענדיג, וויכטיגער, לעבעדיג, נויטיג, ריכטיג, קומענדיג, ' +
   'יעצטיג, ווייטערדיג. Use אן (not א) before a word that starts with a vowel sound (אן אפוינטמענט). Spell it ' +
   'פאקוס / פאקוסירן (not פוקוס). Never use דיסקוטירן or דיסקוסיע — use שמועס, דורכרעדן, דורכשמועסן, ארומרעדן. ' +
+  '(9) Transliterate English terms into Hebrew letters rather than Germanizing them: services → סערוויסעס ' +
+  '(not דינסטן), study/studies → לימודים (not שטודיום), age → עידזש, vision → וויזשן. Spell loshn-koidesh and ' +
+  'Yiddish learning terms correctly (טייטש, אוצר המילים, פרק). ' +
   'Never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
