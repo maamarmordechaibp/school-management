@@ -123,7 +123,7 @@ function buildMessages({ student, bundle, audience, language }) {
 export async function onRequestPost(context) {
   const AI_API_KEY = context.env.AI_API_KEY;
   const AI_BASE_URL = (context.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-  const AI_MODEL = context.env.AI_MODEL || 'gpt-4o-mini';
+  const AI_MODEL = context.env.AI_MODEL || 'gpt-4o';
 
   // --- Auth: any school staff role may generate ---
   const auth = await requireRole(context, 'ai-report', STAFF_ROLES);
