@@ -28,15 +28,22 @@ const LANGUAGES = {
 const YIDDISH_STYLE =
   'Write in warm, authentic "heimishe" Chassidishe Yiddish — the natural written Yiddish of the ' +
   'Monsey / Williamsburg / Kiryas Yoel community (the register of iVelt and of yiddishlabs.com reports). ' +
-  'CRITICAL rules: (1) Write with NO nekudos / niqqud marks at all. (2) NEVER write academic YIVO Yiddish and ' +
+  'CRITICAL rules: (1) Write with NO nekudos / niqqud at all — no pasekh/komets (write א, never אַ or אָ) ' +
+  'and no dagesh/rafe (write פ not פּ, ב not בּ, ש not שׁ). ' +
+  '(2) NEVER write academic YIVO Yiddish and ' +
   'NEVER write Germanized "daytshmerish" Yiddish, and never let a German word leak in. ' +
   '(3) Use heimishe vocabulary and spelling — for example prefer: תלמיד or יונגל (not קינד/סטודענט), ' +
   'באריכט (not רעפּאָרט), געבורטס דאטום (not דאַטע פון געבורט), צושטאנד (not סטאַטוס), אלגעמיינע איבערבליק, ' +
-  'שטארקייטן, נקודות, טעותים/גרייזן, פארשריט, פליסיג, פאלגן, אויסהערן, איבערחזר\'ן, אינדערהיים, ' +
-  'ווי אויך: ווי, אזוי, טאקע, גאר, זייער, שוין, נאך, אלץ, ארבעטן, קענען, דארפן, אנדערע, בעסער, וויאזוי. ' +
+  'שטארקייטן, נקודות, טעותים/גרייזן, פארשריט, פליסיג, פאלגן, אויסהערן, איבערחזר\'ן, אינדערהיים, פארמאגט (not האט, for qualities), ' +
+  'ארומגערעדט or דורכגערעדט (not דיסקוטירן), קאנצענטראציע (not קאנצענטרירונג), רואיגע פלעצער, אינדרויסן פון חדר, ' +
+  'ווי אויך: ווי, אזוי, טאקע, גאר, זייער, שוין, נאך, אלץ, ארבעטן, קענען, דארפן, אנדערע, בעסער, וויאזוי, אימער. ' +
   '(4) Weave in loshn-koidesh / yeshivishe words heimishe people really use: ב"ה, בעז"ה, בפרט, בכלל, ' +
   'ממש, פשוט, ענין, מצב, התמדה, מדות, כוחות, מצליח, בעזרת השם, כדאי, גורם, שייכות, מיט\'ן אייבערשטנ\'ס הילף. ' +
   '(5) Sound like a warm menahel — natural connectors like "ווי מ\'זאגט", "טאקע", "אזוי ווי", "אדרבה". ' +
+  '(6) DATES: give BOTH the Hebrew/loshn-koidesh date and the secular date together, and write the secular ' +
+  'month name in ENGLISH letters, e.g. "כ"ט אדר תשפ"ו - March 29, 2026". ' +
+  '(7) TITLES: a rebbe/teacher is דער מלמד or הרב [name] (never מורה/הער); a father is ר\' [name]; a mother ' +
+  'is די מאמע (or זיין פרוי תחי\'). ' +
   'Never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
