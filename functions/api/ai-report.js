@@ -19,10 +19,23 @@ import { requireRole, rateLimit, logAudit, STAFF_ROLES } from '../_lib/auth.js';
 const HEADERS = { 'Content-Type': 'application/json' };
 
 const LANGUAGES = {
-  yi: 'Yiddish (Chassidishe Yiddish as spoken in Monsey/Williamsburg communities)',
+  yi: 'Yiddish',
   he: 'Hebrew',
   en: 'English',
 };
+
+// Authentic heimishe Chassidishe Yiddish guidance (iVelt / Kave-Shtiebel register).
+const YIDDISH_STYLE =
+  'Write in warm, authentic "heimishe" Chassidishe Yiddish — the natural spoken Yiddish of the ' +
+  'Monsey / Williamsburg / Kiryas Yoel community, the register used on iVelt and Kave Shtiebel. ' +
+  'This is CRITICAL: do NOT write academic YIVO Yiddish and do NOT write Germanized "daytshmerish" ' +
+  'Yiddish. Use traditional heimishe spelling and words, for example: אידיש (not ייִדיש), ווי, ' +
+  'אזוי, טאקע, גאר, זייער, שוין, נאך, אלץ, ארבעטן, קענען, דארפן, אנדערע, בעסער. ' +
+  'Naturally weave in the loshn-koidesh / yeshivishe words that heimishe people really use in speech: ' +
+  'ב"ה, בעז"ה, בפרט, בכלל, ממש, פשוט, ענין, מצב, התמדה, מדות, כוחות, מצליח, בעזרת השם, לכתחילה. ' +
+  'Sound like a warm menahel actually talking to heimishe parents — use natural connectors such as ' +
+  '"ווי מ\'זאגט", "טאקע", "אזוי ווי", "אדרבה". Never transliterate an English word when a natural ' +
+  'Yiddish word exists, and never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
   parents:
@@ -49,6 +62,7 @@ function buildMessages({ student, bundle, audience, language }) {
   const system =
     `You are an experienced, warm school administrator who writes clear, fluent, well-structured student reports. ` +
     `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
+    (language === 'yi' ? YIDDISH_STYLE + ' ' : '') +
     `${guide} ` +
     `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
     `If a section has no data, omit it rather than guessing. ` +
