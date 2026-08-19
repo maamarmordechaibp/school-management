@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, CalendarClock, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail, PhoneCall } from 'lucide-react';
+import { Menu, Users, FileText, Phone, Calendar, Layout, Clock, CalendarRange, CalendarClock, BarChart2, FileBarChart, History, Edit3, LogOut, Shield, Settings, School, UserCog, Workflow, TrendingUp, DollarSign, BookMarked, Receipt, AlertTriangle, Layers, Contact, Bell, Bus, Heart, BookOpen, CheckSquare, Megaphone, Mail, PhoneCall, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -57,13 +57,24 @@ const Dashboard = () => {
   const { t, isRTL, dir } = useLanguage();
   const { user, profile, signOut, loading } = useAuth();
 
-  // Friendly, translated label for a menu item (falls back to its English label).
-  const menuLabel = (item) => t(`menu.${item.id}`) || item.label;
-  const groupLabel = (name) => t(`groups.${name}`) || name;
+  // Friendly, translated label. t() returns the raw key when a translation is
+  // missing, so fall back to the item's own English label in that case.
+  const menuLabel = (item) => { const k = `menu.${item.id}`; const s = t(k); return s === k ? item.label : s; };
+  const groupLabel = (name) => { const k = `groups.${name}`; const s = t(k); return s === k ? name : s; };
   const [activeView, setActiveView] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
+
+  // Collapsible sidebar sections — only one or two open at a time keeps the
+  // long menu tidy and easy to scan.
+  const [openGroups, setOpenGroups] = useState(() => new Set(['Main']));
+  const toggleGroup = (name) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
 
   const userRole = profile?.role || 'teacher'; 
 
@@ -148,6 +159,12 @@ const Dashboard = () => {
   ];
 
   const MENU_GROUP_ORDER = ['Main', 'Students & Classes', 'Communication', 'Staff & Access', 'Operations', 'Finance', 'System'];
+
+  // Keep the section holding the current view expanded.
+  useEffect(() => {
+    const active = menuItems.find((i) => i.id === activeView);
+    if (active) setOpenGroups((prev) => (prev.has(active.group) ? prev : new Set(prev).add(active.group)));
+  }, [activeView]);
 
   const renderView = () => {
     const viewProps = { role: userRole, currentUser: profile, onNavigate: setActiveView };
@@ -269,42 +286,56 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <nav className="flex-1 px-2.5 py-3 space-y-3.5 overflow-y-auto">
+            <nav className="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto">
               {MENU_GROUP_ORDER.map((groupName) => {
                 const groupItems = allowedMenuItems.filter((i) => i.group === groupName);
                 if (groupItems.length === 0) return null;
+                const isOpen = openGroups.has(groupName);
+                const hasActive = groupItems.some((i) => i.id === activeView);
                 return (
                   <div key={groupName}>
-                    <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400/80">
-                      {groupLabel(groupName)}
-                    </p>
-                    <div className="space-y-0.5">
-                      {groupItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeView === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setActiveView(item.id);
-                              if (window.innerWidth < 1024) setSidebarOpen(false);
-                            }}
-                            title={item.description}
-                            className={`w-full group relative flex items-center gap-2.5 px-3 min-h-[38px] rounded-lg text-[13.5px] transition-all duration-200 ${
-                              isActive
-                                ? 'bg-brand-gradient text-white font-semibold shadow-glow'
-                                : 'text-slate-600 hover:bg-accent hover:text-accent-foreground font-medium'
-                            }`}
-                          >
-                            <Icon
-                              size={18}
-                              className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary'}
-                            />
-                            <span className="truncate text-start">{menuLabel(item)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(groupName)}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-[0.1em] transition-colors hover:bg-accent/50 ${
+                        hasActive ? 'text-primary' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <span className="truncate text-start">{groupLabel(groupName)}</span>
+                      <ChevronDown
+                        size={14}
+                        className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? '' : '-rotate-90 rtl:rotate-90'}`}
+                      />
+                    </button>
+                    {isOpen && (
+                      <div className="mt-1 mb-1 space-y-0.5">
+                        {groupItems.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = activeView === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                setActiveView(item.id);
+                                if (window.innerWidth < 1024) setSidebarOpen(false);
+                              }}
+                              title={item.description}
+                              className={`w-full group relative flex items-center gap-2.5 ps-5 pe-3 min-h-[38px] rounded-lg text-[13.5px] transition-all duration-200 ${
+                                isActive
+                                  ? 'bg-brand-gradient text-white font-semibold shadow-glow'
+                                  : 'text-slate-600 hover:bg-accent hover:text-accent-foreground font-medium'
+                              }`}
+                            >
+                              <Icon
+                                size={18}
+                                className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary'}
+                              />
+                              <span className="truncate text-start">{menuLabel(item)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}

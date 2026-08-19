@@ -119,20 +119,20 @@ const OverviewView = ({ role = 'principal', currentUser, onNavigate }) => {
       title: t('overview.upcomingMeetings'),
       value: stats.upcomingMeetings,
       icon: Calendar,
-      iconClass: 'text-indigo-600',
-      tint: 'bg-indigo-500/10',
-      cardTint: 'bg-indigo-500/5',
+      iconClass: 'text-[#7242ff]',
+      tint: 'bg-[#7242ff]/10',
+      cardTint: 'bg-[#7242ff]/5',
       view: 'meetings',
     },
   ];
 
   const quickActions = [
-    { label: t('quickActions.addStudent'), icon: UserPlus, view: 'students', color: 'bg-primary hover:bg-primary/90 text-white' },
-    { label: t('quickActions.logCall'), icon: PhoneCall, view: 'calls', color: 'bg-[#10B981] hover:bg-[#10B981]/90 text-white' },
-    { label: t('quickActions.viewIssues'), icon: AlertCircle, view: 'issues', color: 'bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white' },
-    { label: t('quickActions.scheduleMeeting'), icon: CalendarPlus, view: 'meetings', color: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
-    { label: t('quickActions.addReminder'), icon: Bell, view: 'reminders', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
-    { label: t('quickActions.viewStudents'), icon: Users, view: 'students', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+    { label: t('quickActions.addStudent'), icon: UserPlus, view: 'students', color: 'bg-brand-gradient text-white shadow-glow hover:brightness-110' },
+    { label: t('quickActions.logCall'), icon: PhoneCall, view: 'calls', color: 'bg-accent text-accent-foreground hover:bg-accent/70 border border-primary/10' },
+    { label: t('quickActions.viewIssues'), icon: AlertCircle, view: 'issues', color: 'bg-accent text-accent-foreground hover:bg-accent/70 border border-primary/10' },
+    { label: t('quickActions.scheduleMeeting'), icon: CalendarPlus, view: 'meetings', color: 'bg-accent text-accent-foreground hover:bg-accent/70 border border-primary/10' },
+    { label: t('quickActions.addReminder'), icon: Bell, view: 'reminders', color: 'bg-white/70 hover:bg-white text-slate-700 border border-slate-200' },
+    { label: t('quickActions.viewStudents'), icon: Users, view: 'students', color: 'bg-white/70 hover:bg-white text-slate-700 border border-slate-200' },
   ];
 
   return (
