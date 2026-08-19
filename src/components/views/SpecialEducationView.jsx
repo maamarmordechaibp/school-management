@@ -338,17 +338,31 @@ const SpecialEducationView = ({ role, currentUser }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load spec ed students with student info
-      const { data: specEdData } = await supabase
+      // Load spec ed students with student info. The nested class→grade embed can
+      // 400 on some PostgREST setups, so fall back to a flat select if it fails.
+      let specEdData = null;
+      const seRes = await supabase
         .from('special_ed_students')
         .select(`
           *,
           student:students(id, first_name, last_name, hebrew_name, class_id,
-            class:classes!class_id(name, grade:grades(name))
+            class:classes!class_id(name, grade:grades!grade_id(name))
           )
         `)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+      if (seRes.error) {
+        console.error('special_ed_students embed failed, retrying flat:', seRes.error);
+        const fb = await supabase
+          .from('special_ed_students')
+          .select('*, student:students(id, first_name, last_name, hebrew_name, class_id)')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (fb.error) console.error('special_ed_students flat fallback failed:', fb.error);
+        specEdData = fb.data;
+      } else {
+        specEdData = seRes.data;
+      }
       setSpecEdStudents(specEdData || []);
 
       // Load all students for dropdown
