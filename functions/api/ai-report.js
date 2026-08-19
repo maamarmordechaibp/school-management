@@ -24,18 +24,20 @@ const LANGUAGES = {
   en: 'English',
 };
 
-// Authentic heimishe Chassidishe Yiddish guidance (iVelt / Kave-Shtiebel register).
+// Authentic heimishe Chassidishe Yiddish guidance (iVelt / yiddishlabs.com register).
 const YIDDISH_STYLE =
-  'Write in warm, authentic "heimishe" Chassidishe Yiddish — the natural spoken Yiddish of the ' +
-  'Monsey / Williamsburg / Kiryas Yoel community, the register used on iVelt and Kave Shtiebel. ' +
-  'This is CRITICAL: do NOT write academic YIVO Yiddish and do NOT write Germanized "daytshmerish" ' +
-  'Yiddish. Use traditional heimishe spelling and words, for example: אידיש (not ייִדיש), ווי, ' +
-  'אזוי, טאקע, גאר, זייער, שוין, נאך, אלץ, ארבעטן, קענען, דארפן, אנדערע, בעסער. ' +
-  'Naturally weave in the loshn-koidesh / yeshivishe words that heimishe people really use in speech: ' +
-  'ב"ה, בעז"ה, בפרט, בכלל, ממש, פשוט, ענין, מצב, התמדה, מדות, כוחות, מצליח, בעזרת השם, לכתחילה. ' +
-  'Sound like a warm menahel actually talking to heimishe parents — use natural connectors such as ' +
-  '"ווי מ\'זאגט", "טאקע", "אזוי ווי", "אדרבה". Never transliterate an English word when a natural ' +
-  'Yiddish word exists, and never use stiff, translated, literal-English phrasing.';
+  'Write in warm, authentic "heimishe" Chassidishe Yiddish — the natural written Yiddish of the ' +
+  'Monsey / Williamsburg / Kiryas Yoel community (the register of iVelt and of yiddishlabs.com reports). ' +
+  'CRITICAL rules: (1) Write with NO nekudos / niqqud marks at all. (2) NEVER write academic YIVO Yiddish and ' +
+  'NEVER write Germanized "daytshmerish" Yiddish, and never let a German word leak in. ' +
+  '(3) Use heimishe vocabulary and spelling — for example prefer: תלמיד or יונגל (not קינד/סטודענט), ' +
+  'באריכט (not רעפּאָרט), געבורטס דאטום (not דאַטע פון געבורט), צושטאנד (not סטאַטוס), אלגעמיינע איבערבליק, ' +
+  'שטארקייטן, נקודות, טעותים/גרייזן, פארשריט, פליסיג, פאלגן, אויסהערן, איבערחזר\'ן, אינדערהיים, ' +
+  'ווי אויך: ווי, אזוי, טאקע, גאר, זייער, שוין, נאך, אלץ, ארבעטן, קענען, דארפן, אנדערע, בעסער, וויאזוי. ' +
+  '(4) Weave in loshn-koidesh / yeshivishe words heimishe people really use: ב"ה, בעז"ה, בפרט, בכלל, ' +
+  'ממש, פשוט, ענין, מצב, התמדה, מדות, כוחות, מצליח, בעזרת השם, כדאי, גורם, שייכות, מיט\'ן אייבערשטנ\'ס הילף. ' +
+  '(5) Sound like a warm menahel — natural connectors like "ווי מ\'זאגט", "טאקע", "אזוי ווי", "אדרבה". ' +
+  'Never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
   parents:
@@ -56,14 +58,39 @@ const AUDIENCE_GUIDES = {
     'has been done (with specifics and dates), who is responsible, the open risks, and the recommended next steps.',
 };
 
-// When writing Yiddish, keep natural English terms in English (Latin) letters, iVelt-style.
+// English loanwords in Yiddish are written phonetically in HEBREW letters, heimishe-style.
 const YIDDISH_ENGLISH_MIX =
-  'IMPORTANT for the English words: heimishe people mix English words into Yiddish and write those words in ENGLISH ' +
-  '(Latin letters) right inside the Yiddish sentence — exactly like posts on iVelt. When a term is one that heimishe ' +
-  'people normally say in English, keep it in English letters; do NOT translate it into Yiddish and do NOT spell it in ' +
-  'Hebrew letters. This applies to people\'s and places\' names and to everyday terms such as evaluation, IEP, speech, OT, ' +
-  'reading level, principal, meeting, appointment, behavior, test, grade, progress, schedule, phone, email. Keep the ' +
-  'sentence flowing naturally with the English word embedded (e.g., "מ\'האט געהאט א meeting וועגן זיין reading level").';
+  'For English words: heimishe people DO borrow English words, but they write them PHONETICALLY IN HEBREW LETTERS ' +
+  '(often in quotes) — NOT in Latin letters. For example: appointment → "אפוינטמענט", check → טשעקן, ' +
+  'private → פריוואט, focus → פאקוסירן, social → סאציאל, report card → "רעפאָרט קארד". ' +
+  'When a natural heimishe or loshn-koidesh word exists, prefer it and you may put the borrowed word in ' +
+  'parentheses in Hebrew letters, e.g., קאנצענטרירן (פאקוסירן), געזעלשאפטליך (סאציאל). ' +
+  'NEVER write an English word in Latin letters, and NEVER leak a German word or a German letter (no ä/ü/ß, ' +
+  'no "schluss"/"nächste" — use סך הכל and די קומענדיגע שריט).';
+
+// A real report in the exact target voice. The model must imitate its spelling,
+// vocabulary and tone — NOT its content.
+const YIDDISH_EXEMPLAR = `Imitate the SPELLING, VOCABULARY and TONE of this example exactly (do not copy its content — it is about a different student):
+
+ב"ה
+
+**באריכט איבערן תלמיד: חיים דזשעקאבס**
+
+**אלגעמיינע איבערבליק:**
+חיים דזשעקאבס איז א לעבעדיגער און אקטיווער תלמיד, געבוירן דעם 16'טן אויגוסט 2018. זיינע עלטערן, ר' אברהם און זיין פרוי תרני, זענען זייער צוגעלאזן און שטענדיג גרייט צו קאאפערירן און טון אלעס וואס מעגליך אים צו העלפן שטייגן אין זיין אנטוויקלונג. אין דעם באריכט וועלן מיר איבערגיין די לעצטע נייעס ביי חיים'ן, ווי אויך די פלענער און רעקאמענדאציעס פארן קומענדיגן שריט.
+
+**נאטיצן פונעם יעצטיגן מצב:**
+- **דאטום:** 29'טן מארץ 2026.
+- דער מורה הער מאיער צווייג האט אפגעהאלטן א שמועס מיט די מאמע איבער חיים'ס פארשריט.
+- די מאמע האט שוין באשטעלט אן "אפוינטמענט" צו טשעקן זיינע אויגן.
+- מען האט דורכגערעדט דעם חשש אז חיים האט שוועריגקייטן זיך צו קאנצענטרירן (פאקוסירן).
+- די מאמע זאגט אז ער דארף הילף אין דעם סאציאלן (געזעלשאפטליכן) חלק, אבער זי איז נישט זיכער צי דאס מוז זיין אינדרויסן פון חדר.
+
+**סך הכל:**
+חיים איז א תלמיד וואס דארף מער חיזוק און אויפמערקזאמקייט אין געוויסע הינזיכטן. די עלטערן זענען שטענדיג גרייט צו טון אלעס וואס עס פעלט זיך אויס. מיט די הילף פון באשעפער וועלן מיר אינאיינעם קענען געבן פאר חיים די ריכטיגע כלים כדי מצליח צו זיין סיי אין זיינע לימודים און סיי אין זיין געזעלשאפטליכע אנטוויקלונג.
+
+בכבוד רב,
+[דיין נאמען]`;
 
 function buildMessages({ student, bundle, audience, language }) {
   const langName = LANGUAGES[language] || LANGUAGES.yi;
@@ -74,7 +101,7 @@ function buildMessages({ student, bundle, audience, language }) {
   const system =
     `You are an experienced, warm school administrator who writes clear, fluent, well-structured student reports. ` +
     `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
-    (language === 'yi' ? YIDDISH_STYLE + ' ' + YIDDISH_ENGLISH_MIX + ' ' : '') +
+    (language === 'yi' ? YIDDISH_STYLE + ' ' + YIDDISH_ENGLISH_MIX + '\n\n' + YIDDISH_EXEMPLAR + '\n\n' : '') +
     `${guide} ` +
     `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
     `If a section has no data, omit it rather than guessing. ` +
