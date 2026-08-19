@@ -29,9 +29,11 @@ const YIDDISH_STYLE =
   'Write in warm, authentic "heimishe" Chassidishe Yiddish — the natural written Yiddish of the ' +
   'Monsey / Williamsburg / Kiryas Yoel community (the register of iVelt and of yiddishlabs.com reports). ' +
   'CRITICAL rules: (1) Write with NO nekudos / niqqud at all — no pasekh/komets (write א, never אַ or אָ) ' +
-  'and no dagesh/rafe (write פ not פּ, ב not בּ, ש not שׁ). ' +
-  '(2) NEVER write academic YIVO Yiddish and ' +
-  'NEVER write Germanized "daytshmerish" Yiddish, and never let a German word leak in. ' +
+  'and no dagesh/rafe (write פ not פּ and not פֿ, ב not בּ, ש not שׁ). Do not leave a single vowel-point; ' +
+  'e.g. write סאציאלע (not סאציאַלער), שטאפל (not שטאַפּל), געדאנק (not געדאַנק), אינפארמאציע (not אינפֿאָרמאַציע). ' +
+  '(2) NEVER write academic YIVO Yiddish and NEVER write Germanized "daytshmerish" Yiddish, and NEVER let a ' +
+  'German word or German letters leak in — specifically never write "Schritt", "nächste", "Eindruck" or ' +
+  'any Latin-letter German; use שריט, קומענדיגע, רושם. ' +
   '(3) Use heimishe vocabulary and spelling — for example prefer: תלמיד or יונגל (not קינד/סטודענט), ' +
   'באריכט (not רעפּאָרט), געבורטס דאטום (not דאַטע פון געבורט), צושטאנד (not סטאַטוס), אלגעמיינע איבערבליק, ' +
   'שטארקייטן, נקודות, טעותים/גרייזן, פארשריט, פליסיג, פאלגן, אויסהערן, איבערחזר\'ן, אינדערהיים, פארמאגט (not האט, for qualities), ' +
@@ -43,7 +45,11 @@ const YIDDISH_STYLE =
   '(6) DATES: give BOTH the Hebrew/loshn-koidesh date and the secular date together, and write the secular ' +
   'month name in ENGLISH letters, e.g. "כ"ט אדר תשפ"ו - March 29, 2026". ' +
   '(7) TITLES: a rebbe/teacher is דער מלמד or הרב [name] (never מורה/הער); a father is ר\' [name]; a mother ' +
-  'is די מאמע (or זיין פרוי תחי\'). ' +
+  'is די מאמע (or זיין פרוי תחי\'). You may add heimishe honorifics: a boy after his name הי"ו, a rebbe שליט"א, ' +
+  'a married woman מרת [name] שתחי\'. ' +
+  '(8) SPELLING: use the ending -יג, never -יק — write שטענדיג, וויכטיגער, לעבעדיג, נויטיג, ריכטיג, קומענדיג, ' +
+  'יעצטיג, ווייטערדיג. Use אן (not א) before a word that starts with a vowel sound (אן אפוינטמענט). Spell it ' +
+  'פאקוס / פאקוסירן (not פוקוס). Never use דיסקוטירן or דיסקוסיע — use שמועס, דורכרעדן, דורכשמועסן, ארומרעדן. ' +
   'Never use stiff, translated, literal-English phrasing.';
 
 const AUDIENCE_GUIDES = {
