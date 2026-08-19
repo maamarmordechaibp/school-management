@@ -116,6 +116,10 @@ function buildMessages({ student, bundle, audience, language }) {
     `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
     (language === 'yi' ? YIDDISH_STYLE + ' ' + YIDDISH_ENGLISH_MIX + '\n\n' + YIDDISH_EXEMPLAR + '\n\n' : '') +
     `${guide} ` +
+    `If the data shows the student receives special-education support, therapy or evaluations ` +
+    `(fields like special_education, receives_special_ed, or evaluation_requests), the report MUST ` +
+    `acknowledge it — for parents warmly and in general terms (that he receives extra help / therapy), ` +
+    `for staff and principal in full detail (the evaluations, session progress, monthly reports and plan). ` +
     `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
     `If a section has no data, omit it rather than guessing. ` +
     `Organize with short headed sections and a brief summary at the top and a clear "next steps" at the end. ` +
