@@ -4,7 +4,7 @@ import {
   User, Phone, Mail, BookOpen, Clock, AlertTriangle, 
   CheckCircle, Plus, FileText, ArrowLeft, Calendar, HelpCircle, AlertCircle, TrendingUp,
   DollarSign, CreditCard, Receipt, Heart, TrendingDown, Filter, Gift, X,
-  ListTodo, Bell, ChevronRight, Bus, GraduationCap
+  ListTodo, Bell, ChevronRight, Bus, GraduationCap, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -34,6 +34,7 @@ import StudentTagEditor from '@/components/tags/StudentTagEditor';
 import { logActivity } from '@/lib/auditService';
 import StudentCommunicationLog from '@/components/StudentCommunicationLog';
 import StudentSupportCases from '@/components/StudentSupportCases';
+import AIReportModal from '@/components/modals/AIReportModal';
 import ProgressChart from '@/components/ProgressChart';
 import SpecialEdReferralDialog from '@/components/modals/SpecialEdReferralDialog';
 import { normalizeMarks, detectDeclines } from '@/lib/progressAnalysis';
@@ -136,6 +137,7 @@ const StudentProfileView = ({ studentId, onBack }) => {
   const [classAverages, setClassAverages] = useState({});
   const [declineFlags, setDeclineFlags] = useState([]);
   const [referralOpen, setReferralOpen] = useState(false);
+  const [isAIReportOpen, setIsAIReportOpen] = useState(false);
   const [referralAutoShown, setReferralAutoShown] = useState(false);
   const [categoryMeta, setCategoryMeta] = useState(null);
 
@@ -1301,6 +1303,9 @@ const StudentProfileView = ({ studentId, onBack }) => {
            </Button>
            <Button onClick={printPtaBrief} variant="outline">
              <FileText size={16} className="mr-2" /> PTA Brief
+           </Button>
+           <Button onClick={() => setIsAIReportOpen(true)} variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+             <Sparkles size={16} className="mr-2" /> AI Report
            </Button>
            <Button onClick={() => setIsAssessmentMode(true)} variant="outline">
              <Plus size={16} className="mr-2" /> New Assessment
@@ -3299,6 +3304,15 @@ const StudentProfileView = ({ studentId, onBack }) => {
         }}
       />
       {notifyElement}
+      <AIReportModal
+        open={isAIReportOpen}
+        onOpenChange={setIsAIReportOpen}
+        studentId={studentId}
+        studentName={student?.hebrew_name || student?.name || `${student?.first_name || ''} ${student?.last_name || ''}`.trim()}
+        currentUser={currentUser}
+        canSensitive={isPrincipal || role === 'special_ed'}
+      />
+
       <SpecialEdReferralDialog
         isOpen={referralOpen}
         onClose={() => setReferralOpen(false)}

@@ -1,0 +1,131 @@
+/**
+ * Cloudflare Pages Function - /api/ai-report
+ *
+ * Generates a fluent, audience-tailored narrative report about ONE student by
+ * analysing the data the caller already has access to (notes, assessments,
+ * communication, tasks, plans, special-ed, cases …). The client assembles the
+ * bundle (so Supabase RLS already governs what it contains) and this endpoint
+ * only builds the prompt and calls the model.
+ *
+ * Environment variables (set in Cloudflare Pages):
+ *   AI_API_KEY    — required. Key for an OpenAI-compatible chat API.
+ *   AI_BASE_URL   — optional. Default https://api.openai.com/v1
+ *   AI_MODEL      — optional. Default gpt-4o-mini
+ *   SUPABASE_URL / SUPABASE_SERVICE_KEY — used by the shared auth helper.
+ */
+
+import { requireRole, rateLimit, logAudit, STAFF_ROLES } from '../_lib/auth.js';
+
+const HEADERS = { 'Content-Type': 'application/json' };
+
+const LANGUAGES = {
+  yi: 'Yiddish (Chassidishe Yiddish as spoken in Monsey/Williamsburg communities)',
+  he: 'Hebrew',
+  en: 'English',
+};
+
+const AUDIENCE_GUIDES = {
+  parents:
+    'The reader is the student\'s PARENTS. Warm, respectful and encouraging. Lead with strengths and growth. ' +
+    'Explain concerns gently and constructively, with concrete ways the parents can help at home. ' +
+    'Avoid clinical jargon, internal staff-only remarks, and raw diagnostic labels.',
+  tutor:
+    'The reader is a TUTOR / mentor who works with the student. Focus on the academic/learning picture: current level, ' +
+    'what is working, specific skills to target next, recent session progress, and the current plan. Practical and specific.',
+  staff:
+    'The reader is SCHOOL STAFF (teacher / coordinator). A complete, professional picture: strengths, concerns, ' +
+    'interventions, communication history, open tasks and clear next steps.',
+  principal:
+    'The reader is the PRINCIPAL / administration. A concise executive summary: the situation, what has been done, ' +
+    'who is responsible, risks, and the recommended next steps.',
+};
+
+function buildMessages({ student, bundle, audience, language }) {
+  const langName = LANGUAGES[language] || LANGUAGES.yi;
+  const guide = AUDIENCE_GUIDES[audience] || AUDIENCE_GUIDES.staff;
+  const name = student?.hebrew_name || student?.name ||
+    [student?.first_name, student?.last_name].filter(Boolean).join(' ') || 'the student';
+
+  const system =
+    `You are an experienced, warm school administrator who writes clear, fluent, well-structured student reports. ` +
+    `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
+    `${guide} ` +
+    `Base the report ONLY on the data provided; never invent facts, dates, names or diagnoses. ` +
+    `If a section has no data, omit it rather than guessing. ` +
+    `Organize with short headed sections and a brief summary at the top and a clear "next steps" at the end. ` +
+    `Keep it honest, kind and actionable.`;
+
+  const userMsg =
+    `Write a report about ${name} for the audience described in the system message.\n\n` +
+    `Here is all the information available (JSON). Analyse everything and synthesize it — ` +
+    `do not just list it back:\n\n` +
+    JSON.stringify(bundle, null, 2);
+
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: userMsg },
+  ];
+}
+
+export async function onRequestPost(context) {
+  const AI_API_KEY = context.env.AI_API_KEY;
+  const AI_BASE_URL = (context.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const AI_MODEL = context.env.AI_MODEL || 'gpt-4o-mini';
+
+  // --- Auth: any school staff role may generate ---
+  const auth = await requireRole(context, 'ai-report', STAFF_ROLES);
+  if (auth.response) return auth.response;
+  const { user, role } = auth;
+
+  // --- Rate limit: 20 generations / 5 min / user ---
+  const rl = rateLimit(context, user.id, 20, 5 * 60 * 1000);
+  if (!rl.ok) {
+    await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'denied', status_code: 429, reason: 'rate_limited' });
+    return new Response(JSON.stringify({ error: 'Too many requests', retryAfter: rl.retryAfter }), { status: 429, headers: { ...HEADERS, 'Retry-After': String(rl.retryAfter) } });
+  }
+
+  if (!AI_API_KEY) {
+    return new Response(JSON.stringify({ error: 'AI is not configured. An administrator must set AI_API_KEY in the hosting environment.' }), { status: 503, headers: HEADERS });
+  }
+
+  let body;
+  try {
+    body = await context.request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: HEADERS });
+  }
+
+  const { student, bundle, audience = 'staff', language = 'yi' } = body || {};
+  if (!student || !bundle) {
+    return new Response(JSON.stringify({ error: 'student and bundle are required' }), { status: 400, headers: HEADERS });
+  }
+
+  try {
+    const resp = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        temperature: 0.4,
+        messages: buildMessages({ student, bundle, audience, language }),
+      }),
+    });
+
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => '');
+      await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'error', status_code: resp.status, reason: 'ai_api_error' });
+      return new Response(JSON.stringify({ error: `AI request failed (HTTP ${resp.status})`, detail: detail.slice(0, 500) }), { status: 502, headers: HEADERS });
+    }
+
+    const data = await resp.json();
+    const report = data?.choices?.[0]?.message?.content?.trim();
+    if (!report) {
+      return new Response(JSON.stringify({ error: 'AI returned an empty report' }), { status: 502, headers: HEADERS });
+    }
+
+    await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'allowed', status_code: 200, reason: 'ok', request_meta: { audience, language, model: AI_MODEL } });
+    return new Response(JSON.stringify({ report }), { status: 200, headers: HEADERS });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: 'AI request failed', detail: String(err?.message || err).slice(0, 300) }), { status: 500, headers: HEADERS });
+  }
+}

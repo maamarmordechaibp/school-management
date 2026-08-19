@@ -63,12 +63,12 @@ const OverviewView = ({ role = 'principal', currentUser, onNavigate }) => {
 
       const [overdueRes, dueTodayRes, elevationRes, meetingsTodayRes] = await Promise.all([
         uid
-          ? supabase.from('todos').select('id', { count: 'exact', head: true })
-              .eq('assigned_to', uid).neq('status', 'completed').lt('due_date', today)
+          ? supabase.from('v_action_items').select('id', { count: 'exact', head: true })
+              .eq('owner_id', uid).neq('status', 'completed').lt('due_date', today)
           : Promise.resolve({ count: 0 }),
         uid
-          ? supabase.from('todos').select('id', { count: 'exact', head: true })
-              .eq('assigned_to', uid).neq('status', 'completed').eq('due_date', today)
+          ? supabase.from('v_action_items').select('id', { count: 'exact', head: true })
+              .eq('owner_id', uid).neq('status', 'completed').eq('due_date', today)
           : Promise.resolve({ count: 0 }),
         supabase.from('students').select('id', { count: 'exact', head: true }).eq('needs_elevation', true),
         supabase.from('meetings').select('id', { count: 'exact', head: true })
