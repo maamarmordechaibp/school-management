@@ -68,7 +68,7 @@ const Dashboard = () => {
 
   // Collapsible sidebar sections — only one or two open at a time keeps the
   // long menu tidy and easy to scan.
-  const [openGroups, setOpenGroups] = useState(() => new Set(['Main']));
+  const [openGroups, setOpenGroups] = useState(() => new Set(['Daily']));
   const toggleGroup = (name) =>
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -110,55 +110,51 @@ const Dashboard = () => {
 
   // All menu items
   const menuItems = [
-    // Main Sections
-    { id: 'class-detail', label: 'Classes', icon: School, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Browse classes → students → details' },
-    { id: 'overview', label: 'Dashboard', icon: Layout, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
-    { id: 'todos', label: 'To-Do List', icon: CheckSquare, group: 'Main', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
-    
-    // Students & Classes
-    { id: 'students', label: 'Students', icon: Users, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
-    { id: 'grades', label: 'Grades', icon: Layers, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
-    { id: 'classes', label: 'Manage Classes', icon: School, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
-    { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
-    { id: 'weekly-report', label: 'Weekly Report', icon: CalendarRange, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Weekly status by Parsha' },
-    { id: 'farhers', label: 'Farhers', icon: BookOpen, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Oral tests (farher) log' },
-    { id: 'points', label: 'Points & Midos', icon: TrendingUp, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Encouragement points tracker' },
-    { id: 'templates', label: 'Assessment Templates', icon: Edit3, group: 'Students & Classes', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Create custom assessment forms' },
-    
-    // Issues & Communication
+    // Daily — the everyday workflow
+    { id: 'overview', label: 'Dashboard', icon: Layout, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Quick overview' },
+    { id: 'students', label: 'Students', icon: Users, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Student directory' },
+    { id: 'class-detail', label: 'Classes', icon: School, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Browse classes → students → details' },
+    { id: 'todos', label: 'To-Do List', icon: CheckSquare, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Tasks & follow-ups' },
+    { id: 'calendar', label: 'Calendar', icon: CalendarRange, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Unified calendar — meetings, therapy & follow-ups (day/week/month)' },
+    { id: 'reminders', label: 'Reminders', icon: Bell, group: 'Daily', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
+
+    // Communication
     { id: 'issues', label: 'Issues', icon: AlertTriangle, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Track issues' },
     { id: 'calls', label: 'Phone Calls', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Call logs' },
     { id: 'meetings', label: 'Meetings', icon: Calendar, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Schedule meetings' },
-    { id: 'calendar', label: 'Calendar', icon: CalendarRange, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'tutor', 'admin', 'special_ed'], description: 'Unified calendar — meetings, therapy & follow-ups (day/week/month)' },
     { id: 'announcements', label: 'Announcements', icon: Megaphone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Mass parent emails' },
     { id: 'mass-call', label: 'Mass Phone Call', icon: PhoneCall, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Robocall parents (SignalWire)' },
     { id: 'phone-system', label: 'Phone System', icon: Phone, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Extensions, IVR & voicemail' },
     { id: 'email-templates', label: 'Email Templates', icon: Mail, group: 'Communication', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Edit reusable email templates' },
-    
-    // Staff (admin only)
-    { id: 'staff', label: 'Staff Directory', icon: Contact, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
-    { id: 'staff-workload', label: 'Staff Workload', icon: TrendingUp, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Open work per staff member' },
-    { id: 'users', label: 'User Management', icon: Shield, group: 'Staff & Access', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
-    
-    // Special Ed & Assistant Principal
-    { id: 'special-ed', label: 'Special Education', icon: Heart, group: 'Operations', roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
-    { id: 'schedule', label: 'Appointment Schedule', icon: CalendarClock, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin', 'special_ed'], description: 'Per-student & per-tutor appointment scheduling' },
-    { id: 'late-tracking', label: 'Late Tracking', icon: Clock, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
-    { id: 'bus-changes', label: 'Bus Changes', icon: Bus, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
-    { id: 'reminders', label: 'Reminders', icon: Bell, group: 'Operations', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Reminders with email' },
-    
-    // Financial - Books & Fees
-    { id: 'books', label: 'Books', icon: BookMarked, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
-    { id: 'fees', label: 'Fees & Trips', icon: DollarSign, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage fees' },
-    { id: 'payments', label: 'Payments', icon: Receipt, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Record payments' },
-    { id: 'financial-reports', label: 'Financial Reports', icon: FileBarChart, group: 'Finance', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Payment reports' },
-    
-    // Reports & Settings
-    { id: 'reports', label: 'Reports', icon: BarChart2, group: 'System', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'General reports' },
-    { id: 'settings', label: 'Settings', icon: Settings, group: 'System', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'System settings' },
+
+    // Learning — academics & tracking
+    { id: 'grades', label: 'Grades', icon: Layers, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Grade levels' },
+    { id: 'classes', label: 'Manage Classes', icon: School, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage classes' },
+    { id: 'report-cards', label: 'Report Cards', icon: FileBarChart, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Build templates & grade students' },
+    { id: 'weekly-report', label: 'Weekly Report', icon: CalendarRange, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Weekly status by Parsha' },
+    { id: 'farhers', label: 'Farhers', icon: BookOpen, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Oral tests (farher) log' },
+    { id: 'points', label: 'Points & Midos', icon: TrendingUp, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin'], description: 'Encouragement points tracker' },
+    { id: 'templates', label: 'Assessment Templates', icon: Edit3, group: 'Learning', roles: ['principal', 'principal_hebrew', 'principal_english', 'teacher', 'teacher_hebrew', 'teacher_english', 'admin', 'special_ed'], description: 'Create custom assessment forms' },
+
+    // Support & Staff
+    { id: 'special-ed', label: 'Special Education', icon: Heart, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'admin', 'special_ed'], description: 'Special education management' },
+    { id: 'schedule', label: 'Appointment Schedule', icon: CalendarClock, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin', 'special_ed'], description: 'Per-student & per-tutor appointment scheduling' },
+    { id: 'late-tracking', label: 'Late Tracking', icon: Clock, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Track late arrivals / print slips' },
+    { id: 'bus-changes', label: 'Bus Changes', icon: Bus, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Bus routes and changes' },
+    { id: 'staff', label: 'Staff Directory', icon: Contact, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'All staff contacts' },
+    { id: 'staff-workload', label: 'Staff Workload', icon: TrendingUp, group: 'Support & Staff', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Open work per staff member' },
+
+    // Administration — setup, finance & config (collapsed by default)
+    { id: 'users', label: 'User Management', icon: Shield, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage login accounts & roles' },
+    { id: 'books', label: 'Books', icon: BookMarked, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Book inventory & requirements' },
+    { id: 'fees', label: 'Fees & Trips', icon: DollarSign, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Manage fees' },
+    { id: 'payments', label: 'Payments', icon: Receipt, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Record payments' },
+    { id: 'financial-reports', label: 'Financial Reports', icon: FileBarChart, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'Payment reports' },
+    { id: 'reports', label: 'Reports', icon: BarChart2, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'General reports' },
+    { id: 'settings', label: 'Settings', icon: Settings, group: 'Administration', roles: ['principal', 'principal_hebrew', 'principal_english', 'admin'], description: 'System settings' },
   ];
 
-  const MENU_GROUP_ORDER = ['Main', 'Students & Classes', 'Communication', 'Staff & Access', 'Operations', 'Finance', 'System'];
+  const MENU_GROUP_ORDER = ['Daily', 'Communication', 'Learning', 'Support & Staff', 'Administration'];
 
   // Keep the section holding the current view expanded.
   useEffect(() => {

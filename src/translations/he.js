@@ -150,13 +150,11 @@ export const hebrew = {
 
   // Sidebar section headers
   groups: {
-    Main: "ראשי",
-    "Students & Classes": "תלמידים וכיתות",
+    Daily: "יומי",
     Communication: "תקשורת",
-    "Staff & Access": "צוות וגישה",
-    Operations: "פעולות",
-    Finance: "כספים",
-    System: "מערכת",
+    Learning: "לימודים",
+    "Support & Staff": "תמיכה וצוות",
+    Administration: "ניהול",
   },
 
   // Sidebar / navigation item labels

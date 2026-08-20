@@ -150,13 +150,11 @@ export const english = {
 
   // Sidebar section headers
   groups: {
-    Main: "Main",
-    "Students & Classes": "Students & Classes",
+    Daily: "Daily",
     Communication: "Communication",
-    "Staff & Access": "Staff & Access",
-    Operations: "Operations",
-    Finance: "Finance",
-    System: "System",
+    Learning: "Learning",
+    "Support & Staff": "Support & Staff",
+    Administration: "Administration",
   },
 
   // Sidebar / navigation item labels (friendly, plain-language)
