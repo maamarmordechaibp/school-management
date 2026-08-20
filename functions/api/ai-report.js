@@ -183,27 +183,33 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: 'student and bundle are required' }), { status: 400, headers: HEADERS });
   }
 
-  try {
-    const resp = await fetch(`${AI_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        temperature: 0.4,
-        messages: buildMessages({ student, bundle, audience, language }),
-      }),
-    });
+  const messages = buildMessages({ student, bundle, audience, language });
+  const callModel = () => fetch(`${AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_API_KEY}` },
+    body: JSON.stringify({ model: AI_MODEL, temperature: 0.4, max_tokens: 4000, messages }),
+  });
 
+  try {
+    let resp = await callModel();
     if (!resp.ok) {
       const detail = await resp.text().catch(() => '');
-      await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'error', status_code: resp.status, reason: 'ai_api_error' });
+      await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'error', status_code: resp.status, reason: 'ai_api_error', request_meta: { audience, language, model: AI_MODEL } });
       return new Response(JSON.stringify({ error: `AI request failed (HTTP ${resp.status})`, detail: detail.slice(0, 500) }), { status: 502, headers: HEADERS });
     }
 
-    const data = await resp.json();
-    const report = data?.choices?.[0]?.message?.content?.trim();
+    let data = await resp.json();
+    let report = data?.choices?.[0]?.message?.content?.trim();
+
+    // gpt-4o-mini sometimes returns an empty completion on the long Yiddish prompt — retry once.
     if (!report) {
-      return new Response(JSON.stringify({ error: 'AI returned an empty report' }), { status: 502, headers: HEADERS });
+      resp = await callModel();
+      if (resp.ok) { data = await resp.json(); report = data?.choices?.[0]?.message?.content?.trim(); }
+    }
+    if (!report) {
+      const finish = data?.choices?.[0]?.finish_reason || 'unknown';
+      await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'error', status_code: 502, reason: `empty_report:${finish}`, request_meta: { audience, language, model: AI_MODEL } });
+      return new Response(JSON.stringify({ error: 'The AI returned an empty report. Please try again — if it keeps happening, switch AI_MODEL to gpt-4o or gpt-4.1 in Cloudflare.' }), { status: 502, headers: HEADERS });
     }
 
     await logAudit(context, { endpoint: 'ai-report', caller_user_id: user.id, caller_email: user.email, caller_role: role, status: 'allowed', status_code: 200, reason: 'ok', request_meta: { audience, language, model: AI_MODEL } });
