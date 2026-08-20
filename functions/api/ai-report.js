@@ -10,7 +10,7 @@
  * Environment variables (set in Cloudflare Pages):
  *   AI_API_KEY    — required. Key for an OpenAI-compatible chat API.
  *   AI_BASE_URL   — optional. Default https://api.openai.com/v1
- *   AI_MODEL      — optional. Default gpt-4o-mini
+ *   AI_MODEL      — optional. Default gpt-4o
  *   SUPABASE_URL / SUPABASE_SERVICE_KEY — used by the shared auth helper.
  */
 
@@ -114,6 +114,23 @@ const YIDDISH_EXEMPLAR = `Imitate the SPELLING, VOCABULARY and TONE of this exam
 בכבוד רב,
 [דיין נאמען]`;
 
+// Data-honesty rules that apply in EVERY language (from real administrative review).
+const REPORTING_DISCIPLINE =
+  'REPORTING DISCIPLINE (applies in every language, keep the warm tone while being precise): ' +
+  '(a) Distinguish what is DOCUMENTED from a CONCLUSION. "No concern is recorded" is NOT the same as "we reviewed ' +
+  'and found no concern" — never state or imply an area is fine merely because no note was entered. Say instead that ' +
+  'nothing was recorded / no issues have been reported so far. ' +
+  '(b) When data is missing or incomplete, say so plainly and neutrally. E.g. if an assessment exists but its ratings ' +
+  'were left blank, note that the assessment is not fully filled in — do NOT conclude from that the student is fine. ' +
+  '(c) Do NOT infer motives, feelings or outcomes that are not in the data. If a phone call has no recorded subject or ' +
+  'result, write that the subject/outcome was not recorded — do NOT invent that it "shows positive cooperation" or any ' +
+  'other interpretation. ' +
+  '(d) Keep the tone calm, respectful and positive; do NOT make a routine student sound like a serious case. Title the ' +
+  'follow-up section "Items for Follow-Up" (Yiddish: נקודות פאר ווייטערדיגע באמערקונג ; Hebrew: נקודות למעקב) — never ' +
+  '"Risks" / "שוועריגקייטן" unless the data actually shows a real problem. ' +
+  '(e) Do NOT add un-asked-for negative documentation — e.g. do not state that the student is NOT receiving ' +
+  'special-ed/therapy; only mention special-ed when the data shows he actually receives it.';
+
 function buildMessages({ student, bundle, audience, language }) {
   const langName = LANGUAGES[language] || LANGUAGES.yi;
   const guide = AUDIENCE_GUIDES[audience] || AUDIENCE_GUIDES.staff;
@@ -125,6 +142,7 @@ function buildMessages({ student, bundle, audience, language }) {
     `Write the ENTIRE report in ${langName}. Use natural, native phrasing — not a translation. ` +
     (language === 'yi' ? YIDDISH_STYLE + ' ' + YIDDISH_ENGLISH_MIX + '\n\n' + YIDDISH_EXEMPLAR + '\n\n' : '') +
     `${guide} ` +
+    REPORTING_DISCIPLINE + ' ' +
     `If the data shows the student receives special-education support, therapy or evaluations ` +
     `(fields like special_education, receives_special_ed, or evaluation_requests), the report MUST ` +
     `acknowledge it — for parents warmly and in general terms (that he receives extra help / therapy), ` +
