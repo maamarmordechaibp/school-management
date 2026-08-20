@@ -77,6 +77,7 @@ const ScheduleView = ({ currentUser }) => {
 
   const [dialog, setDialog] = useState(null); // { editing, form }
   const [saving, setSaving] = useState(false);
+  const [dragId, setDragId] = useState(null); // appointment being dragged
 
   const weekDates = useMemo(
     () => DAYS.map((d) => { const x = new Date(weekStart); x.setDate(weekStart.getDate() + d.idx); return x; }),
@@ -162,6 +163,66 @@ const ScheduleView = ({ currentUser }) => {
     });
   };
 
+  // ---------- two-sided availability ----------
+  // Checks the DB so BOTH the student's and the tutor's OTHER appointments are
+  // considered (not only the currently-loaded side). Returns any clashes.
+  const findClashes = async ({ excludeId, studentId, staffId, targetDate, startMin, duration, once }) => {
+    if (!studentId && !staffId) return { studentClash: null, tutorClash: null };
+    const endMin = startMin + (duration || 30);
+    const dow = targetDate.getDay();
+    const iso = isoDate(targetDate);
+    const orParts = [];
+    if (studentId) orParts.push(`student_id.eq.${studentId}`);
+    if (staffId) orParts.push(`staff_id.eq.${staffId}`);
+    const { data } = await supabase
+      .from('tutoring_schedule')
+      .select('id, student_id, staff_id, tutor_name, start_time, duration_minutes, day_of_week, appointment_date, is_recurring, student:students(name, hebrew_name)')
+      .eq('is_active', true)
+      .or(orParts.join(','));
+    const occurs = (r) => {
+      if (r.id === excludeId) return false;
+      if (once) return r.appointment_date ? r.appointment_date.slice(0, 10) === iso : (r.is_recurring !== false && r.day_of_week === dow);
+      // recurring target: only compare against other recurring rows on that weekday
+      return !r.appointment_date && r.is_recurring !== false && r.day_of_week === dow;
+    };
+    const overlaps = (r) => { const s = toMin(r.start_time); const e = s + (r.duration_minutes || 30); return startMin < e && s < endMin; };
+    const clash = (data || []).filter((r) => occurs(r) && overlaps(r));
+    return {
+      studentClash: studentId ? clash.find((r) => r.student_id === studentId) : null,
+      tutorClash: staffId ? clash.find((r) => r.staff_id === staffId) : null,
+    };
+  };
+
+  const clashToast = ({ studentClash, tutorClash }) => {
+    const who = [studentClash && 'the student', tutorClash && 'the tutor'].filter(Boolean).join(' and ');
+    toast({ variant: 'destructive', title: 'Time not available', description: `That slot conflicts for ${who}. Pick another time.` });
+  };
+
+  // Drag an appointment block onto a new day/time to reschedule it in place.
+  const handleDrop = async (e, date) => {
+    e.preventDefault();
+    const id = dragId; setDragId(null);
+    if (!id) return;
+    const appt = appts.find((a) => a.id === id);
+    if (!appt) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const duration = appt.duration_minutes || 30;
+    let newMin = DAY_START + Math.round(y / ROW_H) * SLOT_MIN;
+    newMin = Math.max(DAY_START, Math.min(newMin, DAY_END - duration));
+    const once = !!appt.appointment_date;
+    const sameSpot = (once ? appt.appointment_date.slice(0, 10) === isoDate(date) : appt.day_of_week === date.getDay()) && toMin(appt.start_time) === newMin;
+    if (sameSpot) return;
+    const clashes = await findClashes({ excludeId: appt.id, studentId: appt.student_id, staffId: appt.staff_id, targetDate: date, startMin: newMin, duration, once });
+    if (clashes.studentClash || clashes.tutorClash) { clashToast(clashes); return; }
+    const payload = { start_time: `${toTimeStr(newMin)}:00`, updated_at: new Date().toISOString() };
+    if (once) payload.appointment_date = isoDate(date); else payload.day_of_week = date.getDay();
+    const { error } = await supabase.from('tutoring_schedule').update(payload).eq('id', appt.id);
+    if (error) { toast({ variant: 'destructive', title: 'Error', description: error.message }); return; }
+    toast({ title: 'Rescheduled', description: fmtTime(newMin) });
+    load();
+  };
+
   // ---------- dialog helpers ----------
   const openAdd = (date, startMin) => {
     if (mode === 'student' && !selectedStudent) { toast({ title: 'Pick a student first' }); return; }
@@ -236,6 +297,20 @@ const ScheduleView = ({ currentUser }) => {
       cancel_reason: (f.status === 'cancelled' || f.status === 'no_show') ? (f.completion_notes || null) : null,
       is_active: true,
     };
+    // Two-sided availability check before saving (student AND tutor must be free).
+    const targetDate = once
+      ? new Date(`${f.appointment_date}T00:00:00`)
+      : (() => { const d = new Date(); d.setDate(d.getDate() + ((Number(f.day_of_week) - d.getDay() + 7) % 7)); return d; })();
+    const clashes = await findClashes({
+      excludeId: dialog.editing?.id,
+      studentId: payload.student_id,
+      staffId: payload.staff_id,
+      targetDate,
+      startMin: toMin(payload.start_time),
+      duration: payload.duration_minutes,
+      once,
+    });
+    if (clashes.studentClash || clashes.tutorClash) { clashToast(clashes); setSaving(false); return; }
     try {
       let error;
       if (dialog.editing) {
@@ -401,7 +476,7 @@ const ScheduleView = ({ currentUser }) => {
                   {weekDates.map((date, di) => {
                     const list = withOverlapFlags(apptsForDate(date));
                     return (
-                      <div key={di} className="relative border-l">
+                      <div key={di} className="relative border-l" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, date)}>
                         {ROWS.map((min) => (
                           <div
                             key={min}
@@ -420,8 +495,10 @@ const ScheduleView = ({ currentUser }) => {
                           return (
                             <div
                               key={a.id}
+                              draggable
+                              onDragStart={(e) => { e.stopPropagation(); setDragId(a.id); e.dataTransfer.effectAllowed = 'move'; }}
                               onClick={(e) => { e.stopPropagation(); openEdit(a); }}
-                              className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 text-white text-[10px] overflow-hidden cursor-pointer shadow-sm ${colorFor(a)} ${a._conflict ? 'ring-2 ring-red-500' : ''} ${dimmed ? 'opacity-50' : ''}`}
+                              className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 text-white text-[10px] overflow-hidden cursor-move shadow-sm ${colorFor(a)} ${a._conflict ? 'ring-2 ring-red-500' : ''} ${dimmed ? 'opacity-50' : ''}`}
                               style={{ top, height }}
                               title={`${other} · ${fmtTime(s)}–${fmtTime(s + (a.duration_minutes || 30))}${a.subject ? ` · ${a.subject}` : ''}${a.status && a.status !== 'scheduled' ? ` · ${a.status}` : ''}`}
                             >
