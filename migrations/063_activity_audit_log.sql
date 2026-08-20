@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Reconcile with any pre-existing activity_logs table (older installs lacked these columns).
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS actor_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS actor_name TEXT;
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS entity_type TEXT;
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS entity_id UUID;
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students(id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_student ON activity_logs(student_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_entity ON activity_logs(entity_type, entity_id);
