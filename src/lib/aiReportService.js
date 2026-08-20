@@ -17,7 +17,7 @@ export async function gatherStudentBundle(studentId, { audience = 'staff', canSe
   ] = await Promise.all([
     supabase.from('students').select('*').eq('id', studentId).maybeSingle(),
     supabase.from('student_notes').select('note_type, content, created_at, created_by_name').eq('student_id', studentId).order('created_at', { ascending: false }).limit(40),
-    supabase.from('assessments').select('assessment_type, assessment_date, overall_notes, social_emotional, kriah, limud').eq('student_id', studentId).order('assessment_date', { ascending: false }).limit(15),
+    supabase.from('assessments').select('assessment_type, assessment_date, overall_notes, social_emotional_rating, kriah_rating, limud_rating').eq('student_id', studentId).order('assessment_date', { ascending: false }).limit(15),
     supabase.from('grades').select('subject, grade, quarter, school_year, notes').eq('student_id', studentId).order('created_at', { ascending: false }).limit(40),
     supabase.from('call_logs').select('call_date, contact_person, subject, summary, outcome').eq('student_id', studentId).order('call_date', { ascending: false }).limit(20),
     supabase.from('meetings').select('scheduled_date, meeting_type, title, notes, status').eq('student_id', studentId).order('scheduled_date', { ascending: false }).limit(20),
@@ -48,7 +48,7 @@ export async function gatherStudentBundle(studentId, { audience = 'staff', canSe
       status: s.status || undefined,
     },
     notes: (notesRes.data || []).map((n) => ({ date: n.created_at, type: n.note_type, by: n.created_by_name, text: short(n.content) })),
-    assessments: (assessRes.data || []).map((a) => ({ date: a.assessment_date, type: a.assessment_type, notes: short(a.overall_notes), ratings: { social_emotional: a.social_emotional, kriah: a.kriah, limud: a.limud } })),
+    assessments: (assessRes.data || []).map((a) => ({ date: a.assessment_date, type: a.assessment_type, notes: short(a.overall_notes), ratings: { social_emotional: a.social_emotional_rating, kriah: a.kriah_rating, limud: a.limud_rating } })),
     grades: (gradesRes.data || []).map((g) => ({ subject: g.subject, grade: g.grade, quarter: g.quarter, year: g.school_year, notes: short(g.notes, 120) })),
     communication: {
       calls: (callsRes.data || []).map((c) => ({ date: c.call_date, with: c.contact_person, subject: c.subject, summary: short(c.summary), outcome: c.outcome })),
