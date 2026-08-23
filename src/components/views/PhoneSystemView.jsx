@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   Phone, PhoneCall, Voicemail, ListTree, Plus, Trash2, Pencil, Save, X,
   Upload, ChevronRight, Home, User, RefreshCw, MailCheck, Settings2,
-  Megaphone, KeyRound, ShieldCheck,
+  Megaphone, KeyRound, ShieldCheck, Sparkles, CheckCheck, FileText, Loader2,
 } from 'lucide-react';
 import {
   listExtensions, saveExtension, deleteExtension,
@@ -23,6 +23,7 @@ import {
   listInboundCalls, uploadAudio,
   listBroadcastAdmins, saveBroadcastAdmin, deleteBroadcastAdmin,
   setBroadcastAdminPin, listPhoneBroadcasts,
+  listCallConversations, applyCallSuggestions, deleteCallConversation,
 } from '@/lib/phoneService';
 
 const PRINCIPAL_ROLES = ['admin', 'principal', 'principal_hebrew', 'principal_english'];
@@ -51,6 +52,7 @@ const TABS = [
   { id: 'devices', label: 'Devices', icon: Settings2 },
   { id: 'voicemails', label: 'Voicemails', icon: Voicemail },
   { id: 'activity', label: 'Call Activity', icon: PhoneCall },
+  { id: 'recordings_ai', label: 'Call Recordings & AI', icon: Sparkles },
   { id: 'broadcast', label: 'Call-In Broadcast', icon: Megaphone },
 ];
 
@@ -107,6 +109,7 @@ const PhoneSystemView = ({ role }) => {
       {tab === 'devices' && <DevicesTab />}
       {tab === 'voicemails' && <VoicemailsTab />}
       {tab === 'activity' && <CallActivityTab />}
+      {tab === 'recordings_ai' && <CallAiTab />}
       {tab === 'broadcast' && <BroadcastAdminTab />}
     </div>
   );
@@ -1003,6 +1006,157 @@ const CallActivityTab = () => {
             </Card>
           ))}
           {rows.length === 0 && <p className="text-slate-400 text-sm">No inbound calls logged yet.</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ===================== Call Recordings & AI ===================== */
+const STATUS_LABELS = {
+  recorded: 'Recorded',
+  transcribing: 'Transcribing…',
+  transcribed: 'Transcribed',
+  analyzed: 'Analyzed',
+  failed: 'Failed',
+};
+
+const CallAiTab = () => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { open: openStudent } = useStudentProfile();
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const [applyingId, setApplyingId] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setRows(await listCallConversations(150)); }
+    catch (e) { toast({ variant: 'destructive', title: 'Could not load recordings', description: e.message }); }
+    setLoading(false);
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const statusVariant = (s) => ({
+    analyzed: 'default', transcribed: 'secondary', transcribing: 'secondary',
+    recorded: 'secondary', failed: 'destructive',
+  }[s] || 'secondary');
+
+  const applyAll = async (conv) => {
+    setApplyingId(conv.id);
+    try {
+      const n = await applyCallSuggestions(conv, user);
+      toast({ title: `Created ${n} follow-up${n === 1 ? '' : 's'}` });
+      await load();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Could not create follow-ups', description: e.message });
+    }
+    setApplyingId(null);
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this recording and its analysis?')) return;
+    try { await deleteCallConversation(id); setRows((r) => r.filter((x) => x.id !== id)); }
+    catch (e) { toast({ variant: 'destructive', title: 'Delete failed', description: e.message }); }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <p className="text-sm text-slate-500">Recorded conversations, transcribed and analyzed by AI</p>
+        <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-4 w-4 mr-1" /> Refresh</Button>
+      </div>
+      {loading ? (
+        <p className="text-slate-400 text-sm">Loading…</p>
+      ) : (
+        <div className="grid gap-2">
+          {rows.map((c) => {
+            const items = Array.isArray(c.ai_action_items) ? c.ai_action_items : [];
+            const isOpen = expanded === c.id;
+            return (
+              <Card key={c.id}>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Sparkles className="h-5 w-5 text-blue-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-800 truncate">
+                        {c.matched_name || c.caller_number || 'Unknown'}
+                        {c.phone_extensions?.label ? ` → ${c.phone_extensions.label}` : ''}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(c.created_at).toLocaleString()}
+                        {c.duration_sec ? ` · ${Math.round(c.duration_sec / 60)} min` : ''}
+                      </p>
+                    </div>
+                    <Badge variant={statusVariant(c.status)}>{STATUS_LABELS[c.status] || c.status}</Badge>
+                    {c.matched_type === 'parent' && c.matched_id && (
+                      <Button variant="ghost" size="sm" onClick={() => openStudent(c.matched_id)}>
+                        <User className="h-4 w-4 mr-1" /> Open
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => setExpanded(isOpen ? null : c.id)}>
+                      <FileText className="h-4 w-4 mr-1" /> {isOpen ? 'Hide' : 'Details'}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove(c.id)}>
+                      <Trash2 className="h-4 w-4 text-slate-400" />
+                    </Button>
+                  </div>
+
+                  {c.recording_url && (
+                    <audio controls preload="none" src={c.recording_url} className="w-full mt-2 h-9" />
+                  )}
+
+                  {c.ai_summary && (
+                    <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{c.ai_summary}</p>
+                  )}
+
+                  {items.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Suggested follow-ups</p>
+                      <ul className="text-sm text-slate-700 list-disc pl-5 space-y-0.5">
+                        {items.map((it, i) => (
+                          <li key={i}>
+                            {it.title}
+                            {it.due_date ? <span className="text-slate-400"> · {it.due_date}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        size="sm"
+                        className="mt-2"
+                        disabled={c.applied || applyingId === c.id}
+                        onClick={() => applyAll(c)}
+                      >
+                        {applyingId === c.id ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCheck className="h-4 w-4 mr-1" />
+                        )}
+                        {c.applied ? 'Added to tasks' : 'Accept all'}
+                      </Button>
+                    </div>
+                  )}
+
+                  {isOpen && (
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      {c.transcript ? (
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{c.transcript}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400">
+                          {c.status === 'failed'
+                            ? (c.error || 'Processing failed.')
+                            : 'Transcript not ready yet.'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+          {rows.length === 0 && <p className="text-slate-400 text-sm">No recorded calls yet.</p>}
         </div>
       )}
     </div>

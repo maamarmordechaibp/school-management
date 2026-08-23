@@ -204,3 +204,84 @@ export async function uploadAudio(file, prefix = 'ivr') {
   const { data: pub } = supabase.storage.from('call-audio').getPublicUrl(path);
   return pub.publicUrl;
 }
+
+/* ------------------------- Call recordings + AI analysis ------------------------- */
+export async function listCallConversations(limit = 100) {
+  const { data, error } = await supabase
+    .from('call_conversations')
+    .select('*, phone_extensions(id, ext_number, label)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function updateCallConversation(id, patch) {
+  const { error } = await supabase.from('call_conversations').update(patch).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteCallConversation(id) {
+  const { error } = await supabase.from('call_conversations').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+// One-click "Accept all": turn the AI's suggested action items into todos
+// (and reminders when a due date is suggested), linked to the matched student,
+// then mark the conversation applied. Returns the number of items created.
+export async function applyCallSuggestions(conv, user) {
+  const items = Array.isArray(conv?.ai_action_items) ? conv.ai_action_items : [];
+  const studentId = conv?.matched_student_ids?.[0] || null;
+  const studentName = conv?.matched_name || null;
+  const assignedTo = conv?.target_user_id || user?.id || null;
+
+  const priorities = new Set(['low', 'normal', 'high', 'urgent']);
+  const cleanPriority = (p) => (priorities.has(p) ? p : 'normal');
+  const cleanDate = (d) => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null);
+
+  const todoRows = items.map((it) => ({
+    title: (it?.title || 'Follow-up from call').slice(0, 300),
+    description: it?.description || null,
+    student_id: studentId,
+    student_name: studentName,
+    category: 'communication',
+    priority: cleanPriority(it?.priority),
+    status: 'pending',
+    due_date: cleanDate(it?.due_date),
+    related_type: 'call',
+    related_id: conv?.inbound_call_id || null,
+    assigned_to: assignedTo,
+    created_by: user?.id || null,
+    source: 'ai_draft',
+  }));
+
+  if (todoRows.length) {
+    const { error } = await supabase.from('todos').insert(todoRows);
+    if (error) throw new Error(error.message);
+  }
+
+  // Reminders only for dated items (reminder_date is required).
+  const reminderRows = items
+    .filter((it) => cleanDate(it?.due_date))
+    .map((it) => ({
+      title: (it?.title || 'Follow-up from call').slice(0, 300),
+      description: it?.description || null,
+      reminder_date: cleanDate(it?.due_date),
+      related_type: 'student',
+      related_id: studentId,
+      related_student_id: studentId,
+      related_student_name: studentName,
+      priority: cleanPriority(it?.priority),
+      status: 'pending',
+      created_by: user?.id || null,
+      source: 'ai_draft',
+    }));
+
+  if (reminderRows.length) {
+    const { error } = await supabase.from('reminders').insert(reminderRows);
+    if (error) throw new Error(error.message);
+  }
+
+  await updateCallConversation(conv.id, { applied: true });
+  return todoRows.length;
+}

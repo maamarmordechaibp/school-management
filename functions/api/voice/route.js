@@ -66,6 +66,7 @@ export async function onRequestPost(context) {
   const timeout = ext.ring_timeout || 25;
   const vmAction = `${baseUrl}/api/voice/voicemail?ext=${encodeURIComponent(ext.id)}`;
   const statusCb = `${baseUrl}/api/voice/status-callback?ext=${encodeURIComponent(ext.id)}`;
+  const recCb = `${baseUrl}/api/voice/call-recording-callback?ext=${encodeURIComponent(ext.id)}`;
 
   let targets = '';
   if (ext.sip_endpoint) {
@@ -81,9 +82,19 @@ export async function onRequestPost(context) {
     return laml(`<Redirect method="POST">${escapeXml(vmAction)}</Redirect>`);
   }
 
+  // Record the conversation for AI analysis only when enabled (no caller
+  // announcement — staff are aware, satisfying NY one-party consent).
+  const recordingOn =
+    context.env.CALL_RECORDING_ENABLED === 'true' || !!context.env.YIDDISHLABS_API_KEY;
+  const recAttrs = recordingOn
+    ? ` record="record-from-answer-dual"` +
+      ` recordingStatusCallback="${escapeXml(recCb)}"` +
+      ` recordingStatusCallbackEvent="completed" recordingStatusCallbackMethod="POST"`
+    : '';
+
   const dial =
     `<Dial timeout="${timeout}" action="${escapeXml(vmAction)}" method="POST"` +
-    ` answerOnBridge="true">` +
+    ` answerOnBridge="true"${recAttrs}>` +
     targets +
     `</Dial>`;
 
