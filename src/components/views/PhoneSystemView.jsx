@@ -34,6 +34,7 @@ const ACTION_TYPES = [
   { value: 'message', label: 'Play a message' },
   { value: 'recordings', label: 'Play recent broadcast recordings (7 days)' },
   { value: 'admin', label: 'Call-in broadcast (principal records & sends to a group)' },
+  { value: 'disa', label: 'Dial-out (DISA) — authorized staff call parents through the system' },
   { value: 'voicemail', label: 'Send to voicemail' },
   { value: 'forward', label: 'Forward to a phone number' },
   { value: 'hangup', label: 'Hang up' },
@@ -787,6 +788,8 @@ const describeOption = (o, exts, menus) => {
     case 'recordings': return `Plays the last 7 days of broadcast recordings`;
     case 'voicemail': return `Sends to voicemail`;
     case 'forward': return `Forwards to ${o.forward_number || '—'}`;
+    case 'admin': return `Call-in broadcast (authorized staff only)`;
+    case 'disa': return `Dial-out through the system (authorized staff only)`;
     case 'hangup': return `Ends the call`;
     default: return '';
   }

@@ -108,6 +108,12 @@ export async function onRequestPost(context) {
       return laml(`<Redirect method="POST">${escapeXml(adm)}</Redirect>`);
     }
 
+    case 'disa': {
+      // Locked dial-out: an authorized staff member calls a parent through the system.
+      const dis = `${baseUrl}/api/voice/disa?step=auth`;
+      return laml(`<Redirect method="POST">${escapeXml(dis)}</Redirect>`);
+    }
+
     case 'hangup':
     default:
       return laml('<Say>Goodbye.</Say><Hangup/>');
