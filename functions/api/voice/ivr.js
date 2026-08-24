@@ -36,21 +36,31 @@ export async function onRequestPost(context) {
     return renderMenu(loaded, { baseUrl, attempt });
   }
 
-  const option = loaded.options.find((o) => o.digit === digit);
+  // A single-digit entry that matches a configured menu key takes precedence
+  // (fast, unambiguous). Multi-digit entries fall through to extension dialing.
+  const option = digit.length === 1 ? loaded.options.find((o) => o.digit === digit) : null;
+
   if (!option) {
-    // Global callback shortcut on the root menu: if key 9 is not explicitly
-    // configured, pressing 9 plays recent broadcast recordings.
-    if (loaded.menu?.is_root && digit === '9') {
+    // Direct extension dialing: an exact match on an active extension number
+    // (e.g. dialing 123) routes straight to that extension.
+    const exts = await sbSelect(
+      context.env,
+      `phone_extensions?ext_number=eq.${encodeURIComponent(digit)}&is_active=eq.true&limit=1`
+    );
+    if (exts && exts[0]) {
+      const route = `${baseUrl}/api/voice/route?ext=${encodeURIComponent(exts[0].id)}`;
+      return laml(`<Redirect method="POST">${escapeXml(route)}</Redirect>`);
+    }
+    // Root single-digit shortcuts: 9 = recent messages, * = admin broadcast.
+    if (digit.length === 1 && loaded.menu?.is_root && digit === '9') {
       const rec = `${baseUrl}/api/voice/recordings?i=0`;
       return laml(`<Redirect method="POST">${escapeXml(rec)}</Redirect>`);
     }
-    // Hidden admin shortcut on the root menu: pressing * takes an authorized
-    // principal into the locked call-in broadcast flow (caller-ID or PIN).
-    if (loaded.menu?.is_root && digit === '*') {
+    if (digit.length === 1 && loaded.menu?.is_root && digit === '*') {
       const adm = `${baseUrl}/api/voice/admin?step=auth`;
       return laml(`<Redirect method="POST">${escapeXml(adm)}</Redirect>`);
     }
-    // Invalid choice → re-prompt (renderMenu enforces retry cap).
+    // Nothing matched (unknown key or extension) → re-prompt.
     return renderMenu(loaded, { baseUrl, attempt });
   }
 

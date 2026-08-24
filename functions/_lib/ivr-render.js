@@ -21,14 +21,28 @@ export async function loadMenu(env, menuId) {
     env,
     `ivr_options?menu_id=eq.${menu.id}&order=sort_order.asc,digit.asc`
   );
-  return { menu, options: options || [] };
+
+  // How many digits the menu should collect: enough for the longest active
+  // extension so callers can dial an extension directly (e.g. 123) instead of
+  // only a single menu key. Falls back to 1 when no extensions exist.
+  let maxDigits = 1;
+  try {
+    const exts = await sbSelect(env, 'phone_extensions?is_active=eq.true&select=ext_number');
+    for (const e of exts || []) {
+      const len = String(e.ext_number || '').replace(/\D/g, '').length;
+      if (len > maxDigits) maxDigits = len;
+    }
+    if (maxDigits > 6) maxDigits = 6;
+  } catch { /* ignore — keep single-digit menu */ }
+
+  return { menu, options: options || [], maxDigits };
 }
 
 /**
  * Build the LaML for a menu: greeting + <Gather> that collects one digit and
  * posts back to /api/voice/ivr with the menu id. Falls through to a re-prompt.
  */
-export function renderMenu({ menu, options }, { baseUrl, attempt = 1 }) {
+export function renderMenu({ menu, options, maxDigits = 1 }, { baseUrl, attempt = 1 }) {
   const action = `${baseUrl}/api/voice/ivr?menu=${encodeURIComponent(menu.id)}&attempt=${attempt + 1}`;
   const greeting = sayOrPlay({
     audioUrl: menu.greeting_audio_url,
@@ -43,8 +57,12 @@ export function renderMenu({ menu, options }, { baseUrl, attempt = 1 }) {
       `</Say>`
     : '';
 
+  // Collect up to the longest extension length so a full extension can be
+  // dialed; a single menu key submits after the inter-digit timeout, or the
+  // caller can press # to act immediately.
+  const numDigits = Math.max(1, maxDigits || 1);
   const gather =
-    `<Gather numDigits="1" timeout="${menu.timeout_sec || 6}" action="${escapeXml(action)}" method="POST">` +
+    `<Gather numDigits="${numDigits}" finishOnKey="#" timeout="${menu.timeout_sec || 6}" action="${escapeXml(action)}" method="POST">` +
       greeting +
       callbackHint +
     `</Gather>`;
