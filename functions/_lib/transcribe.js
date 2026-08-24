@@ -17,7 +17,7 @@ const YL_SUBMIT_URL = 'https://app.yiddishlabs.com/api/v1/transcriptions';
 // advance its status. Marks the row 'failed' when the audio is missing.
 export async function submitToYiddishLabs(context, { convId, audioBuf, mimeType = 'audio/mpeg', name }) {
   const env = context.env;
-  const YL_KEY = env.YIDDISHLABS_API_KEY;
+  const YL_KEY = (env.YIDDISHLABS_API_KEY || '').trim();
   if (!YL_KEY || !convId) return;
 
   if (!audioBuf) {
@@ -56,9 +56,12 @@ export async function submitToYiddishLabs(context, { convId, audioBuf, mimeType 
     } else {
       const detail = await ylResp.text().catch(() => '');
       console.error('Yiddish Labs submit failed', ylResp.status, detail.slice(0, 300));
+      const hint = ylResp.status === 401
+        ? ' — check YIDDISHLABS_API_KEY (use the yl_live_ key, not the Flash key)'
+        : '';
       await sbUpdate(env, 'call_conversations', `id=eq.${convId}`, {
         status: 'failed',
-        error: `transcription submit HTTP ${ylResp.status}`,
+        error: `transcription submit HTTP ${ylResp.status}${hint}`,
       });
     }
   } catch (e) {
