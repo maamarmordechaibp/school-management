@@ -599,6 +599,23 @@ const IvrBuilderTab = () => {
   const openSubmenu = (menuId) => setPath((p) => [...p, menuId]);
   const goToCrumb = (idx) => setPath((p) => p.slice(0, idx + 1));
 
+  // Jump straight to any submenu from the list (Home → submenu breadcrumb).
+  const goToMenu = (menuId) => {
+    const root = menus.find((m) => m.is_root);
+    setPath(root && menuId !== root.id ? [root.id, menuId] : [menuId]);
+  };
+
+  const deleteSubmenu = async (m) => {
+    if (!window.confirm(`Delete submenu "${m.name}" and its keys?`)) return;
+    try {
+      await deleteMenu(m.id);
+      setPath((p) => p.filter((id) => id !== m.id));
+      await load();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: e.message });
+    }
+  };
+
   const saveOpt = async (opt) => {
     try {
       const payload = {
@@ -759,6 +776,44 @@ const IvrBuilderTab = () => {
           </Card>
         ))}
         {options.length === 0 && <p className="text-slate-400 text-sm">No keys configured. Add one to route callers.</p>}
+      </div>
+
+      {/* Submenus — every menu below the main one, so they're always reachable
+          to record a greeting, upload audio, and add their own keys. */}
+      <div className="flex items-center justify-between mt-6 mb-2">
+        <h3 className="font-semibold text-slate-700">Submenus</h3>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={async () => { const m = await addMenu(false); if (m) goToMenu(m.id); }}
+        >
+          <Plus className="h-4 w-4 mr-1" /> Add submenu
+        </Button>
+      </div>
+
+      <div className="grid gap-2">
+        {menus.filter((m) => !m.is_root).map((m) => (
+          <Card key={m.id} className={m.id === currentMenu.id ? 'border-blue-300' : ''}>
+            <CardContent className="p-3 flex items-center gap-3">
+              <ListTree className="h-5 w-5 text-slate-400" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-800 truncate">{m.name}</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {m.greeting_audio_url ? '🎙 Recorded greeting' : (m.greeting_text || 'No greeting set')}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => goToMenu(m.id)}>
+                Open <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => deleteSubmenu(m)}>
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+        {menus.filter((m) => !m.is_root).length === 0 && (
+          <p className="text-slate-400 text-sm">No submenus yet. Add one, then link it from a keypad key (action “Open a submenu”).</p>
+        )}
       </div>
 
       <OptionEditor
