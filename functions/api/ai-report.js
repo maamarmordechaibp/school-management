@@ -15,6 +15,7 @@
  */
 
 import { requireRole, rateLimit, logAudit, STAFF_ROLES } from '../_lib/auth.js';
+import { HDate } from '@hebcal/core';
 
 const HEADERS = { 'Content-Type': 'application/json' };
 
@@ -131,6 +132,47 @@ const REPORTING_DISCIPLINE =
   '(e) Do NOT add un-asked-for negative documentation — e.g. do not state that the student is NOT receiving ' +
   'special-ed/therapy; only mention special-ed when the data shows he actually receives it.';
 
+// Deterministic Gregorian→Hebrew date so the model never guesses (LLMs are
+// unreliable at this). renderGematriya(true) → gematria letters, no nikud.
+function hebrewDateLabel(iso) {
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`); // noon → no TZ off-by-one
+  if (isNaN(d.getTime())) return null;
+  try {
+    return {
+      hebrew: new HDate(d).renderGematriya(true),
+      secular: d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Collect every YYYY-MM-DD found anywhere in the data bundle.
+function collectDates(node, set, depth = 0) {
+  if (node == null || depth > 8) return;
+  if (typeof node === 'string') {
+    const m = node.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (m) set.add(m[1]);
+    return;
+  }
+  if (Array.isArray(node)) { for (const x of node) collectDates(x, set, depth + 1); return; }
+  if (typeof node === 'object') { for (const k of Object.keys(node)) collectDates(node[k], set, depth + 1); }
+}
+
+// Authoritative conversions for every date in the data + today.
+function buildDateGlossary(bundle) {
+  const set = new Set();
+  collectDates(bundle, set);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  set.add(todayIso);
+  const lines = [];
+  for (const iso of [...set].sort()) {
+    const lbl = hebrewDateLabel(iso);
+    if (lbl) lines.push(`${lbl.secular} = ${lbl.hebrew}`);
+  }
+  return { lines, today: hebrewDateLabel(todayIso) };
+}
+
 function buildMessages({ student, bundle, audience, language }) {
   const langName = LANGUAGES[language] || LANGUAGES.yi;
   const guide = AUDIENCE_GUIDES[audience] || AUDIENCE_GUIDES.staff;
@@ -154,10 +196,20 @@ function buildMessages({ student, bundle, audience, language }) {
     `name anywhere in the report. Do NOT repeat the date of birth inside the narrative prose — it belongs ONLY in ` +
     `the header. After the header, write the full report nicely organized, with short headed sections, a brief ` +
     `summary and a clear "next steps" at the end. ` +
+    `Do NOT compute or guess Hebrew/Jewish dates. Use ONLY the exact conversions listed under ` +
+    `"AUTHORITATIVE HEBREW DATES" in the user message; if a date is not listed there, write only the secular date. ` +
     `Keep it honest, kind and actionable.`;
+
+  const { lines: dateLines, today } = buildDateGlossary(bundle);
+  const dateBlock =
+    `AUTHORITATIVE HEBREW DATES — use these EXACT conversions; NEVER compute a Hebrew date yourself.` +
+    (today ? ` Today is ${today.secular} = ${today.hebrew}.` : '') +
+    (dateLines.length ? `\n${dateLines.join('\n')}` : '') +
+    `\n\n`;
 
   const userMsg =
     `Write a report about ${name} for the audience described in the system message.\n\n` +
+    dateBlock +
     `Here is all the information available (JSON). Analyse everything and synthesize it — ` +
     `do not just list it back:\n\n` +
     JSON.stringify(bundle, null, 2);
