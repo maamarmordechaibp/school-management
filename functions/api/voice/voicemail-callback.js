@@ -11,6 +11,7 @@ import {
   validateAndParse, laml, escapeXml, sbSelect, sbInsert,
 } from '../../_lib/voice-helpers.js';
 import { resolveCaller } from '../../_lib/caller-lookup.js';
+import { createConversationAndTranscribe } from '../../_lib/transcribe.js';
 
 export async function onRequestPost(context) {
   const { ok, params } = await validateAndParse(context);
@@ -43,11 +44,12 @@ export async function onRequestPost(context) {
   const ext = isWav ? 'wav' : 'mp3';
   const mimeType = isWav ? 'audio/wav' : 'audio/mpeg';
   let publicUrl = null;
+  let audioBuf = null;
   try {
     const basicAuth = 'Basic ' + btoa(`${PROJECT_ID}:${API_TOKEN}`);
     const audioResp = await fetch(recordingUrl, { headers: { Authorization: basicAuth } });
     if (audioResp.ok) {
-      const buf = await audioResp.arrayBuffer();
+      audioBuf = await audioResp.arrayBuffer();
       const filename = `voicemail/${recordingSid}.${ext}`;
       const upResp = await fetch(
         `${SUPABASE_URL}/storage/v1/object/call-audio/${filename}`,
@@ -59,7 +61,7 @@ export async function onRequestPost(context) {
             'Content-Type': mimeType,
             'x-upsert': 'true',
           },
-          body: buf,
+          body: audioBuf,
         }
       );
       if (upResp.ok) {
@@ -86,8 +88,9 @@ export async function onRequestPost(context) {
   } catch { /* ignore */ }
 
   // Insert voicemail row.
+  let vm = null;
   try {
-    await sbInsert(
+    vm = await sbInsert(
       env,
       'voicemails',
       {
@@ -100,11 +103,36 @@ export async function onRequestPost(context) {
         recording_url: publicUrl,
         duration_sec: duration,
         provider_sid: recordingSid,
-      },
-      'return=minimal'
+      }
     );
   } catch (e) {
     console.error('voicemail insert failed', e);
+  }
+
+  // Route the voicemail through the transcription + AI-notes pipeline.
+  try {
+    await createConversationAndTranscribe(context, {
+      audioBuf,
+      mimeType,
+      name: `Voicemail ${resolved.name || caller || recordingSid}`,
+      row: {
+        kind: 'voicemail',
+        voicemail_id: vm?.id || null,
+        caller_number: caller || null,
+        extension_id: extId,
+        target_user_id: extension?.app_user_id || null,
+        matched_type: resolved.type,
+        matched_id: resolved.matchedId,
+        matched_name: resolved.name,
+        matched_student_ids: resolved.studentIds && resolved.studentIds.length ? resolved.studentIds : null,
+        recording_url: publicUrl,
+        duration_sec: duration,
+        provider_sid: params.CallSid || null,
+        recording_sid: recordingSid,
+      },
+    });
+  } catch (e) {
+    console.error('voicemail transcription submit failed', e);
   }
 
   // Email the extension owner (best-effort).

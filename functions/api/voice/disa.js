@@ -52,6 +52,21 @@ function sipLocalPart(raw) {
   return v.split('@')[0].split(';')[0].trim().toLowerCase();
 }
 
+function last10(raw) {
+  const d = String(raw || '').replace(/\D/g, '');
+  return d.length >= 10 ? d.slice(-10) : null;
+}
+
+// Best-effort: find the calling principal's app_user by their phone number, so
+// the screen-pop still targets them if their admin record isn't linked.
+async function appUserByPhone(env, from) {
+  const tail = last10(from);
+  if (!tail) return null;
+  const users = await sbSelect(env, 'app_users?select=id,phone&phone=not.is.null');
+  const match = (users || []).find((u) => last10(u.phone) === tail);
+  return match?.id || null;
+}
+
 async function authorizeSip(env, from) {
   const sipUser = sipLocalPart(from);
   if (!sipUser) return null;
@@ -201,12 +216,19 @@ export async function onRequestPost(context) {
     let resolved = { type: 'unknown', name: null, matchedId: null, studentIds: [] };
     try { resolved = await resolveCaller(env, dest); } catch { /* ignore */ }
 
+    // Whose screen pops: the authenticated principal. Fall back to matching
+    // their calling number to an app_user when the admin record isn't linked.
+    let targetUserId = session.appUserId || null;
+    if (!targetUserId) {
+      try { targetUserId = await appUserByPhone(env, params.From); } catch { /* ignore */ }
+    }
+
     // inbound_calls row → screen-pop (target = the authenticated principal) and
     // the correlation key (provider_sid = CallSid) the recording callback uses.
     try {
       await sbInsert(env, 'inbound_calls', {
         caller_number: dest,
-        target_user_id: session.appUserId || null,
+        target_user_id: targetUserId,
         matched_type: resolved.type,
         matched_id: resolved.matchedId,
         matched_name: resolved.name,

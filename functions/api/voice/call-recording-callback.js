@@ -13,10 +13,8 @@
  *      SUPABASE_SERVICE_KEY, YIDDISHLABS_API_KEY, YIDDISHLABS_LANGUAGE (opt),
  *      CALL_WEBHOOK_SECRET, PUBLIC_BASE_URL (opt).
  */
-import { validateAndParse, sbSelect, sbInsert, sbUpdate } from '../../_lib/voice-helpers.js';
-import { baseUrlFrom } from '../../_lib/ivr-render.js';
-
-const YL_SUBMIT_URL = 'https://app.yiddishlabs.com/api/v1/transcriptions';
+import { validateAndParse, sbSelect } from '../../_lib/voice-helpers.js';
+import { createConversationAndTranscribe } from '../../_lib/transcribe.js';
 
 function ok() {
   return new Response('', { status: 204 });
@@ -93,11 +91,12 @@ export async function onRequestPost(context) {
     call = rows && rows[0];
   }
 
-  // Insert the conversation row (return=representation so we get its id for the
-  // Yiddish Labs webhook URL).
-  let conv = null;
-  try {
-    conv = await sbInsert(env, 'call_conversations', {
+  // Insert the conversation row + submit to Yiddish Labs for transcription.
+  await createConversationAndTranscribe(context, {
+    audioBuf,
+    name: `Call ${call?.matched_name || call?.caller_number || recordingSid}`,
+    row: {
+      kind: 'call',
       inbound_call_id: call?.id || null,
       caller_number: call?.caller_number || params.From || null,
       extension_id: call?.extension_id || extId,
@@ -110,51 +109,8 @@ export async function onRequestPost(context) {
       duration_sec: duration,
       provider_sid: callSid,
       recording_sid: recordingSid,
-      status: 'recorded',
-    });
-  } catch (e) {
-    console.error('call_conversations insert failed', e);
-  }
-
-  // Submit to Yiddish Labs for async transcription (webhook returns the text).
-  const YL_KEY = env.YIDDISHLABS_API_KEY;
-  if (conv?.id && audioBuf && YL_KEY) {
-    try {
-      const secret = env.CALL_WEBHOOK_SECRET || '';
-      const base = env.PUBLIC_BASE_URL || baseUrlFrom(context.request);
-      const webhookUrl =
-        `${base}/api/voice/transcription-webhook?cc=${conv.id}` +
-        (secret ? `&token=${encodeURIComponent(secret)}` : '');
-
-      const fd = new FormData();
-      fd.append('file', new Blob([audioBuf], { type: 'audio/mpeg' }), `${recordingSid}.mp3`);
-      fd.append('name', `Call ${call?.matched_name || call?.caller_number || recordingSid}`);
-      fd.append('language', env.YIDDISHLABS_LANGUAGE || 'auto');
-      fd.append('webhook_url', webhookUrl);
-
-      const ylResp = await fetch(YL_SUBMIT_URL, {
-        method: 'POST',
-        headers: { 'X-API-KEY': YL_KEY },
-        body: fd,
-      });
-      if (ylResp.ok) {
-        const job = await ylResp.json().catch(() => null);
-        await sbUpdate(env, 'call_conversations', `id=eq.${conv.id}`, {
-          yl_job_id: job?.id || null,
-          status: 'transcribing',
-        });
-      } else {
-        const detail = await ylResp.text().catch(() => '');
-        console.error('Yiddish Labs submit failed', ylResp.status, detail.slice(0, 300));
-        await sbUpdate(env, 'call_conversations', `id=eq.${conv.id}`, {
-          status: 'failed',
-          error: `transcription submit HTTP ${ylResp.status}`,
-        });
-      }
-    } catch (e) {
-      console.error('Yiddish Labs submit error', e);
-    }
-  }
+    },
+  });
 
   return ok();
 }

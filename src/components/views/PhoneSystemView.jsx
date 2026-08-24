@@ -1094,6 +1094,7 @@ const CallAiTab = () => {
                       </p>
                     </div>
                     <Badge variant={statusVariant(c.status)}>{STATUS_LABELS[c.status] || c.status}</Badge>
+                    {c.kind === 'voicemail' && <Badge variant="outline"><Voicemail className="h-3 w-3 mr-1" /> Voicemail</Badge>}
                     {c.matched_type === 'parent' && c.matched_id && (
                       <Button variant="ghost" size="sm" onClick={() => openStudent(c.matched_id)}>
                         <User className="h-4 w-4 mr-1" /> Open
@@ -1167,11 +1168,12 @@ const CallAiTab = () => {
 };
 
 /* ===================== Call-In Broadcast (lock + log) ===================== */
-const blankAdmin = () => ({ name: '', phone: '', is_active: true });
+const blankAdmin = () => ({ name: '', phone: '', app_user_id: '', is_active: true });
 
 const BroadcastAdminTab = () => {
   const { toast } = useToast();
   const [admins, setAdmins] = useState([]);
+  const [users, setUsers] = useState([]);
   const [broadcasts, setBroadcasts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -1182,9 +1184,14 @@ const BroadcastAdminTab = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [a, b] = await Promise.all([listBroadcastAdmins(), listPhoneBroadcasts(100)]);
+      const [a, b, us] = await Promise.all([
+        listBroadcastAdmins(),
+        listPhoneBroadcasts(100),
+        supabase.from('app_users').select('id, name, email, role').order('name'),
+      ]);
       setAdmins(a);
       setBroadcasts(b);
+      setUsers(us.data || []);
     } catch (e) {
       toast({ variant: 'destructive', title: 'Could not load', description: e.message });
     }
@@ -1199,7 +1206,7 @@ const BroadcastAdminTab = () => {
       return;
     }
     try {
-      await saveBroadcastAdmin(editing);
+      await saveBroadcastAdmin({ ...editing, app_user_id: editing.app_user_id || null });
       setEditing(null);
       await load();
       toast({ title: 'Saved' });
@@ -1337,6 +1344,22 @@ const BroadcastAdminTab = () => {
                 <Label>Phone (caller ID)</Label>
                 <Input value={editing.phone || ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} placeholder="+1 845 555 1234" />
                 <p className="text-xs text-slate-400 mt-1">If they call from this number they’re recognized automatically. A PIN is optional but recommended.</p>
+              </div>
+              <div>
+                <Label>App login (for dial-out screen-pop)</Label>
+                <select
+                  className={sel}
+                  value={editing.app_user_id || ''}
+                  onChange={(e) => setEditing({ ...editing, app_user_id: e.target.value })}
+                >
+                  <option value="">— none —</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.email} {u.role ? `(${u.role})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Link this caller to their app login so the child’s profile pops on their screen when they dial out (DISA).</p>
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={!!editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
