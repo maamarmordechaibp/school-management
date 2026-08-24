@@ -1200,8 +1200,24 @@ const CallAiTab = () => {
 
                   {isOpen && (
                     <div className="mt-2 border-t border-slate-100 pt-2">
-                      {c.transcript ? (
-                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{c.transcript}</p>
+                      {Array.isArray(c.ai_dialogue) && c.ai_dialogue.length > 0 ? (
+                        <div className="space-y-1.5" dir="auto">
+                          {c.ai_dialogue.map((turn, i) => {
+                            const staff = turn.speaker === 'staff';
+                            return (
+                              <div key={i} className={`flex ${staff ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-sm ${staff ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-slate-100 text-slate-800 rounded-bl-sm'}`}>
+                                  <span className={`block text-[10px] font-medium mb-0.5 ${staff ? 'text-blue-100' : 'text-slate-400'}`}>
+                                    {staff ? 'Staff' : (c.matched_name || 'Caller')}
+                                  </span>
+                                  {turn.text}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : c.transcript ? (
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap" dir="auto">{c.transcript}</p>
                       ) : (
                         <p className="text-xs text-slate-400">
                           {c.status === 'failed'

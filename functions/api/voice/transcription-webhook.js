@@ -26,29 +26,34 @@ const SYSTEM_PROMPT =
   'Respond with ONLY a valid JSON object (no markdown, no code fences) with this exact shape: ' +
   '{"summary": string, "key_points": string[], "sentiment": "positive"|"neutral"|"negative", ' +
   '"follow_up_needed": boolean, "action_items": [{"title": string, "description": string, ' +
-  '"due_date": string|null, "priority": "low"|"normal"|"high"|"urgent"}]}. ' +
-  'Write "summary", "key_points", and action-item text in the SAME language as the conversation. ' +
+  '"due_date": string|null, "priority": "low"|"normal"|"high"|"urgent"}], ' +
+  '"dialogue": [{"speaker": "staff"|"caller", "text": string}]}. ' +
+  'Write "summary", "key_points", action-item text, and dialogue text in the SAME language as the ' +
+  'conversation. For "dialogue", reconstruct the call as an ordered list of turns — "speaker" is ' +
+  '"staff" for the school employee/principal and "caller" for the person who phoned in; split the ' +
+  'transcript into natural back-and-forth turns and keep each turn verbatim. ' +
   'Keep each action-item "title" short (a task line a staff member can act on). Use "due_date" as ' +
   'YYYY-MM-DD only when the caller clearly implies a date, otherwise null. If there is nothing to ' +
   'act on, return an empty "action_items" array. Base everything strictly on the transcript; never invent facts.';
 
-async function analyze(env, transcript) {
+async function analyze(env, transcript, callerName) {
   const AI_API_KEY = env.AI_API_KEY;
   if (!AI_API_KEY || !transcript) return null;
   const AI_BASE_URL = (env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
   const AI_MODEL = env.AI_MODEL || 'gpt-4o';
 
+  const who = callerName ? `The caller is ${callerName}.\n\n` : '';
   const resp = await fetch(`${AI_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${AI_API_KEY}` },
     body: JSON.stringify({
       model: AI_MODEL,
       temperature: 0.2,
-      max_tokens: 1500,
+      max_tokens: 2500,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Transcript:\n\n${transcript}` },
+        { role: 'user', content: `${who}Transcript:\n\n${transcript}` },
       ],
     }),
   });
@@ -99,11 +104,12 @@ export async function onRequestPost(context) {
 
   // Run AI analysis (best-effort — a failure leaves the transcript intact).
   try {
-    const result = await analyze(env, transcript);
+    const result = await analyze(env, transcript, conv.matched_name);
     if (result) {
       await sbUpdate(env, 'call_conversations', `id=eq.${ccId}`, {
         ai_summary: result.summary || null,
         ai_action_items: Array.isArray(result.action_items) ? result.action_items : [],
+        ai_dialogue: Array.isArray(result.dialogue) ? result.dialogue : null,
         sentiment: result.sentiment || null,
         status: 'analyzed',
       });
